@@ -1,0 +1,248 @@
+/* PrintFarm Global Styles */
+
+:root {
+  --color-primary: #06EAFC;
+  --color-primary-rgb: 6, 234, 252;
+  --color-secondary: #1E1E1E;
+  --color-text: #000000;
+  --color-background: #FFFFFF;
+  --color-success: #00FF88;
+  --color-warning: #FFB800;
+  --color-error: #FF0055;
+  --color-border: #E5E5E5;
+  --color-surface: #F8F9FA;
+  
+  /* Neon effects */
+  --glow-primary: 0 0 10px rgba(var(--color-primary-rgb), 0.5);
+  --glow-primary-strong: 0 0 20px rgba(var(--color-primary-rgb), 0.8);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Arimo', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  line-height: 1.6;
+}
+
+/* Antd customizations */
+.ant-layout {
+  background: var(--color-background);
+}
+
+.ant-layout-header {
+  background: linear-gradient(135deg, var(--color-secondary) 0%, #2a2a2a 100%);
+  border-bottom: 2px solid var(--color-primary);
+  box-shadow: var(--glow-primary);
+}
+
+.ant-menu-dark {
+  background: transparent;
+}
+
+.ant-menu-dark .ant-menu-item:hover {
+  background-color: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
+}
+
+.ant-menu-dark .ant-menu-item-selected {
+  background-color: rgba(var(--color-primary-rgb), 0.2);
+  color: var(--color-primary);
+  box-shadow: var(--glow-primary);
+}
+
+/* Custom button styles */
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-primary) 0%, #04c8d8 100%);
+  border: none;
+  color: var(--color-secondary);
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--glow-primary-strong);
+  background: linear-gradient(135deg, #04c8d8 0%, var(--color-primary) 100%);
+}
+
+.btn-primary:focus {
+  box-shadow: var(--glow-primary-strong);
+}
+
+/* Table customizations */
+.ant-table {
+  background: var(--color-background);
+}
+
+.ant-table-thead > tr > th {
+  background: var(--color-surface);
+  border-bottom: 2px solid var(--color-primary);
+  font-weight: 600;
+  color: var(--color-secondary);
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: rgba(var(--color-primary-rgb), 0.05);
+}
+
+/* Card customizations */
+.ant-card {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.ant-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.ant-card-head {
+  border-bottom: 2px solid var(--color-primary);
+}
+
+/* Status badges */
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-new {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+
+.status-old {
+  background: rgba(0, 255, 136, 0.1);
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
+}
+
+.status-critical {
+  background: rgba(255, 0, 85, 0.1);
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
+}
+
+/* Priority indicators */
+.priority-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.priority-high {
+  background: var(--color-error);
+  box-shadow: 0 0 8px rgba(255, 0, 85, 0.6);
+}
+
+.priority-medium {
+  background: var(--color-warning);
+  box-shadow: 0 0 8px rgba(255, 184, 0, 0.6);
+}
+
+.priority-low {
+  background: var(--color-success);
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+}
+
+/* Scroll to top button */
+.scroll-to-top {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary) 0%, #04c8d8 100%);
+  color: var(--color-secondary);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--glow-primary);
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+.scroll-to-top:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--glow-primary-strong);
+}
+
+/* Loading animations */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.loading-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Neon text effect */
+.neon-text {
+  color: var(--color-primary);
+  text-shadow: var(--glow-primary);
+  font-weight: 700;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #04c8d8;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .ant-layout-header {
+    padding: 0 16px;
+  }
+  
+  .ant-table {
+    font-size: 12px;
+  }
+  
+  .scroll-to-top {
+    bottom: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+  }
+}
