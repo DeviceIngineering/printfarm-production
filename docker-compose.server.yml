@@ -65,13 +65,15 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: docker/react/Dockerfile
+      dockerfile: docker/react/Dockerfile.dev
+    command: npm start
     volumes:
       - ./frontend:/app
       - /app/node_modules
     environment:
       - NODE_ENV=development
       - REACT_APP_API_URL=http://kemomail3.keenetic.pro:3000/api/v1
+      - WATCHPACK_POLLING=true
     restart: always
 
   nginx:

@@ -33,7 +33,7 @@ docker-compose -f docker-compose.server.yml exec -T frontend curl -s http://loca
 echo ""
 
 echo "=== 8. Test Backend Direct Access ==="
-docker-compose -f docker-compose.server.yml exec -T backend curl -s http://localhost:8000/api/v1/products/stats/ || echo "Backend not responding"
+docker-compose -f docker-compose.server.yml exec -T backend python -c "import requests; r=requests.get('http://localhost:8000/api/v1/products/stats/'); print(f'Status: {r.status_code}'); print(r.text[:200])" 2>/dev/null || echo "Backend not responding"
 echo ""
 
 echo "=== 9. Docker Network Status ==="
