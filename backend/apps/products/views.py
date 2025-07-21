@@ -16,7 +16,7 @@ class ProductListView(generics.ListAPIView):
     List view for products with filtering and search.
     """
     serializer_class = ProductListSerializer
-    permission_classes = [IsAuthenticated]
+    # # permission_classes = [IsAuthenticated]  # Временно отключено  # Временно отключено для разработки
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['product_type', 'product_group_id']
     
@@ -135,10 +135,10 @@ class ProductDetailView(generics.RetrieveAPIView):
     """
     queryset = Product.objects.prefetch_related('images')
     serializer_class = ProductDetailSerializer
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]  # Временно отключено
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено
 def product_stats(request):
     """
     Get product statistics.
@@ -158,7 +158,7 @@ def product_stats(request):
     return Response(serializer.data)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено
 def calculate_production_list(request):
     """
     Calculate new production list.
@@ -186,7 +186,7 @@ def calculate_production_list(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено
 def get_production_list(request, list_id=None):
     """
     Get production list data.
@@ -213,7 +213,7 @@ def get_production_list(request, list_id=None):
         }, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено
 def production_stats(request):
     """
     Get production statistics.
@@ -223,7 +223,7 @@ def production_stats(request):
     return Response(stats)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено
 def recalculate_production(request):
     """
     Recalculate production needs for all products.
@@ -243,7 +243,7 @@ def recalculate_production(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено
 def export_production_list_view(request, list_id=None):
     """
     Export production list to Excel.
@@ -269,7 +269,7 @@ def export_production_list_view(request, list_id=None):
         }, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено
 def sync_product_images_view(request, pk):
     """
     Sync images for specific product.

@@ -10,7 +10,7 @@ from .services import SyncService
 logger = logging.getLogger(__name__)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено для разработки
 def sync_status(request):
     """
     Get current sync status.
@@ -33,7 +33,7 @@ def sync_status(request):
         })
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено для разработки
 def sync_history(request):
     """
     Get sync history.
@@ -57,7 +57,7 @@ def sync_history(request):
     return Response(data)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено для разработки
 def sync_warehouses(request):
     """
     Get available warehouses from МойСклад.
@@ -76,7 +76,7 @@ def sync_warehouses(request):
         }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено для разработки
 def sync_product_groups(request):
     """
     Get available product groups from МойСклад.
@@ -112,7 +112,7 @@ def sync_product_groups(request):
         ])
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено для разработки
 def start_sync(request):
     """
     Start synchronization with МойСклад.
@@ -173,7 +173,7 @@ def start_sync(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено
 def download_images(request):
     """
     Download images for products without images.
@@ -237,7 +237,7 @@ def download_images(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено
 def test_moysklad_data(request):
     """
     Test endpoint to get raw data from МойСклад for debugging.
@@ -295,7 +295,7 @@ def test_moysklad_data(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено
 def download_specific_images(request):
     """
     Download images for specific products by articles.

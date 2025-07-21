@@ -9,7 +9,7 @@ from .exporters import ProductsExporter
 from .auth import auth_from_query_param
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])  # Временно отключено
 def reports_list(request):
     """
     Get list of available reports (заглушка).
