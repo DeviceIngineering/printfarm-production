@@ -36,6 +36,18 @@ echo "=== 8. Test Backend Direct Access ==="
 docker-compose -f docker-compose.server.yml exec -T backend python -c "import requests; r=requests.get('http://localhost:8000/api/v1/products/stats/'); print(f'Status: {r.status_code}'); print(r.text[:200])" 2>/dev/null || echo "Backend not responding"
 echo ""
 
+echo "=== 8a. Test MoySklad Connection ==="
+docker-compose -f docker-compose.server.yml exec -T backend python -c "
+from apps.sync.moysklad_client import MoySkladClient
+try:
+    client = MoySkladClient()
+    warehouses = client.get_warehouses()
+    print(f'✅ MoySklad connection OK, warehouses: {len(warehouses)}')
+except Exception as e:
+    print(f'❌ MoySklad error: {e}')
+" 2>/dev/null || echo "MoySklad test failed"
+echo ""
+
 echo "=== 9. Docker Network Status ==="
 docker network ls
 echo ""
