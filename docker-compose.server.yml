@@ -9,12 +9,14 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-printfarm_db}
       - POSTGRES_USER=${POSTGRES_USER:-printfarm_user}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
+    restart: always
 
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
+    restart: always
 
   backend:
     build:
@@ -30,6 +32,7 @@ services:
       - redis
     env_file:
       - .env
+    restart: always
 
   celery:
     build:
@@ -43,6 +46,7 @@ services:
       - redis
     env_file:
       - .env
+    restart: always
 
   celery-beat:
     build:
@@ -56,6 +60,7 @@ services:
       - redis
     env_file:
       - .env
+    restart: always
 
   frontend:
     build:
@@ -67,19 +72,20 @@ services:
     environment:
       - NODE_ENV=development
       - REACT_APP_API_URL=http://kemomail3.keenetic.pro:3000/api/v1
+    restart: always
 
   nginx:
-    build:
-      context: .
-      dockerfile: docker/nginx/Dockerfile
+    image: nginx:alpine
     ports:
       - "3000:80"
     volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/conf.d/default.conf
       - static_volume:/app/static
       - media_volume:/app/media
     depends_on:
       - backend
       - frontend
+    restart: always
 
 volumes:
   postgres_data:
