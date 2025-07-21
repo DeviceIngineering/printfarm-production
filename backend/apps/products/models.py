@@ -86,9 +86,9 @@ class Product(TimestampedModel):
         elif self.product_type in ['old', 'critical']:
             # Новые расширенные условия для старых и критических товаров
             
-            # Условие 1: Обороты <= 3 И остаток < 5 → целевой остаток 5
-            if self.sales_last_2_months <= 3 and self.current_stock < 5:
-                return max(Decimal('5') - self.current_stock, Decimal('0'))
+            # Условие 1: Обороты <= 3 → целевой остаток 10 (увеличили для подстраховки)
+            if self.sales_last_2_months <= 3:
+                return max(Decimal('10') - self.current_stock, Decimal('0'))
             
             # Условие 2: Обороты > 3 но <= 10 И остаток <= 6 → целевой остаток 10
             elif 3 < self.sales_last_2_months <= 10 and self.current_stock <= 6:
