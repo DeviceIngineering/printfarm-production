@@ -62,6 +62,16 @@ services:
       - .env.production
     restart: always
 
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/react/Dockerfile.prod
+      args:
+        - REACT_APP_API_URL=${REACT_APP_API_URL}
+    volumes:
+      - frontend_build:/usr/share/nginx/html
+    restart: always
+
   nginx:
     image: nginx:alpine
     ports:
@@ -71,9 +81,11 @@ services:
       - ./nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf
       - static_volume:/app/static
       - media_volume:/app/media
+      - frontend_build:/app/frontend
       - ./nginx/ssl:/etc/nginx/ssl
     depends_on:
       - backend
+      - frontend
     restart: always
 
 volumes:
@@ -81,3 +93,4 @@ volumes:
   redis_data:
   static_volume:
   media_volume:
+  frontend_build:
