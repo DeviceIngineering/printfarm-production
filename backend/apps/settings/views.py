@@ -2,8 +2,6 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import never_cache
 from .models import SystemInfo, SyncScheduleSettings, GeneralSettings
 from .serializers import (
     SystemInfoSerializer, 
@@ -16,7 +14,6 @@ from .services import SettingsService, ScheduleManager
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
-@method_decorator(never_cache, name='dispatch')
 def system_info(request):
     """Получить информацию о системе"""
     try:
@@ -117,7 +114,6 @@ def general_settings(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
-@method_decorator(never_cache, name='dispatch')
 def settings_summary(request):
     """Получить сводную информацию о всех настройках"""
     try:
