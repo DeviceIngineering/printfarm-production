@@ -32,10 +32,12 @@ DATABASES = {
 CORS_ALLOWED_ORIGINS += [
     "http://frontend:3000",
     "http://localhost:3000",
+    "file://",  # For local HTML files
 ]
 
 # More permissive CORS for development
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 # Django Extensions already in base.py
 

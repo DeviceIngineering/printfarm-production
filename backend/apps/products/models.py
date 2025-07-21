@@ -78,15 +78,18 @@ class Product(TimestampedModel):
         """
         Calculate production need based on product type and consumption.
         """
-        if self.product_type == 'new':
+        # Get the actual product type based on current conditions
+        actual_type = self.classify_product_type()
+        
+        if actual_type == 'new':
             if self.current_stock < 5:
                 return Decimal('10') - self.current_stock
             return Decimal('0')
         
-        elif self.product_type in ['old', 'critical']:
+        elif actual_type in ['old', 'critical']:
             # Новые расширенные условия для старых и критических товаров
             
-            # Условие 1: Обороты <= 3 → целевой остаток 10 (увеличили для подстраховки)
+            # Условие 1: Обороты <= 3 → целевой остаток 10 (всегда применяем)
             if self.sales_last_2_months <= 3:
                 return max(Decimal('10') - self.current_stock, Decimal('0'))
             
@@ -108,13 +111,16 @@ class Product(TimestampedModel):
         """
         Calculate production priority (higher = more important).
         """
-        if self.product_type == 'critical' and self.current_stock < 5:
+        # Get the actual product type based on current conditions
+        actual_type = self.classify_product_type()
+        
+        if actual_type == 'critical' and self.current_stock < 5:
             return 100
-        elif self.product_type == 'old' and self.days_of_stock and self.days_of_stock < 5:
+        elif actual_type == 'old' and self.days_of_stock and self.days_of_stock < 5:
             return 80
-        elif self.product_type == 'new' and self.current_stock < 5:
+        elif actual_type == 'new' and self.current_stock < 5:
             return 60
-        elif self.product_type == 'old' and self.days_of_stock and self.days_of_stock < 10:
+        elif actual_type == 'old' and self.days_of_stock and self.days_of_stock < 10:
             return 40
         else:
             return 20

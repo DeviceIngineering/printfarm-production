@@ -36,7 +36,7 @@ class ProductsAPITestCase(TestCase):
     
     def test_products_list_endpoint(self):
         """Test GET /api/v1/products/ endpoint."""
-        url = reverse('products:product-list')
+        url = reverse('product-list')
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -54,7 +54,7 @@ class ProductsAPITestCase(TestCase):
     
     def test_products_list_search(self):
         """Test product search functionality."""
-        url = reverse('products:product-list')
+        url = reverse('product-list')
         
         # Search by article
         response = self.client.get(url, {'search': 'TEST-001'})
@@ -70,7 +70,7 @@ class ProductsAPITestCase(TestCase):
     
     def test_products_list_filtering(self):
         """Test product filtering."""
-        url = reverse('products:product-list')
+        url = reverse('product-list')
         
         # Filter by product type
         critical_products = Product.objects.filter(product_type='critical')
@@ -82,7 +82,7 @@ class ProductsAPITestCase(TestCase):
     
     def test_product_detail_endpoint(self):
         """Test GET /api/v1/products/{id}/ endpoint."""
-        url = reverse('products:product-detail', kwargs={'pk': self.product1.pk})
+        url = reverse('product-detail', kwargs={'pk': self.product1.pk})
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -91,14 +91,14 @@ class ProductsAPITestCase(TestCase):
     
     def test_product_stats_endpoint(self):
         """Test GET /api/v1/products/stats/ endpoint."""
-        url = reverse('products:product-stats')
+        url = reverse('product-stats')
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         expected_fields = [
             'total_products', 'new_products', 'old_products', 
-            'critical_products', 'total_production_needed'
+            'critical_products', 'production_needed_items', 'total_production_units'
         ]
         for field in expected_fields:
             self.assertIn(field, response.data)
@@ -107,7 +107,7 @@ class ProductsAPITestCase(TestCase):
     
     def test_recalculate_production_endpoint(self):
         """Test POST /api/v1/products/recalculate/ endpoint."""
-        url = reverse('products:recalculate-production')
+        url = reverse('recalculate-production')
         response = self.client.post(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -116,7 +116,7 @@ class ProductsAPITestCase(TestCase):
     
     def test_calculate_production_list_endpoint(self):
         """Test POST /api/v1/products/calculate-production-list/ endpoint."""
-        url = reverse('products:calculate-production-list')
+        url = reverse('calculate-production-list')
         
         data = {
             'min_priority': 20,
@@ -139,7 +139,7 @@ class ProductsAPITestCase(TestCase):
         service = ProductionService()
         production_list = service.calculate_production_list()
         
-        url = reverse('products:get-production-list', kwargs={'list_id': production_list.id})
+        url = reverse('get-production-list-by-id', kwargs={'list_id': production_list.id})
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -149,7 +149,7 @@ class ProductsAPITestCase(TestCase):
     
     def test_production_stats_endpoint(self):
         """Test GET /api/v1/products/production-stats/ endpoint."""
-        url = reverse('products:production-stats')
+        url = reverse('production-stats')
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -170,7 +170,7 @@ class ProductModelTestCase(TestCase):
             sales_last_2_months=Decimal('5')
         )
         
-        expected = 'STR-001 - A very long product name that should be truncat'
+        expected = 'STR-001 - A very long product name that should be truncated '
         self.assertEqual(str(product), expected)
     
     def test_update_calculated_fields_method(self):

@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  db-test:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: printfarm_test
+      POSTGRES_USER: printfarm_test
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U printfarm_test -d printfarm_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-test:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - test_redis_data:/data
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend-test:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.test
+      - DATABASE_URL=postgresql://printfarm_test:test_password@db-test:5432/printfarm_test
+      - REDIS_URL=redis://redis-test:6379/0
+      - CELERY_BROKER_URL=redis://redis-test:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-test:6379/0
+      - MOYSKLAD_TOKEN=test-token
+    volumes:
+      - ./backend:/app
+      - test_static_volume:/app/static
+      - test_media_volume:/app/media
+    depends_on:
+      db-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    working_dir: /app
+    command: >
+      bash -c "
+        echo 'Waiting for database...';
+        python manage.py migrate --noinput;
+        echo 'Running tests...';
+        python -m pytest --tb=short --disable-warnings -v;
+        echo 'Tests completed';
+      "
+
+  # Separate service for test coverage
+  backend-test-coverage:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.test
+      - DATABASE_URL=postgresql://printfarm_test:test_password@db-test:5432/printfarm_test
+      - REDIS_URL=redis://redis-test:6379/0
+    volumes:
+      - ./backend:/app
+      - ./test-reports:/app/test-reports
+    depends_on:
+      db-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    working_dir: /app
+    profiles: ["coverage"]
+    command: >
+      bash -c "
+        python manage.py migrate --noinput;
+        python -m pytest --cov=apps --cov-report=html:/app/test-reports/htmlcov --cov-report=xml:/app/test-reports/coverage.xml --cov-report=term-missing --tb=short;
+      "
+
+  # Performance testing service
+  backend-test-performance:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.test
+      - DATABASE_URL=postgresql://printfarm_test:test_password@db-test:5432/printfarm_test
+      - REDIS_URL=redis://redis-test:6379/0
+    volumes:
+      - ./backend:/app
+      - ./test-reports:/app/test-reports
+    depends_on:
+      db-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    working_dir: /app
+    profiles: ["performance"]
+    command: >
+      bash -c "
+        python manage.py migrate --noinput;
+        echo 'Loading test data...';
+        python manage.py shell -c \"
+from apps.products.tests.factories import ProductFactory;
+from decimal import Decimal;
+import random;
+print('Creating 1000 test products...');
+for i in range(1000):
+    ProductFactory.create(
+        article=f'PERF-{i:04d}',
+        current_stock=Decimal(str(random.randint(0, 50))),
+        sales_last_2_months=Decimal(str(random.randint(0, 30)))
+    );
+print('Test data loaded');
+        \";
+        echo 'Running performance tests...';
+        python -m pytest -m slow --tb=short -v;
+      "
+
+volumes:
+  test_postgres_data:
+  test_redis_data:
+  test_static_volume:
+  test_media_volume:
