@@ -37,26 +37,67 @@ def sync_products_task(self, warehouse_id: str, excluded_groups: list = None, sy
         self.retry(countdown=60, max_retries=3)
 
 @shared_task
-def scheduled_sync():
+def scheduled_sync_task(warehouse_id=None, excluded_groups=None):
     """
-    Scheduled task for automatic daily sync.
+    Scheduled task for automatic sync based on settings.
     """
     try:
-        sync_service = SyncService()
-        default_warehouse = settings.MOYSKLAD_CONFIG['default_warehouse_id']
+        # Import here to avoid circular imports
+        from apps.settings.models import SyncScheduleSettings
         
+        # Get settings
+        settings_obj = SyncScheduleSettings.get_instance()
+        
+        # Use provided parameters or fall back to settings
+        if not warehouse_id:
+            warehouse_id = settings_obj.warehouse_id or settings.MOYSKLAD_CONFIG['default_warehouse_id']
+        
+        if excluded_groups is None:
+            excluded_groups = settings_obj.excluded_group_ids or []
+        
+        sync_service = SyncService()
         sync_log = sync_service.sync_products(
-            warehouse_id=default_warehouse,
+            warehouse_id=warehouse_id,
+            excluded_groups=excluded_groups,
             sync_type='scheduled',
-            sync_images=True  # Включаем синхронизацию изображений в автоматическом режиме
+            sync_images=True
         )
         
+        # Update settings with sync result
+        success = sync_log.status == 'success'
+        message = f"Синхронизировано {sync_log.synced_products} из {sync_log.total_products} товаров"
+        
+        settings_obj.update_sync_stats(success, message)
+        
         logger.info(f"Scheduled sync completed: {sync_log.synced_products} products synced")
-        return sync_log.id
+        return {
+            'sync_id': sync_log.id,
+            'status': sync_log.status,
+            'synced_products': sync_log.synced_products,
+            'total_products': sync_log.total_products,
+        }
         
     except Exception as e:
         logger.error(f"Scheduled sync failed: {str(e)}")
+        
+        # Try to update settings with error
+        try:
+            from apps.settings.models import SyncScheduleSettings
+            settings_obj = SyncScheduleSettings.get_instance()
+            settings_obj.update_sync_stats(False, f"Ошибка: {str(e)}")
+        except:
+            pass  # Don't let settings update failure prevent task retry
+        
         raise
+
+
+# Keep the old function for backward compatibility
+@shared_task
+def scheduled_sync():
+    """
+    Legacy scheduled task for backward compatibility.
+    """
+    return scheduled_sync_task()
 
 @shared_task(bind=True)
 def sync_product_images_task(self, product_id: int):

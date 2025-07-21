@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PrintFarm Settings Test</title>
+    <meta charset="UTF-8">
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #06EAFC, #1E1E1E);
+            color: white;
+            padding: 20px;
+            margin: -20px -20px 20px;
+            border-radius: 10px 10px 0 0;
+        }
+        .section { 
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .success { 
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error { 
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        button { 
+            padding: 10px 15px;
+            margin: 5px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background: #06EAFC;
+            color: white;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #05c5d4;
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        pre { 
+            background: #f8f9fa;
+            padding: 10px;
+            overflow-x: auto;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-success {
+            background: #28a745;
+            color: white;
+        }
+        .status-error {
+            background: #dc3545;
+            color: white;
+        }
+        .status-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏭 PrintFarm Settings Management</h1>
+            <p>Управление настройками системы производства</p>
+        </div>
+        
+        <!-- System Info Section -->
+        <div class="section">
+            <h3>🔧 Информация о системе</h3>
+            <button onclick="loadSystemInfo()">Загрузить информацию о системе</button>
+            <div id="system-info-result"></div>
+        </div>
+        
+        <!-- Settings Summary Section -->
+        <div class="section">
+            <h3>📊 Сводная информация</h3>
+            <button onclick="loadSettingsSummary()">Загрузить сводку настроек</button>
+            <div id="settings-summary-result"></div>
+        </div>
+        
+        <div class="grid">
+            <!-- Sync Settings Section -->
+            <div class="section">
+                <h3>🔄 Настройки синхронизации</h3>
+                <button onclick="loadSyncSettings()">Загрузить</button>
+                <button onclick="testSyncConnection()">Тест соединения</button>
+                <div id="sync-settings-result"></div>
+                
+                <div id="sync-settings-form" style="display:none; margin-top:15px;">
+                    <h4>Изменить настройки:</h4>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="sync-enabled"> Включить синхронизацию
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="sync-interval">Интервал синхронизации:</label>
+                        <select id="sync-interval">
+                            <option value="30">30 минут</option>
+                            <option value="60">1 час</option>
+                            <option value="90">1.5 часа</option>
+                            <option value="120">2 часа</option>
+                            <option value="180">3 часа</option>
+                            <option value="240">4 часа</option>
+                            <option value="360">6 часов</option>
+                            <option value="720">12 часов</option>
+                            <option value="1440">24 часа</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="warehouse-id">ID склада:</label>
+                        <input type="text" id="warehouse-id" placeholder="241ed919-a631-11ee-0a80-07a9000bb947">
+                    </div>
+                    <button onclick="updateSyncSettings()">Сохранить настройки</button>
+                </div>
+            </div>
+            
+            <!-- General Settings Section -->
+            <div class="section">
+                <h3>⚙️ Общие настройки</h3>
+                <button onclick="loadGeneralSettings()">Загрузить</button>
+                <div id="general-settings-result"></div>
+                
+                <div id="general-settings-form" style="display:none; margin-top:15px;">
+                    <h4>Изменить настройки:</h4>
+                    <div class="form-group">
+                        <label for="new-product-stock">Целевой остаток для новых товаров:</label>
+                        <input type="number" id="new-product-stock" min="1" max="100" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="target-days">Целевой запас в днях:</label>
+                        <input type="number" id="target-days" min="1" max="90" value="15">
+                    </div>
+                    <div class="form-group">
+                        <label for="products-per-page">Товаров на странице:</label>
+                        <select id="products-per-page">
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="200">200</option>
+                        </select>
+                    </div>
+                    <button onclick="updateGeneralSettings()">Сохранить настройки</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions Section -->
+        <div class="section">
+            <h3>🎮 Действия</h3>
+            <button onclick="triggerManualSync()">Запустить синхронизацию</button>
+            <button onclick="checkScheduleStatus()">Статус расписания</button>
+            <div id="actions-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+        
+        async function apiRequest(url, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${url}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || `HTTP ${response.status}`);
+                }
+                
+                return data;
+            } catch (error) {
+                throw error;
+            }
+        }
+        
+        function displayResult(elementId, data, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.className = `section ${isSuccess ? 'success' : 'error'}`;
+            
+            if (typeof data === 'object') {
+                element.innerHTML = `
+                    <h4>${isSuccess ? '✅ Успех' : '❌ Ошибка'}</h4>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } else {
+                element.innerHTML = `
+                    <h4>${isSuccess ? '✅ Успех' : '❌ Ошибка'}</h4>
+                    <p>${data}</p>
+                `;
+            }
+        }
+        
+        async function loadSystemInfo() {
+            try {
+                const data = await apiRequest('/settings/system-info/');
+                displayResult('system-info-result', data, true);
+            } catch (error) {
+                displayResult('system-info-result', error.message, false);
+            }
+        }
+        
+        async function loadSettingsSummary() {
+            try {
+                const data = await apiRequest('/settings/summary/');
+                
+                // Format the summary nicely
+                const summary = `
+                    <div class="info">
+                        <h4>📋 Сводка системы</h4>
+                        <p><strong>Версия:</strong> ${data.system_info.version}</p>
+                        <p><strong>Дата сборки:</strong> ${data.system_info.build_date}</p>
+                        <p><strong>Всего товаров:</strong> ${data.total_products}</p>
+                        <p><strong>Синхронизация:</strong> 
+                            <span class="status-badge ${data.sync_settings.sync_enabled ? 'status-success' : 'status-error'}">
+                                ${data.sync_settings.sync_enabled ? 'включена' : 'отключена'}
+                            </span>
+                        </p>
+                        <p><strong>Интервал:</strong> ${data.sync_settings.sync_interval_display}</p>
+                        <p><strong>Последняя синхронизация:</strong> ${data.last_sync_info.date || 'никогда'}</p>
+                        <p><strong>Успешность:</strong> ${data.sync_settings.sync_success_rate}%</p>
+                    </div>
+                `;
+                
+                document.getElementById('settings-summary-result').innerHTML = summary;
+            } catch (error) {
+                displayResult('settings-summary-result', error.message, false);
+            }
+        }
+        
+        async function loadSyncSettings() {
+            try {
+                const data = await apiRequest('/settings/sync/');
+                displayResult('sync-settings-result', data, true);
+                
+                // Populate form
+                document.getElementById('sync-enabled').checked = data.sync_enabled;
+                document.getElementById('sync-interval').value = data.sync_interval_minutes;
+                document.getElementById('warehouse-id').value = data.warehouse_id || '';
+                
+                document.getElementById('sync-settings-form').style.display = 'block';
+            } catch (error) {
+                displayResult('sync-settings-result', error.message, false);
+            }
+        }
+        
+        async function updateSyncSettings() {
+            try {
+                const data = {
+                    sync_enabled: document.getElementById('sync-enabled').checked,
+                    sync_interval_minutes: parseInt(document.getElementById('sync-interval').value),
+                    warehouse_id: document.getElementById('warehouse-id').value
+                };
+                
+                const result = await apiRequest('/settings/sync/', {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+                
+                displayResult('sync-settings-result', result, true);
+            } catch (error) {
+                displayResult('sync-settings-result', error.message, false);
+            }
+        }
+        
+        async function loadGeneralSettings() {
+            try {
+                const data = await apiRequest('/settings/general/');
+                displayResult('general-settings-result', data, true);
+                
+                // Populate form
+                document.getElementById('new-product-stock').value = data.default_new_product_stock;
+                document.getElementById('target-days').value = data.default_target_days;
+                document.getElementById('products-per-page').value = data.products_per_page;
+                
+                document.getElementById('general-settings-form').style.display = 'block';
+            } catch (error) {
+                displayResult('general-settings-result', error.message, false);
+            }
+        }
+        
+        async function updateGeneralSettings() {
+            try {
+                const data = {
+                    default_new_product_stock: parseInt(document.getElementById('new-product-stock').value),
+                    default_target_days: parseInt(document.getElementById('target-days').value),
+                    products_per_page: parseInt(document.getElementById('products-per-page').value)
+                };
+                
+                const result = await apiRequest('/settings/general/', {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+                
+                displayResult('general-settings-result', result, true);
+            } catch (error) {
+                displayResult('general-settings-result', error.message, false);
+            }
+        }
+        
+        async function testSyncConnection() {
+            try {
+                const data = await apiRequest('/settings/sync/test-connection/', {
+                    method: 'POST'
+                });
+                displayResult('actions-result', data, data.success);
+            } catch (error) {
+                displayResult('actions-result', error.message, false);
+            }
+        }
+        
+        async function triggerManualSync() {
+            try {
+                const data = await apiRequest('/settings/sync/trigger-manual/', {
+                    method: 'POST',
+                    body: JSON.stringify({})
+                });
+                displayResult('actions-result', data, data.success);
+            } catch (error) {
+                displayResult('actions-result', error.message, false);
+            }
+        }
+        
+        async function checkScheduleStatus() {
+            try {
+                const data = await apiRequest('/settings/schedule/status/');
+                displayResult('actions-result', data, true);
+            } catch (error) {
+                displayResult('actions-result', error.message, false);
+            }
+        }
+        
+        // Auto-load system info on page load
+        window.addEventListener('load', () => {
+            loadSystemInfo();
+            loadSettingsSummary();
+        });
+    </script>
+</body>
+</html>
