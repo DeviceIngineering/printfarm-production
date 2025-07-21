@@ -90,12 +90,12 @@ class Product(TimestampedModel):
             if self.sales_last_2_months <= 3 and self.current_stock < 5:
                 return max(Decimal('5') - self.current_stock, Decimal('0'))
             
-            # Условие 2: Обороты > 3 но < 10 И остаток <= 6 → целевой остаток 10
-            elif 3 < self.sales_last_2_months < 10 and self.current_stock <= 6:
+            # Условие 2: Обороты > 3 но <= 10 И остаток <= 6 → целевой остаток 10
+            elif 3 < self.sales_last_2_months <= 10 and self.current_stock <= 6:
                 return max(Decimal('10') - self.current_stock, Decimal('0'))
             
-            # Существующая логика для товаров с высокими оборотами
-            elif self.sales_last_2_months >= 10:
+            # Существующая логика для товаров с высокими оборотами (> 10)
+            elif self.sales_last_2_months > 10:
                 target_days = 15  # целевой запас на 15 дней
                 target_stock = self.average_daily_consumption * target_days
                 
