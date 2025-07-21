@@ -58,11 +58,16 @@ docker-compose -f docker-compose.server.yml exec -T backend python manage.py col
 check_status "Collect static"
 
 echo ""
-echo "9. Checking container status..."
+echo "9. Restarting nginx to apply config changes..."
+docker-compose -f docker-compose.server.yml restart nginx
+check_status "Restart nginx"
+
+echo ""
+echo "10. Checking container status..."
 docker-compose -f docker-compose.server.yml ps
 
 echo ""
-echo "10. Testing services..."
+echo "11. Testing services..."
 echo -n "Backend API: "
 docker-compose -f docker-compose.server.yml exec -T backend python -c "import requests; print('✅ OK' if requests.get('http://localhost:8000/api/v1/products/stats/').status_code < 500 else '❌ Failed')" 2>/dev/null || echo "❌ Failed"
 
@@ -70,7 +75,7 @@ echo -n "Frontend: "
 docker-compose -f docker-compose.server.yml exec -T frontend wget -q -O - http://localhost:3000 > /dev/null 2>&1 && echo "✅ OK" || echo "⚠️  Starting..."
 
 echo ""
-echo "11. Service URLs:"
+echo "12. Service URLs:"
 echo "   - Main Interface: http://kemomail3.keenetic.pro:3000/"
 echo "   - Django Admin: http://kemomail3.keenetic.pro:3000/django-admin/"
 echo "   - API: http://kemomail3.keenetic.pro:3000/api/v1/"
