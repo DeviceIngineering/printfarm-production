@@ -4,7 +4,6 @@ import { SettingOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useSettings } from '../hooks/useSettings';
 import { SystemInfo } from '../components/settings/SystemInfo';
 import { SyncSettingsCard } from '../components/settings/SyncSettingsCard';
-import { GeneralSettingsCard } from '../components/settings/GeneralSettingsCard';
 
 const { Title } = Typography;
 
@@ -12,11 +11,9 @@ export const SettingsPage: React.FC = () => {
   const { 
     summary, 
     syncSettings, 
-    generalSettings, 
     loading, 
     error, 
     updateSyncSettings,
-    updateGeneralSettings,
     refresh 
   } = useSettings();
 
@@ -87,16 +84,6 @@ export const SettingsPage: React.FC = () => {
         </Col>
       </Row>
 
-      {/* Общие настройки */}
-      <Row gutter={[16, 16]}>
-        <Col span={24}>
-          <GeneralSettingsCard 
-            generalSettings={generalSettings}
-            loading={loading}
-            onUpdate={updateGeneralSettings}
-          />
-        </Col>
-      </Row>
     </div>
   );
 };

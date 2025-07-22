@@ -10,6 +10,7 @@ from .serializers import (
     SettingsSummarySerializer
 )
 from .services import SettingsService, ScheduleManager
+from apps.sync.moysklad_client import MoySkladClient
 
 
 @api_view(['GET'])
@@ -222,5 +223,38 @@ def update_schedule(request):
     except Exception as e:
         return Response(
             {'success': False, 'message': f'Ошибка обновления расписания: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_warehouses(request):
+    """Получить список складов из МойСклад"""
+    try:
+        client = MoySkladClient()
+        warehouses = client.get_warehouses()
+        
+        # Преобразуем в удобный формат для фронтенда
+        formatted_warehouses = []
+        for warehouse in warehouses:
+            formatted_warehouses.append({
+                'id': warehouse.get('id'),
+                'name': warehouse.get('name', 'Без названия'),
+                'description': warehouse.get('description', ''),
+                'archived': warehouse.get('archived', False)
+            })
+        
+        # Фильтруем архивированные склады
+        active_warehouses = [w for w in formatted_warehouses if not w['archived']]
+        
+        return Response({
+            'warehouses': active_warehouses,
+            'total': len(active_warehouses)
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Ошибка получения списка складов: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

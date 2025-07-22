@@ -26,24 +26,34 @@ class SystemInfo(models.Model):
     
     @property
     def version(self):
-        """Получить текущую версию из git"""
+        """Получить текущую версию из VERSION файла или git"""
         try:
-            # Try to get git tag first
+            # Сначала пытаемся прочитать из файла VERSION
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+            version_file = os.path.join(project_root, 'VERSION')
+            
+            if os.path.exists(version_file):
+                with open(version_file, 'r', encoding='utf-8') as f:
+                    version = f.read().strip()
+                    if version:
+                        return f"v{version}"
+            
+            # Если нет файла VERSION, пытаемся получить из git tag
             result = subprocess.run(
                 ['git', 'describe', '--tags', '--exact-match', 'HEAD'],
                 capture_output=True,
                 text=True,
-                cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+                cwd=project_root
             )
             if result.returncode == 0:
                 return result.stdout.strip()
             
-            # If no tag, get short commit hash
+            # Если нет тега, получаем короткий хеш коммита
             result = subprocess.run(
                 ['git', 'rev-parse', '--short', 'HEAD'],
                 capture_output=True,
                 text=True,
-                cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+                cwd=project_root
             )
             if result.returncode == 0:
                 return f"commit-{result.stdout.strip()}"
@@ -57,11 +67,12 @@ class SystemInfo(models.Model):
     def build_date(self):
         """Получить дату последнего коммита"""
         try:
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
             result = subprocess.run(
                 ['git', 'log', '-1', '--format=%cd', '--date=iso'],
                 capture_output=True,
                 text=True,
-                cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+                cwd=project_root
             )
             if result.returncode == 0:
                 return result.stdout.strip()

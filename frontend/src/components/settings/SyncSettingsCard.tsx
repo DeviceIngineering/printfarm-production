@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Card, 
   Form, 
   Switch, 
   Select, 
-  Input, 
+ 
   Button, 
   Row, 
   Col, 
@@ -14,7 +14,7 @@ import {
   Space
 } from 'antd';
 import { SyncOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { SyncSettings, settingsApi } from '../../api/settings';
+import { SyncSettings, settingsApi, Warehouse } from '../../api/settings';
 
 interface SyncSettingsCardProps {
   syncSettings: SyncSettings | null;
@@ -31,6 +31,26 @@ export const SyncSettingsCard: React.FC<SyncSettingsCardProps> = ({
   const [updating, setUpdating] = useState(false);
   const [testing, setTesting] = useState(false);
   const [triggering, setTriggering] = useState(false);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [warehousesLoading, setWarehousesLoading] = useState(false);
+
+  // Загрузка списка складов
+  const loadWarehouses = async () => {
+    setWarehousesLoading(true);
+    try {
+      const response = await settingsApi.getWarehouses();
+      setWarehouses(response.warehouses);
+    } catch (error) {
+      message.error('Ошибка загрузки списка складов');
+      console.error('Error loading warehouses:', error);
+    } finally {
+      setWarehousesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadWarehouses();
+  }, []);
 
   const handleUpdate = async (values: any) => {
     setUpdating(true);
@@ -189,9 +209,29 @@ export const SyncSettingsCard: React.FC<SyncSettingsCardProps> = ({
           <Col span={8}>
             <Form.Item 
               name="warehouse_id" 
-              label="ID склада"
+              label="Склад"
+              rules={[{ required: true, message: 'Выберите склад' }]}
             >
-              <Input placeholder="ID склада из МойСклад" />
+              <Select 
+                placeholder="Выберите склад"
+                loading={warehousesLoading}
+                showSearch
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {warehouses.map(warehouse => (
+                  <Select.Option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name}
+                    {warehouse.description && (
+                      <span style={{ color: '#999', fontSize: '12px', marginLeft: 8 }}>
+                        ({warehouse.description})
+                      </span>
+                    )}
+                  </Select.Option>
+                ))}
+              </Select>
             </Form.Item>
           </Col>
         </Row>

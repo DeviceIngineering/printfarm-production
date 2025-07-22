@@ -19,4 +19,7 @@ urlpatterns = [
     # Управление расписанием
     path('schedule/status/', views.schedule_status, name='schedule-status'),
     path('schedule/update/', views.update_schedule, name='update-schedule'),
+    
+    # Дополнительные данные
+    path('warehouses/', views.get_warehouses, name='get-warehouses'),
 ]

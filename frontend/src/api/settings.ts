@@ -57,6 +57,18 @@ export interface ActionResponse {
   [key: string]: any;
 }
 
+export interface Warehouse {
+  id: string;
+  name: string;
+  description?: string;
+  archived: boolean;
+}
+
+export interface WarehousesResponse {
+  warehouses: Warehouse[];
+  total: number;
+}
+
 // API функции
 export const settingsApi = {
   // Получить информацию о системе
@@ -94,4 +106,8 @@ export const settingsApi = {
 
   updateSchedule: (data: { interval_minutes: number; enabled: boolean }): Promise<ActionResponse> =>
     apiClient.post('/settings/schedule/update/', data),
+
+  // Получить список складов
+  getWarehouses: (): Promise<WarehousesResponse> =>
+    apiClient.get('/settings/warehouses/'),
 };
