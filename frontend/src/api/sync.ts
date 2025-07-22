@@ -66,23 +66,23 @@ export interface ImageDownloadResult {
 
 export const syncApi = {
   getStatus: (): Promise<SyncStatus> =>
-    apiClient.get('/sync/status/').then(res => res.data),
+    apiClient.get('/sync/status/'),
 
   getHistory: (): Promise<SyncHistory[]> =>
-    apiClient.get('/sync/history/').then(res => res.data),
+    apiClient.get('/sync/history/'),
 
   getWarehouses: (): Promise<Warehouse[]> =>
-    apiClient.get('/sync/warehouses/').then(res => res.data),
+    apiClient.get('/sync/warehouses/'),
 
   getProductGroups: (): Promise<ProductGroup[]> =>
-    apiClient.get('/sync/product-groups/').then(res => res.data),
+    apiClient.get('/sync/product-groups/'),
 
   startSync: (params: StartSyncParams) =>
-    apiClient.post('/sync/start/', params).then(res => res.data),
+    apiClient.post('/sync/start/', params),
 
   downloadImages: (params?: DownloadImagesParams): Promise<ImageDownloadResult> =>
-    apiClient.post('/sync/download-images/', params || {}).then(res => res.data),
+    apiClient.post('/sync/download-images/', params || {}),
 
   downloadSpecificImages: (params: DownloadSpecificImagesParams): Promise<ImageDownloadResult> =>
-    apiClient.post('/sync/download-specific-images/', params).then(res => res.data),
+    apiClient.post('/sync/download-specific-images/', params),
 };

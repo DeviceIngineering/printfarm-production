@@ -100,28 +100,28 @@ export interface ProductionStats {
 export const productsApi = {
   // Products
   getProducts: (params?: ProductListParams): Promise<ProductListResponse> =>
-    apiClient.get('/products/', { params }).then(res => res.data),
+    apiClient.get('/products/', { params }),
 
   getProduct: (id: number): Promise<ProductDetail> =>
-    apiClient.get(`/products/${id}/`).then(res => res.data),
+    apiClient.get(`/products/${id}/`),
 
   getProductStats: (): Promise<ProductStats> =>
-    apiClient.get('/products/stats/').then(res => res.data),
+    apiClient.get('/products/stats/'),
 
   // Production
   calculateProductionList: (params?: { min_priority?: number; apply_coefficients?: boolean }) =>
-    apiClient.post('/products/production/calculate/', params).then(res => res.data),
+    apiClient.post('/products/production/calculate/', params),
 
   getProductionList: (listId?: number): Promise<ProductionList> => {
     const url = listId ? `/products/production/list/${listId}/` : '/products/production/list/';
-    return apiClient.get(url).then(res => res.data);
+    return apiClient.get(url);
   },
 
   getProductionStats: (): Promise<ProductionStats> =>
-    apiClient.get('/products/production/stats/').then(res => res.data),
+    apiClient.get('/products/production/stats/'),
 
   recalculateProduction: () =>
-    apiClient.post('/products/production/recalculate/').then(res => res.data),
+    apiClient.post('/products/production/recalculate/'),
 
   // Export
   exportProducts: (params?: ProductListParams) => {

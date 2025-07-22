@@ -118,7 +118,7 @@ const productsSlice = createSlice({
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading = false;
         // Дополнительная проверка и очистка данных
-        const products = action.payload.results || [];
+        const products = action.payload.results || action.payload || [];
         state.products = products.map(product => ({
           ...product,
           current_stock: product.current_stock ?? 0,
@@ -126,7 +126,7 @@ const productsSlice = createSlice({
           production_needed: product.production_needed ?? 0,
           production_priority: product.production_priority ?? 0
         } as Product));
-        state.pagination.total = action.payload.count || 0;
+        state.pagination.total = action.payload.count || action.payload?.results?.length || 0;
       })
       .addCase(fetchProducts.rejected, (state, action) => {
         state.loading = false;

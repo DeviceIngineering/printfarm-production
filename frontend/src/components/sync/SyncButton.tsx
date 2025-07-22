@@ -84,9 +84,9 @@ export const SyncButton: React.FC = () => {
       
       console.log('Sync result:', result);
       
-      if (result.status === 'success') {
+      if ((result as any).status === 'success') {
         // Synchronous mode - sync completed
-        message.success(`Синхронизация завершена! Загружено ${result.synced_products} из ${result.total_products} товаров.`);
+        message.success(`Синхронизация завершена! Загружено ${(result as any).synced_products} из ${(result as any).total_products} товаров.`);
         setModalVisible(false);
         form.resetFields();
         setSelectedWarehouse('');

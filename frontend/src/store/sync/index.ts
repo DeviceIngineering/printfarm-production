@@ -128,19 +128,19 @@ const syncSlice = createSlice({
       .addCase(startSync.fulfilled, (state, action) => {
         state.loading = false;
         // Update status based on response
-        if (action.payload.status === 'success') {
+        if ((action.payload as any).status === 'success') {
           // Sync completed successfully (synchronous mode)
           state.status = {
             is_syncing: false,
             last_sync: new Date().toISOString(),
-            total_products: action.payload.total_products,
-            synced_products: action.payload.synced_products
+            total_products: (action.payload as any).total_products,
+            synced_products: (action.payload as any).synced_products
           };
         } else {
           // Async mode - keep syncing true
           state.status = {
             is_syncing: true,
-            sync_id: action.payload.sync_id,
+            sync_id: (action.payload as any).sync_id,
             started_at: new Date().toISOString()
           };
         }
