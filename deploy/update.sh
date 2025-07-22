@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# PrintFarm Production Update Script v3.1.4
+# PrintFarm Production Update Script v3.3.0
 # Автоматическое обновление проекта на удаленном сервере
 
 set -e  # Остановка скрипта при любой ошибке
