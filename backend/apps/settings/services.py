@@ -114,7 +114,7 @@ class SettingsService:
         try:
             sync_service = SyncService()
             # Тестируем получение складов
-            warehouses = sync_service.moysklad_client.get_warehouses()
+            warehouses = sync_service.client.get_warehouses()
             
             return {
                 'success': True,
