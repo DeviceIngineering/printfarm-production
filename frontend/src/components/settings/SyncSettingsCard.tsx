@@ -4,7 +4,7 @@ import {
   Form, 
   Switch, 
   Select, 
- 
+  Checkbox,
   Button, 
   Row, 
   Col, 
@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import { SyncOutlined, CheckCircleOutlined, ExclamationCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { SyncSettings, settingsApi, Warehouse } from '../../api/settings';
+import { syncApi, ProductGroup } from '../../api/sync';
 
 interface SyncSettingsCardProps {
   syncSettings: SyncSettings | null;
@@ -33,6 +34,8 @@ export const SyncSettingsCard: React.FC<SyncSettingsCardProps> = ({
   const [triggering, setTriggering] = useState(false);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [warehousesLoading, setWarehousesLoading] = useState(false);
+  const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
+  const [productGroupsLoading, setProductGroupsLoading] = useState(false);
 
   // Загрузка списка складов
   const loadWarehouses = async () => {
@@ -60,8 +63,35 @@ export const SyncSettingsCard: React.FC<SyncSettingsCardProps> = ({
     }
   };
 
+  // Загрузка списка групп товаров
+  const loadProductGroups = async () => {
+    setProductGroupsLoading(true);
+    try {
+      console.log('🔄 Загрузка групп товаров...');
+      const response = await syncApi.getProductGroupsFromSettings();
+      console.log('📦 Ответ API групп товаров:', response);
+      
+      const groupsList = response.product_groups || [];
+      console.log(`✅ Загружено групп товаров: ${groupsList.length}`);
+      
+      setProductGroups(groupsList);
+      
+      if (groupsList.length === 0) {
+        message.warning('Список групп товаров пуст');
+      }
+    } catch (error) {
+      console.error('❌ Ошибка загрузки групп товаров:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+      message.error(`Ошибка загрузки списка групп товаров: ${errorMessage}`);
+      setProductGroups([]);
+    } finally {
+      setProductGroupsLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadWarehouses();
+    loadProductGroups();
   }, []);
 
   const handleUpdate = async (values: any) => {
@@ -262,6 +292,68 @@ export const SyncSettingsCard: React.FC<SyncSettingsCardProps> = ({
                   </Select.Option>
                 ))}
               </Select>
+            </Form.Item>
+          </Col>
+        </Row>
+
+        {/* Исключаемые группы товаров */}
+        <Row>
+          <Col span={24}>
+            <Form.Item 
+              name="excluded_group_ids" 
+              label={
+                <div>
+                  Исключить группы товаров из синхронизации
+                  {productGroups.length > 0 && (
+                    <span style={{ fontWeight: 'normal', color: '#666', marginLeft: 8 }}>
+                      (всего групп: {productGroups.length})
+                    </span>
+                  )}
+                </div>
+              }
+            >
+              {productGroupsLoading ? (
+                <div style={{ color: '#999', fontStyle: 'italic', padding: '8px 0' }}>Загрузка групп товаров...</div>
+              ) : productGroups.length === 0 ? (
+                <div style={{ color: '#999', fontStyle: 'italic', padding: '8px 0' }}>
+                  Группы товаров не найдены
+                  <Button 
+                    size="small" 
+                    type="link" 
+                    icon={<ReloadOutlined />}
+                    onClick={loadProductGroups}
+                    loading={productGroupsLoading}
+                    style={{ padding: '0 8px' }}
+                  >
+                    Обновить
+                  </Button>
+                </div>
+              ) : (
+                <Checkbox.Group style={{ width: '100%' }}>
+                  <div style={{ 
+                    maxHeight: 300, 
+                    overflowY: 'auto', 
+                    border: '1px solid #d9d9d9', 
+                    borderRadius: '6px',
+                    padding: '8px 12px'
+                  }}>
+                    <Space direction="vertical" style={{ width: '100%' }} size={8}>
+                      {productGroups.map(group => (
+                        <Checkbox key={group.id} value={group.id}>
+                          <div>
+                            <div style={{ fontWeight: 500 }}>{group.name}</div>
+                            {group.pathName !== group.name && (
+                              <div style={{ fontSize: '12px', color: '#666' }}>
+                                {group.pathName}
+                              </div>
+                            )}
+                          </div>
+                        </Checkbox>
+                      ))}
+                    </Space>
+                  </div>
+                </Checkbox.Group>
+              )}
             </Form.Item>
           </Col>
         </Row>

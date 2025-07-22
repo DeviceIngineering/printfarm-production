@@ -22,4 +22,5 @@ urlpatterns = [
     
     # Дополнительные данные
     path('warehouses/', views.get_warehouses, name='get-warehouses'),
+    path('product-groups/', views.get_product_groups, name='get-product-groups'),
 ]

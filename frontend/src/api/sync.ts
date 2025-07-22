@@ -77,6 +77,10 @@ export const syncApi = {
   getProductGroups: (): Promise<ProductGroup[]> =>
     apiClient.get('/sync/product-groups/'),
 
+  // Settings API
+  getProductGroupsFromSettings: (): Promise<{ product_groups: ProductGroup[]; total: number }> =>
+    apiClient.get('/settings/product-groups/'),
+
   startSync: (params: StartSyncParams) =>
     apiClient.post('/sync/start/', params),
 

@@ -258,3 +258,37 @@ def get_warehouses(request):
             {'error': f'Ошибка получения списка складов: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_product_groups(request):
+    """Получить список групп товаров из МойСклад"""
+    try:
+        client = MoySkladClient()
+        product_groups = client.get_product_groups()
+        
+        # Преобразуем в удобный формат для фронтенда
+        formatted_groups = []
+        for group in product_groups:
+            formatted_groups.append({
+                'id': group.get('id'),
+                'name': group.get('name', 'Без названия'),
+                'pathName': group.get('pathName', ''),
+                'archived': group.get('archived', False),
+                'parent': group.get('parent')
+            })
+        
+        # Фильтруем архивированные группы
+        active_groups = [g for g in formatted_groups if not g['archived']]
+        
+        return Response({
+            'product_groups': active_groups,
+            'total': len(active_groups)
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Ошибка получения списка групп товаров: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
