@@ -172,6 +172,13 @@ class SyncScheduleSettings(TimestampedModel):
         verbose_name='Сообщение о последней синхронизации'
     )
     
+    # Время создания расписания
+    schedule_created_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Время создания/обновления расписания'
+    )
+    
     # Статистика
     total_syncs = models.IntegerField(
         default=0,
@@ -207,18 +214,28 @@ class SyncScheduleSettings(TimestampedModel):
     @property
     def next_sync_time(self):
         """Рассчитать время следующей синхронизации"""
-        if not self.sync_enabled:
+        if not self.sync_enabled or not self.schedule_created_at:
             return None
         
         from django.utils import timezone
         from datetime import timedelta
+        from django_celery_beat.models import PeriodicTask
         
-        # Если есть последняя синхронизация, рассчитываем от неё
-        if self.last_sync_at:
+        # Пытаемся получить реальное время последнего запуска из Celery Beat
+        try:
+            task = PeriodicTask.objects.get(name='sync-moysklad-scheduled')
+            if task.enabled and task.last_run_at:
+                # Если есть запуск Celery Beat, рассчитываем от него
+                return task.last_run_at + timedelta(minutes=self.sync_interval_minutes)
+        except PeriodicTask.DoesNotExist:
+            pass
+        
+        # Если есть последняя синхронизация после создания расписания, рассчитываем от неё
+        if self.last_sync_at and self.last_sync_at >= self.schedule_created_at:
             return self.last_sync_at + timedelta(minutes=self.sync_interval_minutes)
         
-        # Если нет последней синхронизации, рассчитываем от текущего времени
-        return timezone.now() + timedelta(minutes=self.sync_interval_minutes)
+        # Иначе рассчитываем от времени создания расписания
+        return self.schedule_created_at + timedelta(minutes=self.sync_interval_minutes)
     
     @property
     def sync_success_rate(self):

@@ -168,7 +168,7 @@ export const SyncButton: React.FC = () => {
             loading={loading}
             className="btn-primary"
           >
-            Синхронизация
+            Ручная синхронизация
           </Button>
         )}
         

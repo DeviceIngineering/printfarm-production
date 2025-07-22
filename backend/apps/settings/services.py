@@ -51,6 +51,8 @@ class SettingsService:
     @staticmethod
     def update_sync_schedule(settings: SyncScheduleSettings):
         """Обновить расписание синхронизации в Celery Beat"""
+        from django.utils import timezone
+        
         task_name = 'sync-moysklad-scheduled'
         
         try:
@@ -76,8 +78,15 @@ class SettingsService:
                     enabled=True,
                 )
                 
+                # Устанавливаем время создания расписания
+                settings.schedule_created_at = timezone.now()
+                settings.save()
+                
                 return {'success': True, 'message': f'Синхронизация настроена каждые {settings.sync_interval_display}'}
             else:
+                # При отключении синхронизации сбрасываем время создания расписания
+                settings.schedule_created_at = None
+                settings.save()
                 return {'success': True, 'message': 'Автоматическая синхронизация отключена'}
                 
         except Exception as e:
