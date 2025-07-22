@@ -4,6 +4,7 @@ import { SettingOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useSettings } from '../hooks/useSettings';
 import { SystemInfo } from '../components/settings/SystemInfo';
 import { SyncSettingsCard } from '../components/settings/SyncSettingsCard';
+import { SyncHistoryCard } from '../components/settings/SyncHistoryCard';
 
 const { Title } = Typography;
 
@@ -81,6 +82,13 @@ export const SettingsPage: React.FC = () => {
             loading={loading}
             onUpdate={updateSyncSettings}
           />
+        </Col>
+      </Row>
+
+      {/* История синхронизаций */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col span={24}>
+          <SyncHistoryCard />
         </Col>
       </Row>
 

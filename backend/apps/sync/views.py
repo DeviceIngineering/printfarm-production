@@ -146,6 +146,14 @@ def start_sync(request):
                 sync_type='manual',
                 sync_images=sync_images
             )
+            
+            # Update sync settings stats for manual sync
+            from apps.settings.models import SyncScheduleSettings
+            settings_obj = SyncScheduleSettings.get_instance()
+            success = sync_log.status == 'success'
+            message = f"Ручная синхронизация: {sync_log.synced_products} из {sync_log.total_products} товаров"
+            settings_obj.update_sync_stats(success, message)
+            
             return Response({
                 'message': 'Sync completed',
                 'sync_id': sync_log.id,

@@ -23,6 +23,13 @@ def sync_products_task(self, warehouse_id: str, excluded_groups: list = None, sy
             sync_images=sync_images
         )
         
+        # Update sync settings stats for manual sync too
+        from apps.settings.models import SyncScheduleSettings
+        settings_obj = SyncScheduleSettings.get_instance()
+        success = sync_log.status == 'success'
+        message = f"{'Ручная' if sync_type == 'manual' else 'Автоматическая'} синхронизация: {sync_log.synced_products} из {sync_log.total_products} товаров"
+        settings_obj.update_sync_stats(success, message)
+        
         logger.info(f"Sync completed: {sync_log.synced_products}/{sync_log.total_products} products synced")
         return {
             'sync_id': sync_log.id,
@@ -34,6 +41,15 @@ def sync_products_task(self, warehouse_id: str, excluded_groups: list = None, sy
         
     except Exception as e:
         logger.error(f"Sync task failed: {str(e)}")
+        
+        # Try to update settings with error
+        try:
+            from apps.settings.models import SyncScheduleSettings
+            settings_obj = SyncScheduleSettings.get_instance()
+            settings_obj.update_sync_stats(False, f"Ошибка: {str(e)}")
+        except:
+            pass  # Don't let settings update failure prevent task retry
+        
         self.retry(countdown=60, max_retries=3)
 
 @shared_task
