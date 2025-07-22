@@ -209,8 +209,28 @@ export const SyncSettingsCard: React.FC<SyncSettingsCardProps> = ({
         </Col>
         <Col span={6}>
           <Statistic 
-            title="Всего синхронизаций" 
-            value={syncSettings?.total_syncs || 0}
+            title="Следующая синхронизация" 
+            value={
+              syncSettings?.sync_enabled && syncSettings?.next_sync_time 
+                ? new Date(syncSettings.next_sync_time).toLocaleString('ru-RU', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                : syncSettings?.sync_enabled 
+                  ? 'Рассчитывается...'
+                  : 'Отключена'
+            }
+            valueStyle={{
+              fontSize: '14px',
+              color: syncSettings?.sync_enabled 
+                ? syncSettings?.next_sync_time 
+                  ? '#1890ff' 
+                  : '#faad14'
+                : '#999'
+            }}
           />
         </Col>
         <Col span={6}>
@@ -370,13 +390,35 @@ export const SyncSettingsCard: React.FC<SyncSettingsCardProps> = ({
         </Form.Item>
       </Form>
 
-      {/* Информация о последней синхронизации */}
-      {syncSettings?.last_sync_at && (
+      {/* Информация о синхронизации */}
+      {(syncSettings?.last_sync_at || syncSettings?.next_sync_time) && (
         <div style={{ marginTop: 16, padding: 12, background: '#f5f5f5', borderRadius: 6 }}>
-          <strong>Последняя синхронизация:</strong> {new Date(syncSettings.last_sync_at).toLocaleString('ru-RU')}
-          {syncSettings.last_sync_message && (
-            <div style={{ marginTop: 4, color: '#666' }}>
-              {syncSettings.last_sync_message}
+          {syncSettings.last_sync_at && (
+            <div style={{ marginBottom: 8 }}>
+              <strong>Последняя синхронизация:</strong> {new Date(syncSettings.last_sync_at).toLocaleString('ru-RU')}
+              {syncSettings.last_sync_message && (
+                <div style={{ marginTop: 4, color: '#666' }}>
+                  {syncSettings.last_sync_message}
+                </div>
+              )}
+            </div>
+          )}
+          {syncSettings.sync_enabled && syncSettings.next_sync_time && (
+            <div>
+              <strong>Следующая синхронизация:</strong> {new Date(syncSettings.next_sync_time).toLocaleString('ru-RU')}
+              <div style={{ marginTop: 4, color: '#666' }}>
+                Интервал: {syncSettings.sync_interval_display}
+              </div>
+            </div>
+          )}
+          {syncSettings.sync_enabled && !syncSettings.next_sync_time && (
+            <div>
+              <strong>Следующая синхронизация:</strong> <span style={{ color: '#faad14' }}>Рассчитывается...</span>
+            </div>
+          )}
+          {!syncSettings.sync_enabled && (
+            <div style={{ color: '#999' }}>
+              Автоматическая синхронизация отключена
             </div>
           )}
         </div>

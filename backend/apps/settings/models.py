@@ -207,13 +207,18 @@ class SyncScheduleSettings(TimestampedModel):
     @property
     def next_sync_time(self):
         """Рассчитать время следующей синхронизации"""
-        if not self.sync_enabled or not self.last_sync_at:
+        if not self.sync_enabled:
             return None
         
         from django.utils import timezone
         from datetime import timedelta
         
-        return self.last_sync_at + timedelta(minutes=self.sync_interval_minutes)
+        # Если есть последняя синхронизация, рассчитываем от неё
+        if self.last_sync_at:
+            return self.last_sync_at + timedelta(minutes=self.sync_interval_minutes)
+        
+        # Если нет последней синхронизации, рассчитываем от текущего времени
+        return timezone.now() + timedelta(minutes=self.sync_interval_minutes)
     
     @property
     def sync_success_rate(self):
