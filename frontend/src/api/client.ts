@@ -26,7 +26,7 @@ apiClient.interceptors.request.use(
 
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => response.data, // Возвращаем только данные, не весь response
   (error) => {
     if (error.response?.status === 401) {
       // For demo, set the token instead of redirecting

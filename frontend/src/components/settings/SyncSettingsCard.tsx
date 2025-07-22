@@ -38,11 +38,22 @@ export const SyncSettingsCard: React.FC<SyncSettingsCardProps> = ({
   const loadWarehouses = async () => {
     setWarehousesLoading(true);
     try {
+      console.log('🔄 Загрузка складов...');
       const response = await settingsApi.getWarehouses();
-      setWarehouses(response.warehouses || []);
+      console.log('📦 Ответ API складов:', response);
+      
+      const warehousesList = response.warehouses || [];
+      console.log(`✅ Загружено складов: ${warehousesList.length}`);
+      
+      setWarehouses(warehousesList);
+      
+      if (warehousesList.length === 0) {
+        message.warning('Список складов пуст');
+      }
     } catch (error) {
-      message.error('Ошибка загрузки списка складов');
-      console.error('Error loading warehouses:', error);
+      console.error('❌ Ошибка загрузки складов:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+      message.error(`Ошибка загрузки списка складов: ${errorMessage}`);
       setWarehouses([]); // Устанавливаем пустой массив при ошибке
     } finally {
       setWarehousesLoading(false);
