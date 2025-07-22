@@ -13,7 +13,7 @@ import {
   message,
   Space
 } from 'antd';
-import { SyncOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { SyncOutlined, CheckCircleOutlined, ExclamationCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { SyncSettings, settingsApi, Warehouse } from '../../api/settings';
 
 interface SyncSettingsCardProps {
@@ -39,10 +39,11 @@ export const SyncSettingsCard: React.FC<SyncSettingsCardProps> = ({
     setWarehousesLoading(true);
     try {
       const response = await settingsApi.getWarehouses();
-      setWarehouses(response.warehouses);
+      setWarehouses(response.warehouses || []);
     } catch (error) {
       message.error('Ошибка загрузки списка складов');
       console.error('Error loading warehouses:', error);
+      setWarehouses([]); // Устанавливаем пустой массив при ошибке
     } finally {
       setWarehousesLoading(false);
     }
@@ -220,8 +221,26 @@ export const SyncSettingsCard: React.FC<SyncSettingsCardProps> = ({
                 filterOption={(input, option) =>
                   (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
                 }
+                notFoundContent={warehousesLoading ? 'Загрузка...' : 'Склады не найдены'}
+                dropdownRender={menu => (
+                  <>
+                    {menu}
+                    <div style={{ padding: '8px', borderTop: '1px solid #f0f0f0' }}>
+                      <Button 
+                        size="small" 
+                        type="text" 
+                        icon={<ReloadOutlined />}
+                        onClick={loadWarehouses}
+                        loading={warehousesLoading}
+                        block
+                      >
+                        Обновить список
+                      </Button>
+                    </div>
+                  </>
+                )}
               >
-                {warehouses.map(warehouse => (
+                {warehouses && warehouses.map(warehouse => (
                   <Select.Option key={warehouse.id} value={warehouse.id}>
                     {warehouse.name}
                     {warehouse.description && (
