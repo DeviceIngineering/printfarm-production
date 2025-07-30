@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест загрузки Excel файла - Точка</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #40a9ff;
+        }
+        button:disabled {
+            background: #d9d9d9;
+            cursor: not-allowed;
+        }
+        .upload-area {
+            border: 2px dashed #d9d9d9;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            transition: border-color 0.3s;
+        }
+        .upload-area:hover {
+            border-color: #40a9ff;
+        }
+        .upload-area.dragover {
+            border-color: #1890ff;
+            background-color: #f0f9ff;
+        }
+        input[type="file"] {
+            margin: 20px 0;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f2f5;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            background: #fff2e8;
+            color: #d4380d;
+        }
+        .success {
+            background: #f6ffed;
+            color: #389e0d;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #d9d9d9;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background: #fafafa;
+            font-weight: bold;
+        }
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin: 0 2px;
+        }
+        .tag-green { background: #f6ffed; color: #389e0d; }
+        .tag-purple { background: #f9f0ff; color: #722ed1; }
+        .tag-blue { background: #e6f4ff; color: #0958d9; }
+        .instructions {
+            background: #e6f4ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Тест загрузки Excel файла для вкладки "Точка"</h1>
+        
+        <div class="instructions">
+            <h3>📋 Инструкция:</h3>
+            <p>1. Подготовьте Excel файл (.xlsx или .xls) с колонками:</p>
+            <ul>
+                <li><strong>"Артикул товара"</strong> (или "Артикул", "Article")</li>
+                <li><strong>"Заказов, шт."</strong> (или "Заказов", "Orders")</li>
+            </ul>
+            <p>2. Загрузите файл используя форму ниже</p>
+            <p>3. Система автоматически найдет нужные колонки и извлечет данные</p>
+        </div>
+        
+        <h2>🔄 Загрузка файла</h2>
+        
+        <div class="upload-area" id="uploadArea">
+            <p>📁 Перетащите Excel файл сюда или нажмите для выбора</p>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+            <button onclick="document.getElementById('fileInput').click()">Выбрать файл</button>
+        </div>
+        
+        <div id="result"></div>
+        <div id="table-container"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        
+        // Drag and drop обработчики
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUpload(files[0]);
+            }
+        });
+        
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+        
+        function showResult(data, isError = false) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.textContent = JSON.stringify(data, null, 2);
+        }
+        
+        function showTable(data, title) {
+            const container = document.getElementById('table-container');
+            container.innerHTML = `<h3>${title}</h3>`;
+            
+            if (!data || data.length === 0) {
+                container.innerHTML += '<p>Нет данных для отображения</p>';
+                return;
+            }
+            
+            let html = '<table><thead><tr>';
+            html += '<th>Строка</th><th>Артикул товара</th><th>Заказов, шт.</th>';
+            html += '</tr></thead><tbody>';
+            
+            data.forEach((item, index) => {
+                if (index >= 20) return; // Показываем только первые 20
+                
+                html += '<tr>';
+                html += `<td><span class="tag tag-purple">#${item.row_number}</span></td>`;
+                html += `<td><span class="tag tag-green">${item.article}</span></td>`;
+                html += `<td><span class="tag tag-blue">${item.orders} шт</span></td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            
+            if (data.length > 20) {
+                html += `<p style="margin-top: 10px; color: #666; font-style: italic;">Показаны первые 20 записей из ${data.length}</p>`;
+            }
+            
+            container.innerHTML += html;
+        }
+        
+        async function handleFileUpload(file) {
+            console.log('Загружаем файл:', file.name);
+            
+            // Проверяем тип файла
+            if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+                showResult({ error: 'Неверный формат файла. Поддерживаются только .xlsx и .xls' }, true);
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                showResult({ status: 'Загружаем файл...', filename: file.name });
+                
+                const response = await fetch(`${API_BASE}/tochka/upload-excel/`, {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult({
+                        status: 'success',
+                        message: data.message,
+                        total_records: data.total_records,
+                        processed_count: data.processed_count,
+                        error_count: data.error_count,
+                        columns_found: data.columns_found
+                    });
+                    showTable(data.data, `Данные из файла ${file.name} (${data.total_records} записей)`);
+                } else {
+                    showResult(data, true);
+                    if (data.available_columns) {
+                        console.log('Доступные колонки в файле:', data.available_columns);
+                    }
+                }
+            } catch (error) {
+                showResult({ error: 'Ошибка подключения к серверу: ' + error.message }, true);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Card, Button, Row, Col, Table, Tag, message, Spin } from 'antd';
+import { Typography, Card, Button, Row, Col, Table, Tag, message, Spin, Upload, Modal } from 'antd';
 import { 
   ShopOutlined, 
   ReloadOutlined,
   AppstoreOutlined,
-  UnorderedListOutlined
+  UnorderedListOutlined,
+  UploadOutlined,
+  FileExcelOutlined
 } from '@ant-design/icons';
 
 const { Title, Paragraph } = Typography;
@@ -13,6 +15,9 @@ export const TochkaPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [productsData, setProductsData] = useState<any[]>([]);
   const [productionData, setProductionData] = useState<any[]>([]);
+  const [excelData, setExcelData] = useState<any[]>([]);
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
 
   // Функция для загрузки товаров
   const loadProducts = async () => {
@@ -50,6 +55,40 @@ export const TochkaPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Функция для загрузки Excel файла
+  const handleExcelUpload = async (file: File) => {
+    setUploadLoading(true);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/tochka/upload-excel/', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setExcelData(data.data || []);
+        setUploadModalVisible(false);
+        message.success(data.message);
+      } else {
+        message.error(data.error || 'Ошибка при загрузке файла');
+        if (data.available_columns) {
+          console.log('Доступные колонки:', data.available_columns);
+        }
+      }
+    } catch (error) {
+      message.error('Ошибка подключения к серверу');
+    } finally {
+      setUploadLoading(false);
+    }
+    
+    return false; // Предотвращаем автоматическую загрузку
   };
 
   // Загрузка данных при монтировании
@@ -153,6 +192,35 @@ export const TochkaPage: React.FC = () => {
     },
   ];
 
+  // Колонки для таблицы данных из Excel
+  const excelColumns = [
+    {
+      title: 'Строка',
+      dataIndex: 'row_number',
+      key: 'row_number',
+      width: 80,
+      render: (value: number) => <Tag color="purple">#{value}</Tag>,
+    },
+    {
+      title: 'Артикул товара',
+      dataIndex: 'article',
+      key: 'article',
+      width: 150,
+      render: (text: string) => <Tag color="green">{text}</Tag>,
+    },
+    {
+      title: 'Заказов, шт.',
+      dataIndex: 'orders',
+      key: 'orders',
+      width: 120,
+      render: (value: number) => (
+        <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+          {value} шт
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div style={{ padding: '0 24px' }}>
       <div style={{ marginBottom: 24 }}>
@@ -198,6 +266,16 @@ export const TochkaPage: React.FC = () => {
             Обновить все
           </Button>
         </Col>
+        <Col>
+          <Button 
+            type="default"
+            icon={<FileExcelOutlined />}
+            onClick={() => setUploadModalVisible(true)}
+            style={{ borderColor: '#52c41a', color: '#52c41a' }}
+          >
+            Загрузить Excel
+          </Button>
+        </Col>
       </Row>
 
       <Spin spinning={loading}>
@@ -227,6 +305,7 @@ export const TochkaPage: React.FC = () => {
         <Card 
           title={`Список на производство (${productionData.length})`}
           extra={<Tag color="red">Требуют производства</Tag>}
+          style={{ marginBottom: 24 }}
         >
           <Table
             dataSource={productionData}
@@ -243,7 +322,95 @@ export const TochkaPage: React.FC = () => {
             size="small"
           />
         </Card>
+
+        {/* Таблица данных из Excel */}
+        {excelData.length > 0 && (
+          <Card 
+            title={`Данные из Excel (${excelData.length})`}
+            extra={<Tag color="green">Артикул + Заказы</Tag>}
+          >
+            <Table
+              dataSource={excelData}
+              columns={excelColumns}
+              rowKey={(record, index) => `excel-${index}`}
+              pagination={{
+                pageSize: 20,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => 
+                  `${range[0]}-${range[1]} из ${total} записей`,
+              }}
+              scroll={{ x: 400 }}
+              size="small"
+            />
+          </Card>
+        )}
       </Spin>
+
+      {/* Модальное окно для загрузки Excel */}
+      <Modal
+        title={
+          <span>
+            <FileExcelOutlined style={{ marginRight: 8, color: '#52c41a' }} />
+            Загрузка Excel файла
+          </span>
+        }
+        open={uploadModalVisible}
+        onCancel={() => setUploadModalVisible(false)}
+        footer={null}
+        width={600}
+      >
+        <div style={{ padding: '20px 0' }}>
+          <Paragraph>
+            Выберите Excel файл (.xlsx или .xls) который содержит следующие колонки:
+          </Paragraph>
+          <ul style={{ marginBottom: 20 }}>
+            <li><strong>"Артикул товара"</strong> - артикулы товаров</li>
+            <li><strong>"Заказов, шт."</strong> - количество заказов в штуках</li>
+          </ul>
+          
+          <Upload.Dragger
+            name="file"
+            multiple={false}
+            accept=".xlsx,.xls"
+            beforeUpload={handleExcelUpload}
+            showUploadList={false}
+            disabled={uploadLoading}
+            style={{ 
+              opacity: uploadLoading ? 0.6 : 1,
+              pointerEvents: uploadLoading ? 'none' : 'auto'
+            }}
+          >
+            <p className="ant-upload-drag-icon">
+              <FileExcelOutlined 
+                style={{ 
+                  fontSize: 48, 
+                  color: uploadLoading ? '#d9d9d9' : '#52c41a' 
+                }} 
+              />
+            </p>
+            <p className="ant-upload-text">
+              {uploadLoading 
+                ? 'Обрабатываем файл...' 
+                : 'Нажмите или перетащите Excel файл в эту область'
+              }
+            </p>
+            <p className="ant-upload-hint">
+              {uploadLoading 
+                ? 'Пожалуйста, подождите...' 
+                : 'Поддерживаются форматы .xlsx и .xls'
+              }
+            </p>
+          </Upload.Dragger>
+          
+          {uploadLoading && (
+            <div style={{ textAlign: 'center', marginTop: 20 }}>
+              <Spin />
+              <p style={{ marginTop: 10 }}>Обработка файла...</p>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

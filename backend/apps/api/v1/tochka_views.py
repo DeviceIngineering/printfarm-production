@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from django.db.models import Q
 from apps.products.models import Product
 from apps.products.serializers import ProductListSerializer
+import pandas as pd
+import io
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -99,4 +101,125 @@ def get_products_stats_for_tochka(request):
     except Exception as e:
         return Response({
             'error': f'Ошибка при загрузке статистики: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def upload_excel_file_for_tochka(request):
+    """
+    API для загрузки Excel файла с данными для вкладки Точка
+    Ищет колонки "Артикул товара" и "Заказов, шт."
+    """
+    try:
+        if 'file' not in request.FILES:
+            return Response({
+                'error': 'Файл не найден. Пожалуйста, выберите Excel файл.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        excel_file = request.FILES['file']
+        
+        # Проверяем расширение файла
+        if not excel_file.name.endswith(('.xlsx', '.xls')):
+            return Response({
+                'error': 'Неверный формат файла. Поддерживаются только .xlsx и .xls файлы.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Читаем Excel файл
+        try:
+            if excel_file.name.endswith('.xlsx'):
+                df = pd.read_excel(io.BytesIO(excel_file.read()), engine='openpyxl')
+            else:
+                df = pd.read_excel(io.BytesIO(excel_file.read()), engine='xlrd')
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка при чтении Excel файла: {str(e)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Ищем нужные колонки
+        article_column = None
+        orders_column = None
+        
+        # Возможные варианты названий колонок
+        article_variants = ['Артикул товара', 'артикул товара', 'Артикул', 'артикул', 'Article', 'article']
+        orders_variants = ['Заказов, шт.', 'заказов, шт.', 'Заказов шт', 'заказов шт', 'Заказов', 'заказов', 'Orders', 'orders']
+        
+        # Поиск колонки с артикулами
+        for col in df.columns:
+            if str(col).strip() in article_variants:
+                article_column = col
+                break
+        
+        # Поиск колонки с заказами
+        for col in df.columns:
+            if str(col).strip() in orders_variants:
+                orders_column = col
+                break
+        
+        if article_column is None:
+            return Response({
+                'error': 'Колонка "Артикул товара" не найдена в файле.',
+                'available_columns': list(df.columns)
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if orders_column is None:
+            return Response({
+                'error': 'Колонка "Заказов, шт." не найдена в файле.',
+                'available_columns': list(df.columns)
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Извлекаем данные из нужных колонок
+        extracted_data = []
+        processed_count = 0
+        error_count = 0
+        
+        for index, row in df.iterrows():
+            try:
+                article = str(row[article_column]).strip() if pd.notna(row[article_column]) else ''
+                orders = row[orders_column] if pd.notna(row[orders_column]) else 0
+                
+                # Пропускаем пустые артикулы
+                if not article or article.lower() in ['nan', 'none', '']:
+                    continue
+                
+                # Пытаемся преобразовать количество заказов в число
+                try:
+                    orders = float(orders)
+                    if orders < 0:
+                        orders = 0
+                except (ValueError, TypeError):
+                    orders = 0
+                
+                extracted_data.append({
+                    'article': article,
+                    'orders': int(orders),
+                    'row_number': index + 1
+                })
+                processed_count += 1
+                
+            except Exception as e:
+                error_count += 1
+                continue
+        
+        if not extracted_data:
+            return Response({
+                'error': 'Не удалось извлечь данные из файла. Проверьте формат данных.',
+                'processed_count': processed_count,
+                'error_count': error_count
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({
+            'message': f'Файл успешно обработан. Загружено {len(extracted_data)} записей.',
+            'data': extracted_data[:50],  # Показываем первые 50 записей
+            'total_records': len(extracted_data),
+            'processed_count': processed_count,
+            'error_count': error_count,
+            'columns_found': {
+                'article_column': article_column,
+                'orders_column': orders_column
+            }
+        })
+        
+    except Exception as e:
+        return Response({
+            'error': f'Внутренняя ошибка сервера: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
