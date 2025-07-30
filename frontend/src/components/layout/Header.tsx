@@ -6,7 +6,8 @@ import {
   FileTextOutlined, 
   SettingOutlined,
   SyncOutlined,
-  PictureOutlined
+  PictureOutlined,
+  ShopOutlined
 } from '@ant-design/icons';
 
 const { Header: AntHeader } = Layout;
@@ -20,6 +21,11 @@ export const Header: React.FC = () => {
       key: '/products',
       icon: <AppstoreOutlined />,
       label: <Link to="/products">Товары</Link>,
+    },
+    {
+      key: '/tochka',
+      icon: <ShopOutlined />,
+      label: <Link to="/tochka">Точка</Link>,
     },
     {
       key: '/reports',
