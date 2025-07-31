@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Очистка PrintFarm Storage</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: linear-gradient(135deg, #06EAFC, #1E1E1E);
+            color: white;
+            text-align: center;
+            padding: 50px;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        button {
+            background: #06EAFC;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background: #05d0e0;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success { background: rgba(0,255,136,0.3); }
+        .error { background: rgba(255,0,85,0.3); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Очистка PrintFarm Storage</h1>
+        <p>Этот инструмент очистит все сохраненные данные в браузере для PrintFarm</p>
+        
+        <button onclick="clearAllStorage()">Очистить все данные</button>
+        <button onclick="openMainApp()">Открыть приложение</button>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        function clearAllStorage() {
+            const statusDiv = document.getElementById('status');
+            
+            try {
+                // Очистка localStorage
+                localStorage.clear();
+                
+                // Очистка sessionStorage
+                sessionStorage.clear();
+                
+                // Попытка очистить IndexedDB
+                if ('indexedDB' in window) {
+                    indexedDB.databases().then(databases => {
+                        databases.forEach(db => {
+                            indexedDB.deleteDatabase(db.name);
+                        });
+                    });
+                }
+                
+                // Очистка куки для этого домена
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                statusDiv.innerHTML = `
+                    <div class="status success">
+                        ✅ Все данные очищены!<br>
+                        📍 localStorage: очищен<br>
+                        📍 sessionStorage: очищен<br>
+                        📍 Cookies: очищены<br>
+                        📍 IndexedDB: очищен
+                    </div>
+                `;
+                
+                // Автоматически перенаправляем на главную страницу через 2 секунды
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+                
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="status error">
+                        ❌ Ошибка при очистке: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function openMainApp() {
+            window.location.href = '/';
+        }
+        
+        // Автоматическая очистка при загрузке страницы
+        if (window.location.search.includes('auto=true')) {
+            clearAllStorage();
+        }
+    </script>
+</body>
+</html>

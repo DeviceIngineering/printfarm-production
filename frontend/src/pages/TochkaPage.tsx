@@ -5,7 +5,6 @@ import {
   ReloadOutlined,
   AppstoreOutlined,
   UnorderedListOutlined,
-  UploadOutlined,
   FileExcelOutlined,
   SearchOutlined
 } from '@ant-design/icons';
@@ -17,6 +16,7 @@ export const TochkaPage: React.FC = () => {
   const [productsData, setProductsData] = useState<any[]>([]);
   const [productionData, setProductionData] = useState<any[]>([]);
   const [excelData, setExcelData] = useState<any[]>([]);
+  const [deduplicatedExcelData, setDeduplicatedExcelData] = useState<any[]>([]);
   const [mergedData, setMergedData] = useState<any[]>([]);
   const [filteredProductionData, setFilteredProductionData] = useState<any[]>([]);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
@@ -124,6 +124,51 @@ export const TochkaPage: React.FC = () => {
     }
   };
 
+  // Функция для создания тестовых дедуплицированных данных
+  const createTestDeduplicatedData = () => {
+    const testData = [
+      { article: '423-51412', orders: 15, row_number: 1, has_duplicates: true, duplicate_rows: [5, 10] },
+      { article: '101-43031', orders: 8, row_number: 2, has_duplicates: false, duplicate_rows: [] },
+      { article: '375-42108', orders: 12, row_number: 3, has_duplicates: true, duplicate_rows: [7] },
+      { article: '264-41723', orders: 6, row_number: 4, has_duplicates: false, duplicate_rows: [] },
+      { article: '180-40317', orders: 20, row_number: 6, has_duplicates: true, duplicate_rows: [8, 9, 11] },
+    ];
+    setDeduplicatedExcelData(testData);
+    message.success(`Созданы тестовые дедуплицированные данные (${testData.length} записей)`);
+  };
+
+  // Функция для создания дедуплицированных данных из загруженного Excel
+  const createDeduplicatedData = (rawData: any[]) => {
+    const articleMap = new Map();
+    
+    // Группируем по артикулам
+    rawData.forEach((item) => {
+      const article = item.article;
+      if (articleMap.has(article)) {
+        const existing = articleMap.get(article);
+        // Суммируем заказы
+        existing.orders += item.orders;
+        // Добавляем номер строки к дубликатам
+        if (!existing.duplicate_rows) {
+          existing.duplicate_rows = [];
+        }
+        existing.duplicate_rows.push(item.row_number);
+        existing.has_duplicates = true;
+      } else {
+        articleMap.set(article, {
+          article: item.article,
+          orders: item.orders,
+          row_number: item.row_number,
+          has_duplicates: false,
+          duplicate_rows: []
+        });
+      }
+    });
+    
+    // Конвертируем Map в массив и сортируем по убыванию заказов
+    return Array.from(articleMap.values()).sort((a, b) => b.orders - a.orders);
+  };
+
   // Функция для загрузки Excel файла
   const handleExcelUpload = async (file: File) => {
     setUploadLoading(true);
@@ -141,6 +186,11 @@ export const TochkaPage: React.FC = () => {
       
       if (response.ok) {
         setExcelData(data.data || []);
+        
+        // Создаем дедуплицированные данные из исходных
+        const deduplicatedData = createDeduplicatedData(data.data || []);
+        setDeduplicatedExcelData(deduplicatedData);
+        
         setUploadModalVisible(false);
         
         // Более информативное сообщение о результатах
@@ -154,7 +204,8 @@ export const TochkaPage: React.FC = () => {
           console.log(`Дедупликация завершена:
             - Исходных записей: ${data.total_raw_records}
             - Уникальных артикулов: ${data.unique_articles}  
-            - Дубликатов объединено: ${data.duplicates_merged}`);
+            - Дубликатов объединено: ${data.duplicates_merged}
+            - Дедуплицированных записей создано: ${deduplicatedData.length}`);
         }
       } else {
         message.error(data.error || 'Ошибка при загрузке файла');
@@ -502,6 +553,60 @@ export const TochkaPage: React.FC = () => {
     },
   ];
 
+  // Колонки для таблицы дедуплицированных данных из Excel (только уникальные артикулы)
+  const deduplicatedExcelColumns = [
+    {
+      title: 'Артикул товара',
+      dataIndex: 'article',
+      key: 'article',
+      width: 150,
+      ...getColumnSearchProps('article'),
+      render: (text: string, record: any) => (
+        <div>
+          <Tag color="blue">{text}</Tag>
+          {record.has_duplicates && (
+            <Tag color="orange" style={{ marginLeft: 8, fontSize: '12px' }}>
+              Объединен из {record.duplicate_rows ? record.duplicate_rows.length + 1 : 1} строк
+            </Tag>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Заказов, шт (сумма)',
+      dataIndex: 'orders',
+      key: 'orders',
+      width: 150,
+      sorter: (a: any, b: any) => a.orders - b.orders,
+      render: (value: number, record: any) => (
+        <div>
+          <Tag color="green" style={{ fontSize: '14px', padding: '4px 8px' }}>
+            {value} шт
+          </Tag>
+          {record.duplicate_rows && record.duplicate_rows.length > 0 && (
+            <div style={{ fontSize: '12px', color: '#666', marginTop: 4 }}>
+              Исходные строки: {[record.row_number, ...record.duplicate_rows].join(', ')}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Статус обработки',
+      key: 'status',
+      width: 150,
+      render: (text: string, record: any) => (
+        <div>
+          {record.has_duplicates ? (
+            <Tag color="orange">Дубликаты объединены</Tag>
+          ) : (
+            <Tag color="green">Уникальный товар</Tag>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   // Колонки для объединенной таблицы производства
   const mergedColumns = [
     {
@@ -831,6 +936,32 @@ export const TochkaPage: React.FC = () => {
             <Col>
               <Button 
                 type="default"
+                icon={<FileExcelOutlined />}
+                onClick={() => {
+                  const element = document.querySelector('[title*="без дублей"]')?.parentElement?.parentElement;
+                  if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }}
+                style={{ backgroundColor: '#13c2c2', borderColor: '#13c2c2', color: 'white' }}
+                size="small"
+              >
+                📊 Дедупликация
+              </Button>
+            </Col>
+            <Col>
+              <Button 
+                type="default"
+                onClick={createTestDeduplicatedData}
+                style={{ backgroundColor: '#722ed1', borderColor: '#722ed1', color: 'white' }}
+                size="small"
+              >
+                🧪 Тест данные
+              </Button>
+            </Col>
+            <Col>
+              <Button 
+                type="default"
                 icon={<SearchOutlined />}
                 onClick={handleDebugArticle}
                 loading={debugLoading}
@@ -960,6 +1091,40 @@ export const TochkaPage: React.FC = () => {
                   `${range[0]}-${range[1]} из ${total} записей`,
               }}
               scroll={{ x: 400 }}
+              size="small"
+            />
+          </Card>
+        )}
+
+        {/* Таблица дедуплицированных данных Excel */}
+        {deduplicatedExcelData.length > 0 && (
+          <Card 
+            title={`Данные Excel без дублей (${deduplicatedExcelData.length} уникальных артикулов)`}
+            extra={
+              <div>
+                <Tag color="blue">Дедуплицированные данные</Tag>
+                <Tag color="green">
+                  {deduplicatedExcelData.reduce((sum: number, item: any) => sum + item.orders, 0)} шт всего
+                </Tag>
+                <Tag color="orange">
+                  {deduplicatedExcelData.filter(item => item.has_duplicates).length} объединений
+                </Tag>
+              </div>
+            }
+            style={{ marginBottom: 24 }}
+          >
+            <Table
+              dataSource={deduplicatedExcelData}
+              columns={deduplicatedExcelColumns}
+              rowKey={(record, index) => `deduplicated-${index}`}
+              pagination={{
+                pageSize: 20,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => 
+                  `${range[0]}-${range[1]} из ${total} записей`,
+              }}
+              scroll={{ x: 450 }}
               size="small"
             />
           </Card>
