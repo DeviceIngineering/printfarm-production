@@ -12,7 +12,14 @@ from .exporters import ProductsExporter
 def authenticate_from_query(request):
     """
     Authenticate user from query parameter or header.
+    For development mode, always return True.
     """
+    from django.conf import settings
+    
+    # В development режиме отключаем аутентификацию
+    if settings.DEBUG:
+        return True  # Всегда разрешаем в development
+    
     # First try header authentication
     auth_header = request.META.get('HTTP_AUTHORIZATION', '')
     if auth_header.startswith('Token '):

@@ -65,14 +65,35 @@ def sync_warehouses(request):
     try:
         from .moysklad_client import MoySkladClient
         client = MoySkladClient()
+        
+        # Сначала проверим соединение
+        if not client.test_connection():
+            return Response({
+                'error': 'Cannot connect to МойСклад API',
+                'type': 'ConnectionError',
+                'detail': 'API connection test failed. Check token and network connectivity.',
+                'suggestions': [
+                    'Проверьте токен МойСклад в настройках',
+                    'Убедитесь в доступности интернета',
+                    'Проверьте не заблокирован ли API МойСклад'
+                ]
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
         warehouses = client.get_warehouses()
+        logger.info(f"Successfully fetched {len(warehouses)} warehouses from МойСклад")
         return Response(warehouses)
     except Exception as e:
+        logger.error(f"Failed to fetch warehouses: {str(e)}")
         # Возвращаем детали ошибки для отладки
         return Response({
             'error': str(e),
             'type': type(e).__name__,
-            'detail': 'Failed to fetch warehouses from МойСклад API'
+            'detail': 'Failed to fetch warehouses from МойСклад API',
+            'suggestions': [
+                'Проверьте токен МойСклад',
+                'Убедитесь в стабильности интернет-соединения',
+                'Проверьте логи сервера для деталей'
+            ]
         }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 @api_view(['GET'])
@@ -84,32 +105,134 @@ def sync_product_groups(request):
     try:
         from .moysklad_client import MoySkladClient
         client = MoySkladClient()
+        
+        # Сначала проверим соединение
+        if not client.test_connection():
+            logger.warning("МойСклад API connection failed, returning demo data")
+            return Response({
+                'error': 'Cannot connect to МойСклад API',
+                'type': 'ConnectionError',
+                'detail': 'API connection test failed. Using fallback data.',
+                'fallback_data': [
+                    {
+                        'id': 'demo-group-1',
+                        'name': 'Демо группа 1 (API недоступен)',
+                        'pathName': 'Демо группа 1 (API недоступен)'
+                    }
+                ]
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
         groups = client.get_product_groups()
+        logger.info(f"Successfully fetched {len(groups)} product groups from МойСклад")
         return Response(groups)
     except Exception as e:
+        logger.error(f"Failed to fetch product groups: {str(e)}")
         # Fallback to demo data if API fails
-        return Response([
-            {
-                'id': 'group-1',
-                'name': 'Канцелярские товары',
-                'pathName': 'Канцелярские товары'
-            },
-            {
-                'id': 'group-2',
-                'name': 'Офисная техника',
-                'pathName': 'Офисная техника'
-            },
-            {
-                'id': 'group-3',
-                'name': 'Расходные материалы',
-                'pathName': 'Расходные материалы'
-            },
-            {
-                'id': 'group-4',
-                'name': 'Бытовая химия',
-                'pathName': 'Бытовая химия'
-            }
-        ])
+        return Response({
+            'error': str(e),
+            'type': type(e).__name__,
+            'detail': 'Failed to fetch product groups from МойСклад API',
+            'fallback_data': [
+                {
+                    'id': 'fallback-group-1',
+                    'name': 'Канцелярские товары (fallback)',
+                    'pathName': 'Канцелярские товары (fallback)'
+                },
+                {
+                    'id': 'fallback-group-2',
+                    'name': 'Офисная техника (fallback)',
+                    'pathName': 'Офисная техника (fallback)'
+                },
+                {
+                    'id': 'fallback-group-3',
+                    'name': 'Расходные материалы (fallback)',
+                    'pathName': 'Расходные материалы (fallback)'
+                },
+                {
+                    'id': 'fallback-group-4',
+                    'name': 'Бытовая химия (fallback)',
+                    'pathName': 'Бытовая химия (fallback)'
+                }
+            ]
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+@api_view(['POST'])
+# @permission_classes([IsAuthenticated])  # Временно отключено для разработки
+def test_connection(request):
+    """
+    Test connection to МойСклад API.
+    """
+    try:
+        from .moysklad_client import MoySkladClient
+        from django.conf import settings
+        
+        client = MoySkladClient()
+        
+        # Проверяем настройки
+        config = settings.MOYSKLAD_CONFIG
+        config_status = {
+            'base_url': config.get('base_url', 'Not set'),
+            'token_configured': bool(config.get('token')),
+            'token_length': len(config.get('token', '')) if config.get('token') else 0,
+            'default_warehouse': config.get('default_warehouse_id', 'Not set'),
+            'rate_limit': config.get('rate_limit', 5),
+            'timeout': config.get('timeout', 30)
+        }
+        
+        # Тестируем соединение
+        connection_test = client.test_connection()
+        
+        if connection_test:
+            # Пробуем получить базовую информацию
+            try:
+                warehouses = client.get_warehouses()
+                groups = client.get_product_groups()
+                
+                return Response({
+                    'status': 'success',
+                    'message': 'МойСклад API connection successful',
+                    'config': config_status,
+                    'test_results': {
+                        'connection': True,
+                        'warehouses_count': len(warehouses),
+                        'groups_count': len(groups),
+                        'sample_warehouse': warehouses[0] if warehouses else None,
+                        'sample_group': groups[0] if groups else None
+                    }
+                })
+            except Exception as e:
+                return Response({
+                    'status': 'partial',
+                    'message': 'Connection successful but data fetch failed',
+                    'config': config_status,
+                    'test_results': {
+                        'connection': True,
+                        'data_fetch_error': str(e)
+                    }
+                }, status=status.HTTP_206_PARTIAL_CONTENT)
+        else:
+            return Response({
+                'status': 'failed',
+                'message': 'МойСклад API connection failed',
+                'config': config_status,
+                'test_results': {
+                    'connection': False
+                },
+                'suggestions': [
+                    'Проверьте правильность токена МойСклад',
+                    'Убедитесь в доступности интернета',
+                    'Проверьте не истек ли срок действия токена',
+                    'Убедитесь что API МойСклад не заблокирован'
+                ]
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+    except Exception as e:
+        logger.error(f"Connection test failed: {str(e)}")
+        return Response({
+            'status': 'error',
+            'message': f'Connection test error: {str(e)}',
+            'error_type': type(e).__name__
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 # @permission_classes([IsAuthenticated])  # Временно отключено для разработки

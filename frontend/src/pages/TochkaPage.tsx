@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Typography, Card, Button, Row, Col, Table, Tag, message, Spin, Upload, Modal } from 'antd';
+import React, { useState, useEffect, useRef } from 'react';
+import { Typography, Card, Button, Row, Col, Table, Tag, message, Spin, Upload, Modal, Input, Space } from 'antd';
 import { 
   ShopOutlined, 
   ReloadOutlined,
   AppstoreOutlined,
   UnorderedListOutlined,
   UploadOutlined,
-  FileExcelOutlined
+  FileExcelOutlined,
+  SearchOutlined
 } from '@ant-design/icons';
 
 const { Title, Paragraph } = Typography;
@@ -16,8 +17,74 @@ export const TochkaPage: React.FC = () => {
   const [productsData, setProductsData] = useState<any[]>([]);
   const [productionData, setProductionData] = useState<any[]>([]);
   const [excelData, setExcelData] = useState<any[]>([]);
+  const [mergedData, setMergedData] = useState<any[]>([]);
+  const [filteredProductionData, setFilteredProductionData] = useState<any[]>([]);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
+  const [mergeLoading, setMergeLoading] = useState(false);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [searchedColumn, setSearchedColumn] = useState('');
+  const searchInput = useRef<any>(null);
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [traceLoading, setTraceLoading] = useState(false);
+
+  // Функция поиска для колонок
+  const handleSearch = (selectedKeys: any, confirm: any, dataIndex: any) => {
+    confirm();
+    setSearchText(selectedKeys[0]);
+    setSearchedColumn(dataIndex);
+  };
+
+  const handleReset = (clearFilters: any) => {
+    clearFilters();
+    setSearchText('');
+  };
+
+  const getColumnSearchProps = (dataIndex: string) => ({
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => (
+      <div style={{ padding: 8 }}>
+        <Input
+          ref={searchInput}
+          placeholder={`Поиск артикула`}
+          value={selectedKeys[0]}
+          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+          onPressEnter={() => handleSearch(selectedKeys, confirm, dataIndex)}
+          style={{ marginBottom: 8, display: 'block' }}
+        />
+        <Space>
+          <Button
+            type="primary"
+            onClick={() => handleSearch(selectedKeys, confirm, dataIndex)}
+            icon={<SearchOutlined />}
+            size="small"
+            style={{ width: 90 }}
+          >
+            Найти
+          </Button>
+          <Button
+            onClick={() => clearFilters && handleReset(clearFilters)}
+            size="small"
+            style={{ width: 90 }}
+          >
+            Сбросить
+          </Button>
+        </Space>
+      </div>
+    ),
+    filterIcon: (filtered: boolean) => (
+      <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
+    ),
+    onFilter: (value: any, record: any) =>
+      record[dataIndex]
+        ? record[dataIndex].toString().toLowerCase().includes(value.toLowerCase())
+        : '',
+    onFilterDropdownVisibleChange: (visible: boolean) => {
+      if (visible) {
+        setTimeout(() => searchInput.current?.select(), 100);
+      }
+    },
+  });
 
   // Функция для загрузки товаров
   const loadProducts = async () => {
@@ -75,7 +142,20 @@ export const TochkaPage: React.FC = () => {
       if (response.ok) {
         setExcelData(data.data || []);
         setUploadModalVisible(false);
-        message.success(data.message);
+        
+        // Более информативное сообщение о результатах
+        const successMessage = data.duplicates_merged > 0 
+          ? `${data.message} (${data.duplicates_merged} дубликатов объединено)`
+          : data.message;
+        
+        message.success(successMessage, 5); // Показываем 5 секунд
+        
+        if (data.duplicates_merged > 0) {
+          console.log(`Дедупликация завершена:
+            - Исходных записей: ${data.total_raw_records}
+            - Уникальных артикулов: ${data.unique_articles}  
+            - Дубликатов объединено: ${data.duplicates_merged}`);
+        }
       } else {
         message.error(data.error || 'Ошибка при загрузке файла');
         if (data.available_columns) {
@@ -91,6 +171,179 @@ export const TochkaPage: React.FC = () => {
     return false; // Предотвращаем автоматическую загрузку
   };
 
+  // Функция для объединения Excel данных с товарами
+  const handleMergeWithProducts = async () => {
+    if (excelData.length === 0) {
+      message.warning('Сначала загрузите Excel файл');
+      return;
+    }
+
+    setMergeLoading(true);
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/tochka/merge-with-products/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          excel_data: excelData
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setMergedData(data.data || []);
+        message.success(`${data.message} (${data.coverage_rate}% покрытие)`, 5);
+        
+        console.log(`Анализ производства завершен:
+          - Всего товаров к производству: ${data.total_production_needed}
+          - Есть в Точке: ${data.products_in_tochka}
+          - НЕТ в Точке: ${data.products_not_in_tochka}
+          - Процент покрытия: ${data.coverage_rate}%`);
+          
+        if (data.products_not_in_tochka > 0) {
+          message.warning(`Внимание! ${data.products_not_in_tochka} товаров требуют регистрации в Точке!`, 8);
+        }
+      } else {
+        message.error(data.error || 'Ошибка при объединении данных');
+      }
+    } catch (error) {
+      message.error('Ошибка подключения к серверу');
+    } finally {
+      setMergeLoading(false);
+    }
+  };
+
+  // Функция для получения отфильтрованного списка производства (только товары есть в Точке)
+  const handleGetFilteredProduction = async () => {
+    if (excelData.length === 0) {
+      message.warning('Сначала загрузите Excel файл');
+      return;
+    }
+
+    setFilterLoading(true);
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/tochka/filtered-production/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          excel_data: excelData
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setFilteredProductionData(data.data || []);
+        message.success(`${data.message} (${data.total_quantity} шт)`, 5);
+        
+        console.log(`Отфильтрованный список готов:
+          - Товаров к производству: ${data.total_items}
+          - Общее количество: ${data.total_quantity} шт
+          - Исключены товары отсутствующие в Точке`);
+      } else {
+        message.error(data.error || 'Ошибка при получении списка');
+      }
+    } catch (error) {
+      message.error('Ошибка подключения к серверу');
+    } finally {
+      setFilterLoading(false);
+    }
+  };
+
+  // Функция отладки для конкретного артикула
+  const handleDebugArticle = async () => {
+    if (excelData.length === 0) {
+      message.warning('Сначала загрузите Excel файл');
+      return;
+    }
+
+    setDebugLoading(true);
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/tochka/debug-matching/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          excel_data: excelData,
+          test_article: '423-51412'
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        console.log('=== ОТЛАДКА АРТИКУЛА 423-51412 ===');
+        console.log('Найден в базе данных:', data.product_found_in_db);
+        console.log('Информация о товаре:', data.product_info);
+        console.log('Найден в Excel:', data.excel_found);
+        console.log('Данные Excel:', data.excel_item);
+        console.log('Всего артикулов в Excel:', data.total_excel_articles);
+        console.log('Первые 20 артикулов Excel:', data.excel_articles_sample);
+        console.log('Совпадающие артикулы:', data.matching_articles);
+        console.log('Отладочная информация:', data.debug_info);
+        
+        message.info(`Отладка завершена. Смотрите консоль браузера (F12)`, 5);
+      } else {
+        message.error(data.error || 'Ошибка отладки');
+      }
+    } catch (error) {
+      message.error('Ошибка подключения к серверу');
+    } finally {
+      setDebugLoading(false);
+    }
+  };
+
+  // Функция пошагового отслеживания обработки артикула
+  const handleTraceArticle = async () => {
+    if (excelData.length === 0) {
+      message.warning('Сначала загрузите Excel файл');
+      return;
+    }
+
+    setTraceLoading(true);
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/tochka/trace-processing/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          excel_data: excelData,
+          test_article: '423-51412'
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        console.log('=== ПОШАГОВАЯ ТРАССИРОВКА АРТИКУЛА 423-51412 ===');
+        console.log('Тестируемый артикул:', data.test_article);
+        
+        data.steps.forEach((step: any, index: number) => {
+          console.log(`\n--- ШАГ ${step.step}: ${step.name} ---`);
+          console.log(step);
+        });
+        
+        message.info(`Трассировка завершена. Смотрите консоль браузера (F12)`, 5);
+      } else {
+        message.error(data.error || 'Ошибка трассировки');
+      }
+    } catch (error) {
+      message.error('Ошибка подключения к серверу');
+    } finally {
+      setTraceLoading(false);
+    }
+  };
+
   // Загрузка данных при монтировании
   useEffect(() => {
     loadProducts();
@@ -103,6 +356,8 @@ export const TochkaPage: React.FC = () => {
       dataIndex: 'article',
       key: 'article',
       width: 120,
+      sorter: (a: any, b: any) => a.article.localeCompare(b.article),
+      ...getColumnSearchProps('article'),
       render: (text: string) => <Tag color="blue">{text}</Tag>,
     },
     {
@@ -110,12 +365,14 @@ export const TochkaPage: React.FC = () => {
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
+      sorter: (a: any, b: any) => a.name.localeCompare(b.name),
     },
     {
       title: 'Остаток',
       dataIndex: 'current_stock',
       key: 'current_stock',
       width: 100,
+      sorter: (a: any, b: any) => a.current_stock - b.current_stock,
       render: (value: number) => `${value} шт`,
     },
     {
@@ -123,6 +380,7 @@ export const TochkaPage: React.FC = () => {
       dataIndex: 'product_type',
       key: 'product_type',
       width: 100,
+      sorter: (a: any, b: any) => a.product_type.localeCompare(b.product_type),
       render: (type: string) => {
         const colors: any = {
           'new': 'green',
@@ -142,6 +400,7 @@ export const TochkaPage: React.FC = () => {
       dataIndex: 'sales_last_2_months',
       key: 'sales_last_2_months',
       width: 120,
+      sorter: (a: any, b: any) => a.sales_last_2_months - b.sales_last_2_months,
       render: (value: number) => `${value} шт`,
     },
   ];
@@ -153,6 +412,8 @@ export const TochkaPage: React.FC = () => {
       dataIndex: 'article',
       key: 'article',
       width: 120,
+      sorter: (a: any, b: any) => a.article.localeCompare(b.article),
+      ...getColumnSearchProps('article'),
       render: (text: string) => <Tag color="orange">{text}</Tag>,
     },
     {
@@ -160,12 +421,14 @@ export const TochkaPage: React.FC = () => {
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
+      sorter: (a: any, b: any) => a.name.localeCompare(b.name),
     },
     {
       title: 'К производству',
       dataIndex: 'production_needed',
       key: 'production_needed',
       width: 120,
+      sorter: (a: any, b: any) => a.production_needed - b.production_needed,
       render: (value: number) => (
         <span style={{ color: '#f5222d', fontWeight: 'bold' }}>
           {value} шт
@@ -177,6 +440,7 @@ export const TochkaPage: React.FC = () => {
       dataIndex: 'production_priority',
       key: 'production_priority',
       width: 100,
+      sorter: (a: any, b: any) => a.production_priority - b.production_priority,
       render: (value: number) => (
         <Tag color={value >= 80 ? 'red' : value >= 60 ? 'orange' : 'blue'}>
           {value}
@@ -188,6 +452,7 @@ export const TochkaPage: React.FC = () => {
       dataIndex: 'current_stock',
       key: 'current_stock',
       width: 120,
+      sorter: (a: any, b: any) => a.current_stock - b.current_stock,
       render: (value: number) => `${value} шт`,
     },
   ];
@@ -206,18 +471,281 @@ export const TochkaPage: React.FC = () => {
       dataIndex: 'article',
       key: 'article',
       width: 150,
-      render: (text: string) => <Tag color="green">{text}</Tag>,
+      render: (text: string, record: any) => (
+        <div>
+          <Tag color="green">{text}</Tag>
+          {record.has_duplicates && (
+            <Tag color="orange" style={{ marginTop: 4, fontSize: '10px' }}>
+              Дубликат (строки: {record.duplicate_rows?.join(', ')})
+            </Tag>
+          )}
+        </div>
+      ),
     },
     {
       title: 'Заказов, шт.',
       dataIndex: 'orders',
       key: 'orders',
       width: 120,
-      render: (value: number) => (
-        <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+      render: (value: number, record: any) => (
+        <div>
+          <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+            {value} шт
+          </span>
+          {record.has_duplicates && (
+            <div style={{ fontSize: '10px', color: '#999' }}>
+              Сумма дубликатов
+            </div>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  // Колонки для объединенной таблицы производства
+  const mergedColumns = [
+    {
+      title: 'Статус в Точке',
+      key: 'tochka_status',
+      width: 130,
+      fixed: 'left' as const,
+      sorter: (a: any, b: any) => {
+        // Сортировка: сначала "НЕТ В ТОЧКЕ", потом "Есть в Точке"
+        if (a.needs_registration && !b.needs_registration) return -1;
+        if (!a.needs_registration && b.needs_registration) return 1;
+        return 0;
+      },
+      render: (record: any) => {
+        if (record.needs_registration) {
+          return <Tag color="red" style={{ fontWeight: 'bold' }}>НЕТ В ТОЧКЕ</Tag>;
+        } else {
+          return <Tag color="green">Есть в Точке</Tag>;
+        }
+      },
+    },
+    {
+      title: 'Артикул',
+      dataIndex: 'article',
+      key: 'article',
+      width: 120,
+      sorter: (a: any, b: any) => a.article.localeCompare(b.article),
+      ...getColumnSearchProps('article'),
+      render: (text: string, record: any) => (
+        <div>
+          <Tag color={record.is_in_tochka ? 'blue' : 'orange'}>{text}</Tag>
+          {record.has_duplicates && (
+            <Tag color="purple" style={{ marginTop: 4, fontSize: '10px' }}>
+              Дубликат в Excel
+            </Tag>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Название товара',
+      dataIndex: 'product_name',
+      key: 'product_name',
+      width: 250,
+      ellipsis: true,
+      sorter: (a: any, b: any) => a.product_name.localeCompare(b.product_name),
+      render: (name: string, record: any) => (
+        <span style={{ 
+          color: record.needs_registration ? '#ff4d4f' : '#1890ff',
+          fontWeight: record.needs_registration ? 'bold' : 'normal'
+        }}>
+          {name}
+        </span>
+      ),
+    },
+    {
+      title: 'К производству',
+      dataIndex: 'production_needed',
+      key: 'production_needed',
+      width: 120,
+      sorter: (a: any, b: any) => a.production_needed - b.production_needed,
+      render: (value: number, record: any) => (
+        <span style={{ 
+          color: '#f5222d', 
+          fontWeight: 'bold',
+          fontSize: record.needs_registration ? '14px' : '12px'
+        }}>
           {value} шт
         </span>
       ),
+    },
+    {
+      title: 'Заказов в Точке',
+      dataIndex: 'orders_in_tochka',
+      key: 'orders_in_tochka',
+      width: 130,
+      sorter: (a: any, b: any) => a.orders_in_tochka - b.orders_in_tochka,
+      render: (value: number, record: any) => {
+        if (record.is_in_tochka) {
+          return (
+            <div>
+              <span style={{ color: '#52c41a', fontWeight: 'bold' }}>
+                {value} шт
+              </span>
+              {record.has_duplicates && (
+                <div style={{ fontSize: '10px', color: '#999' }}>
+                  Сумма дубликатов
+                </div>
+              )}
+            </div>
+          );
+        } else {
+          return <span style={{ color: '#999' }}>—</span>;
+        }
+      },
+    },
+    {
+      title: 'Остаток',
+      dataIndex: 'current_stock',
+      key: 'current_stock',
+      width: 100,
+      sorter: (a: any, b: any) => a.current_stock - b.current_stock,
+      render: (value: number) => `${value} шт`,
+    },
+    {
+      title: 'Продажи 2 мес',
+      dataIndex: 'sales_last_2_months',
+      key: 'sales_last_2_months',
+      width: 110,
+      sorter: (a: any, b: any) => a.sales_last_2_months - b.sales_last_2_months,
+      render: (value: number) => `${value} шт`,
+    },
+    {
+      title: 'Тип',
+      dataIndex: 'product_type',
+      key: 'product_type',
+      width: 90,
+      sorter: (a: any, b: any) => a.product_type.localeCompare(b.product_type),
+      render: (type: string) => {
+        const colors: any = {
+          'new': 'green',
+          'old': 'blue',
+          'critical': 'red'
+        };
+        const labels: any = {
+          'new': 'Новый',
+          'old': 'Старый',
+          'critical': 'Критич.'
+        };
+        return <Tag color={colors[type] || 'default'}>{labels[type] || type}</Tag>;
+      },
+    },
+    {
+      title: 'Приоритет',
+      dataIndex: 'production_priority',
+      key: 'production_priority',
+      width: 100,
+      sorter: (a: any, b: any) => a.production_priority - b.production_priority,
+      render: (value: number) => (
+        <Tag color={value >= 80 ? 'red' : value >= 60 ? 'orange' : 'blue'}>
+          {value}
+        </Tag>
+      ),
+    },
+  ];
+
+  // Колонки для отфильтрованного списка производства (только товары в Точке)
+  const filteredProductionColumns = [
+    {
+      title: 'Артикул',
+      dataIndex: 'article',
+      key: 'article',
+      width: 120,
+      sorter: (a: any, b: any) => a.article.localeCompare(b.article),
+      ...getColumnSearchProps('article'),
+      render: (text: string) => <Tag color="green">{text}</Tag>,
+    },
+    {
+      title: 'Название товара',
+      dataIndex: 'product_name',
+      key: 'product_name',
+      width: 250,
+      ellipsis: true,
+      sorter: (a: any, b: any) => a.product_name.localeCompare(b.product_name),
+      render: (name: string) => <span style={{ color: '#1890ff' }}>{name}</span>,
+    },
+    {
+      title: 'К производству',
+      dataIndex: 'production_needed',
+      key: 'production_needed',
+      width: 120,
+      sorter: (a: any, b: any) => a.production_needed - b.production_needed,
+      render: (value: number) => (
+        <span style={{ color: '#f5222d', fontWeight: 'bold' }}>
+          {value} шт
+        </span>
+      ),
+    },
+    {
+      title: 'Заказов в Точке',
+      dataIndex: 'orders_in_tochka',
+      key: 'orders_in_tochka',
+      width: 130,
+      sorter: (a: any, b: any) => a.orders_in_tochka - b.orders_in_tochka,
+      render: (value: number, record: any) => (
+        <div>
+          <span style={{ color: '#52c41a', fontWeight: 'bold' }}>
+            {value} шт
+          </span>
+          {record.has_duplicates && (
+            <div style={{ fontSize: '10px', color: '#999' }}>
+              Сумма дубликатов
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Остаток',
+      dataIndex: 'current_stock',
+      key: 'current_stock',
+      width: 100,
+      sorter: (a: any, b: any) => a.current_stock - b.current_stock,
+      render: (value: number) => `${value} шт`,
+    },
+    {
+      title: 'Тип',
+      dataIndex: 'product_type',
+      key: 'product_type',
+      width: 90,
+      sorter: (a: any, b: any) => a.product_type.localeCompare(b.product_type),
+      render: (type: string) => {
+        const colors: any = {
+          'new': 'green',
+          'old': 'blue',
+          'critical': 'red'
+        };
+        const labels: any = {
+          'new': 'Новый',
+          'old': 'Старый',
+          'critical': 'Критич.'
+        };
+        return <Tag color={colors[type] || 'default'}>{labels[type] || type}</Tag>;
+      },
+    },
+    {
+      title: 'Приоритет',
+      dataIndex: 'production_priority',
+      key: 'production_priority',
+      width: 100,
+      sorter: (a: any, b: any) => a.production_priority - b.production_priority,
+      render: (value: number) => (
+        <Tag color={value >= 80 ? 'red' : value >= 60 ? 'orange' : 'blue'}>
+          {value}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Продажи 2 мес',
+      dataIndex: 'sales_last_2_months',
+      key: 'sales_last_2_months',
+      width: 110,
+      sorter: (a: any, b: any) => a.sales_last_2_months - b.sales_last_2_months,
+      render: (value: number) => `${value} шт`,
     },
   ];
 
@@ -276,6 +804,56 @@ export const TochkaPage: React.FC = () => {
             Загрузить Excel
           </Button>
         </Col>
+        {excelData.length > 0 && (
+          <>
+            <Col>
+              <Button 
+                type="primary"
+                icon={<AppstoreOutlined />}
+                onClick={handleMergeWithProducts}
+                loading={mergeLoading}
+                style={{ backgroundColor: '#722ed1', borderColor: '#722ed1' }}
+              >
+                Анализ производства
+              </Button>
+            </Col>
+            <Col>
+              <Button 
+                type="default"
+                icon={<UnorderedListOutlined />}
+                onClick={handleGetFilteredProduction}
+                loading={filterLoading}
+                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', color: 'white' }}
+              >
+                Список к производству
+              </Button>
+            </Col>
+            <Col>
+              <Button 
+                type="default"
+                icon={<SearchOutlined />}
+                onClick={handleDebugArticle}
+                loading={debugLoading}
+                style={{ backgroundColor: '#fa8c16', borderColor: '#fa8c16', color: 'white' }}
+                size="small"
+              >
+                🐛 Отладка 423-51412
+              </Button>
+            </Col>
+            <Col>
+              <Button 
+                type="default"
+                icon={<SearchOutlined />}
+                onClick={handleTraceArticle}
+                loading={traceLoading}
+                style={{ backgroundColor: '#722ed1', borderColor: '#722ed1', color: 'white' }}
+                size="small"
+              >
+                🔍 Трассировка 423-51412
+              </Button>
+            </Col>
+          </>
+        )}
       </Row>
 
       <Spin spinning={loading}>
@@ -323,11 +901,52 @@ export const TochkaPage: React.FC = () => {
           />
         </Card>
 
-        {/* Таблица данных из Excel */}
-        {excelData.length > 0 && (
+        {/* Таблица анализа производства */}
+        {mergedData.length > 0 && (
           <Card 
-            title={`Данные из Excel (${excelData.length})`}
-            extra={<Tag color="green">Артикул + Заказы</Tag>}
+            title={`Список на производство с анализом Точки (${mergedData.length} товаров)`}
+            extra={
+              <div>
+                <Tag color="purple">К производству</Tag>
+                <Tag color="green">
+                  {mergedData.filter((item: any) => item.is_in_tochka).length} есть в Точке
+                </Tag>
+                <Tag color="red" style={{ fontWeight: 'bold' }}>
+                  {mergedData.filter((item: any) => item.needs_registration).length} НЕТ в Точке!
+                </Tag>
+              </div>
+            }
+            style={{ marginBottom: 24 }}
+          >
+            <Table
+              dataSource={mergedData}
+              columns={mergedColumns}
+              rowKey={(record, index) => `merged-${index}`}
+              pagination={{
+                pageSize: 20,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => 
+                  `${range[0]}-${range[1]} из ${total} записей`,
+              }}
+              scroll={{ x: 1000 }}
+              size="small"
+            />
+          </Card>
+        )}
+
+        {/* Таблица данных из Excel */}
+        {excelData.length > 0 && mergedData.length === 0 && (
+          <Card 
+            title={`Данные из Excel (${excelData.length} уникальных артикулов)`}
+            extra={
+              <div>
+                <Tag color="green">Артикул + Заказы</Tag>
+                {excelData.some((item: any) => item.has_duplicates) && (
+                  <Tag color="orange">Дубликаты объединены</Tag>
+                )}
+              </div>
+            }
           >
             <Table
               dataSource={excelData}
@@ -341,6 +960,37 @@ export const TochkaPage: React.FC = () => {
                   `${range[0]}-${range[1]} из ${total} записей`,
               }}
               scroll={{ x: 400 }}
+              size="small"
+            />
+          </Card>
+        )}
+
+        {/* Таблица отфильтрованного списка производства */}
+        {filteredProductionData.length > 0 && (
+          <Card 
+            title={`Список к производству (${filteredProductionData.length} товаров)`}
+            extra={
+              <div>
+                <Tag color="green">✅ Только товары в Точке</Tag>
+                <Tag color="blue">
+                  {filteredProductionData.reduce((sum: number, item: any) => sum + item.production_needed, 0).toFixed(0)} шт всего
+                </Tag>
+              </div>
+            }
+            style={{ marginBottom: 24 }}
+          >
+            <Table
+              dataSource={filteredProductionData}
+              columns={filteredProductionColumns}
+              rowKey={(record, index) => `filtered-${index}`}
+              pagination={{
+                pageSize: 20,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => 
+                  `${range[0]}-${range[1]} из ${total} записей`,
+              }}
+              scroll={{ x: 1000 }}
               size="small"
             />
           </Card>
