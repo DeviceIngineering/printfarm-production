@@ -293,6 +293,108 @@ export const TochkaPage: React.FC = () => {
     }
   };
 
+  // Функция для экспорта дедуплицированных данных Excel
+  const handleExportDeduplicatedExcel = async () => {
+    if (deduplicatedExcelData.length === 0) {
+      message.warning('Нет данных для экспорта');
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/tochka/export-deduplicated/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          data: deduplicatedExcelData
+        }),
+      });
+
+      if (response.ok) {
+        // Получаем blob с файлом
+        const blob = await response.blob();
+        
+        // Создаем ссылку для скачивания
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Извлекаем имя файла из заголовков
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'Данные_Excel_без_дублей.xlsx';
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="(.+)"/);
+          if (match) filename = match[1];
+        }
+        
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        message.success('Файл успешно экспортирован');
+      } else {
+        const errorData = await response.json();
+        message.error(errorData.error || 'Ошибка при экспорте');
+      }
+    } catch (error) {
+      message.error('Ошибка подключения к серверу');
+    }
+  };
+
+  // Функция для экспорта списка к производству
+  const handleExportProductionList = async () => {
+    if (filteredProductionData.length === 0) {
+      message.warning('Нет данных для экспорта');
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/tochka/export-production/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          data: filteredProductionData
+        }),
+      });
+
+      if (response.ok) {
+        // Получаем blob с файлом
+        const blob = await response.blob();
+        
+        // Создаем ссылку для скачивания
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Извлекаем имя файла из заголовков
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'Список_к_производству.xlsx';
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="(.+)"/);
+          if (match) filename = match[1];
+        }
+        
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        message.success('Файл успешно экспортирован');
+      } else {
+        const errorData = await response.json();
+        message.error(errorData.error || 'Ошибка при экспорте');
+      }
+    } catch (error) {
+      message.error('Ошибка подключения к серверу');
+    }
+  };
+
 
   // Загрузка данных при монтировании
   useEffect(() => {
@@ -966,7 +1068,7 @@ export const TochkaPage: React.FC = () => {
           <Card 
             title={`Данные Excel без дублей (${deduplicatedExcelData.length} уникальных артикулов)`}
             extra={
-              <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Tag color="blue">Дедуплицированные данные</Tag>
                 <Tag color="green">
                   {deduplicatedExcelData.reduce((sum: number, item: any) => sum + item.orders, 0)} шт всего
@@ -974,6 +1076,15 @@ export const TochkaPage: React.FC = () => {
                 <Tag color="orange">
                   {deduplicatedExcelData.filter(item => item.has_duplicates).length} объединений
                 </Tag>
+                <Button 
+                  type="primary"
+                  size="small"
+                  icon={<FileExcelOutlined />}
+                  onClick={handleExportDeduplicatedExcel}
+                  style={{ backgroundColor: '#13c2c2', borderColor: '#13c2c2' }}
+                >
+                  Экспорт в Excel
+                </Button>
               </div>
             }
             style={{ marginBottom: 24 }}
@@ -1000,11 +1111,20 @@ export const TochkaPage: React.FC = () => {
           <Card 
             title={`Список к производству (${filteredProductionData.length} товаров)`}
             extra={
-              <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Tag color="green">✅ Только товары в Точке</Tag>
                 <Tag color="blue">
                   {filteredProductionData.reduce((sum: number, item: any) => sum + item.production_needed, 0).toFixed(0)} шт всего
                 </Tag>
+                <Button 
+                  type="primary"
+                  size="small"
+                  icon={<FileExcelOutlined />}
+                  onClick={handleExportProductionList}
+                  style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+                >
+                  Экспорт в Excel
+                </Button>
               </div>
             }
             style={{ marginBottom: 24 }}

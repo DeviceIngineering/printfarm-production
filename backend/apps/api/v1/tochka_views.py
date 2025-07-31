@@ -8,6 +8,10 @@ from apps.products.serializers import ProductListSerializer
 import pandas as pd
 import io
 import re
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+from django.http import HttpResponse
+from datetime import datetime
 
 def normalize_article(article):
     """
@@ -496,5 +500,182 @@ def get_filtered_production_list(request):
     except Exception as e:
         return Response({
             'error': f'Ошибка при создании отфильтрованного списка: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def export_deduplicated_excel(request):
+    """
+    API для экспорта дедуплицированных данных Excel в файл
+    """
+    try:
+        data = request.data.get('data', [])
+        
+        if not data:
+            return Response({
+                'error': 'Нет данных для экспорта'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Создаем Excel файл
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Данные Excel без дублей"
+        
+        # Стили для заголовков
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="06EAFC", end_color="06EAFC", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Заголовки колонок
+        headers = ['Артикул', 'Заказов (шт.)', 'Номер строки', 'Есть дубликаты', 'Строки дубликатов']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+        
+        # Данные
+        for row, item in enumerate(data, 2):
+            ws.cell(row=row, column=1, value=item.get('article', ''))
+            ws.cell(row=row, column=2, value=item.get('orders', 0))
+            ws.cell(row=row, column=3, value=item.get('row_number', ''))
+            ws.cell(row=row, column=4, value='Да' if item.get('has_duplicates') else 'Нет')
+            
+            # Объединяем номера строк дубликатов
+            duplicate_rows = item.get('duplicate_rows', [])
+            if duplicate_rows:
+                ws.cell(row=row, column=5, value=', '.join(map(str, duplicate_rows)))
+            else:
+                ws.cell(row=row, column=5, value='')
+        
+        # Автоширина колонок
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        # Подготавливаем ответ
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f'Данные_Excel_без_дублей_{timestamp}.xlsx'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        wb.save(response)
+        return response
+        
+    except Exception as e:
+        return Response({
+            'error': f'Ошибка при экспорте: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def export_production_list(request):
+    """
+    API для экспорта списка к производству в Excel файл
+    """
+    try:
+        data = request.data.get('data', [])
+        
+        if not data:
+            return Response({
+                'error': 'Нет данных для экспорта'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Создаем Excel файл
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Список к производству"
+        
+        # Стили для заголовков
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="13C2C2", end_color="13C2C2", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Заголовки колонок
+        headers = [
+            'Артикул', 'Название товара', 'К производству (шт.)', 'Приоритет', 
+            'Текущий остаток', 'Тип товара', 'Продажи за 2 мес.', 'Заказов в Точке'
+        ]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+        
+        # Данные
+        total_production = 0
+        for row, item in enumerate(data, 2):
+            ws.cell(row=row, column=1, value=item.get('article', ''))
+            ws.cell(row=row, column=2, value=item.get('product_name', ''))
+            
+            production_needed = item.get('production_needed', 0)
+            ws.cell(row=row, column=3, value=production_needed)
+            total_production += production_needed
+            
+            ws.cell(row=row, column=4, value=item.get('production_priority', 0))
+            ws.cell(row=row, column=5, value=item.get('current_stock', 0))
+            
+            # Переводим тип товара на русский
+            product_type = item.get('product_type', '')
+            type_translation = {
+                'new': 'Новый',
+                'old': 'Старый', 
+                'critical': 'Критичный'
+            }
+            ws.cell(row=row, column=6, value=type_translation.get(product_type, product_type))
+            
+            ws.cell(row=row, column=7, value=item.get('sales_last_2_months', 0))
+            ws.cell(row=row, column=8, value=item.get('orders_in_tochka', 0))
+        
+        # Добавляем итоговую строку
+        total_row = len(data) + 3
+        ws.cell(row=total_row, column=2, value="ИТОГО К ПРОИЗВОДСТВУ:")
+        ws.cell(row=total_row, column=3, value=total_production)
+        
+        # Стиль для итоговой строки
+        for col in [2, 3]:
+            cell = ws.cell(row=total_row, column=col)
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill(start_color="E6F7FF", end_color="E6F7FF", fill_type="solid")
+        
+        # Автоширина колонок
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        # Подготавливаем ответ
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f'Список_к_производству_{timestamp}.xlsx'
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        wb.save(response)
+        return response
+        
+    except Exception as e:
+        return Response({
+            'error': f'Ошибка при экспорте: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
