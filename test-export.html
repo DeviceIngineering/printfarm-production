@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест экспорта Excel</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button { 
+            background: #06EAFC; 
+            border: none; 
+            padding: 10px 20px; 
+            margin: 5px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-weight: bold;
+        }
+        button:hover { background: #05d0e0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Тест экспорта Excel - PrintFarm</h1>
+        
+        <div class="status info">
+            <strong>Время проверки:</strong> <span id="timestamp"></span>
+        </div>
+        
+        <h2>Экспорт данных:</h2>
+        <button onclick="exportProducts()">Экспорт всех товаров</button>
+        <button onclick="exportProductionList()">Экспорт списка производства</button>
+        <button onclick="testExportAPI()">Проверить API экспорта</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        document.getElementById('timestamp').textContent = new Date().toLocaleString('ru-RU');
+        
+        const resultsDiv = document.getElementById('results');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            resultsDiv.appendChild(div);
+        }
+        
+        function exportProducts() {
+            log('Запуск экспорта всех товаров...', 'info');
+            
+            const url = 'http://localhost:8000/api/v1/reports/export/products/';
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `printfarm_products_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            log('✅ Экспорт запущен. Файл должен загрузиться автоматически.', 'success');
+        }
+        
+        function exportProductionList() {
+            log('Запуск экспорта списка производства...', 'info');
+            
+            const url = 'http://localhost:8000/api/v1/reports/export/production-list/';
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `printfarm_production_list_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            log('✅ Экспорт списка производства запущен.', 'success');
+        }
+        
+        async function testExportAPI() {
+            log('Проверка API экспорта...', 'info');
+            
+            try {
+                // Тест экспорта товаров
+                const response = await fetch('http://localhost:8000/api/v1/reports/export/products/', {
+                    method: 'HEAD'  // Только заголовки
+                });
+                
+                if (response.ok) {
+                    const contentType = response.headers.get('Content-Type');
+                    const contentLength = response.headers.get('Content-Length');
+                    
+                    log('✅ API экспорта работает', 'success');
+                    log(`📄 Content-Type: ${contentType}`, 'info');
+                    log(`📏 Размер файла: ${Math.round(contentLength / 1024)} KB`, 'info');
+                    
+                    if (contentType.includes('spreadsheetml')) {
+                        log('✅ Правильный формат Excel файла', 'success');
+                    } else {
+                        log('⚠️ Неожиданный тип файла', 'error');
+                    }
+                } else {
+                    log(`❌ API вернул статус: ${response.status}`, 'error');
+                    const text = await response.text();
+                    log(`Ошибка: ${text}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Ошибка при проверке API: ${error.message}`, 'error');
+            }
+        }
+        
+        // Автоматическая проверка при загрузке
+        window.onload = () => {
+            setTimeout(testExportAPI, 1000);
+        };
+    </script>
+</body>
+</html>

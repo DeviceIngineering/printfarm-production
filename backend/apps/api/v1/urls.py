@@ -5,9 +5,7 @@ from .tochka_views import (
     get_products_stats_for_tochka,
     upload_excel_file_for_tochka,
     merge_excel_with_products,
-    get_filtered_production_list,
-    debug_article_matching,
-    trace_article_processing
+    get_filtered_production_list
 )
 
 urlpatterns = [
@@ -24,6 +22,4 @@ urlpatterns = [
     path('tochka/upload-excel/', upload_excel_file_for_tochka, name='tochka-upload-excel'),
     path('tochka/merge-with-products/', merge_excel_with_products, name='tochka-merge-with-products'),
     path('tochka/filtered-production/', get_filtered_production_list, name='tochka-filtered-production'),
-    path('tochka/debug-matching/', debug_article_matching, name='tochka-debug-matching'),
-    path('tochka/trace-processing/', trace_article_processing, name='tochka-trace-processing'),
 ]

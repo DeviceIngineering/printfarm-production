@@ -26,8 +26,6 @@ export const TochkaPage: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
   const searchInput = useRef<any>(null);
-  const [debugLoading, setDebugLoading] = useState(false);
-  const [traceLoading, setTraceLoading] = useState(false);
 
   // Функция поиска для колонок
   const handleSearch = (selectedKeys: any, confirm: any, dataIndex: any) => {
@@ -124,18 +122,6 @@ export const TochkaPage: React.FC = () => {
     }
   };
 
-  // Функция для создания тестовых дедуплицированных данных
-  const createTestDeduplicatedData = () => {
-    const testData = [
-      { article: '423-51412', orders: 15, row_number: 1, has_duplicates: true, duplicate_rows: [5, 10] },
-      { article: '101-43031', orders: 8, row_number: 2, has_duplicates: false, duplicate_rows: [] },
-      { article: '375-42108', orders: 12, row_number: 3, has_duplicates: true, duplicate_rows: [7] },
-      { article: '264-41723', orders: 6, row_number: 4, has_duplicates: false, duplicate_rows: [] },
-      { article: '180-40317', orders: 20, row_number: 6, has_duplicates: true, duplicate_rows: [8, 9, 11] },
-    ];
-    setDeduplicatedExcelData(testData);
-    message.success(`Созданы тестовые дедуплицированные данные (${testData.length} записей)`);
-  };
 
   // Функция для создания дедуплицированных данных из загруженного Excel
   const createDeduplicatedData = (rawData: any[]) => {
@@ -307,93 +293,6 @@ export const TochkaPage: React.FC = () => {
     }
   };
 
-  // Функция отладки для конкретного артикула
-  const handleDebugArticle = async () => {
-    if (excelData.length === 0) {
-      message.warning('Сначала загрузите Excel файл');
-      return;
-    }
-
-    setDebugLoading(true);
-    
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/tochka/debug-matching/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          excel_data: excelData,
-          test_article: '423-51412'
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        console.log('=== ОТЛАДКА АРТИКУЛА 423-51412 ===');
-        console.log('Найден в базе данных:', data.product_found_in_db);
-        console.log('Информация о товаре:', data.product_info);
-        console.log('Найден в Excel:', data.excel_found);
-        console.log('Данные Excel:', data.excel_item);
-        console.log('Всего артикулов в Excel:', data.total_excel_articles);
-        console.log('Первые 20 артикулов Excel:', data.excel_articles_sample);
-        console.log('Совпадающие артикулы:', data.matching_articles);
-        console.log('Отладочная информация:', data.debug_info);
-        
-        message.info(`Отладка завершена. Смотрите консоль браузера (F12)`, 5);
-      } else {
-        message.error(data.error || 'Ошибка отладки');
-      }
-    } catch (error) {
-      message.error('Ошибка подключения к серверу');
-    } finally {
-      setDebugLoading(false);
-    }
-  };
-
-  // Функция пошагового отслеживания обработки артикула
-  const handleTraceArticle = async () => {
-    if (excelData.length === 0) {
-      message.warning('Сначала загрузите Excel файл');
-      return;
-    }
-
-    setTraceLoading(true);
-    
-    try {
-      const response = await fetch('http://localhost:8000/api/v1/tochka/trace-processing/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          excel_data: excelData,
-          test_article: '423-51412'
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        console.log('=== ПОШАГОВАЯ ТРАССИРОВКА АРТИКУЛА 423-51412 ===');
-        console.log('Тестируемый артикул:', data.test_article);
-        
-        data.steps.forEach((step: any, index: number) => {
-          console.log(`\n--- ШАГ ${step.step}: ${step.name} ---`);
-          console.log(step);
-        });
-        
-        message.info(`Трассировка завершена. Смотрите консоль браузера (F12)`, 5);
-      } else {
-        message.error(data.error || 'Ошибка трассировки');
-      }
-    } catch (error) {
-      message.error('Ошибка подключения к серверу');
-    } finally {
-      setTraceLoading(false);
-    }
-  };
 
   // Загрузка данных при монтировании
   useEffect(() => {
@@ -947,40 +846,6 @@ export const TochkaPage: React.FC = () => {
                 size="small"
               >
                 📊 Дедупликация
-              </Button>
-            </Col>
-            <Col>
-              <Button 
-                type="default"
-                onClick={createTestDeduplicatedData}
-                style={{ backgroundColor: '#722ed1', borderColor: '#722ed1', color: 'white' }}
-                size="small"
-              >
-                🧪 Тест данные
-              </Button>
-            </Col>
-            <Col>
-              <Button 
-                type="default"
-                icon={<SearchOutlined />}
-                onClick={handleDebugArticle}
-                loading={debugLoading}
-                style={{ backgroundColor: '#fa8c16', borderColor: '#fa8c16', color: 'white' }}
-                size="small"
-              >
-                🐛 Отладка 423-51412
-              </Button>
-            </Col>
-            <Col>
-              <Button 
-                type="default"
-                icon={<SearchOutlined />}
-                onClick={handleTraceArticle}
-                loading={traceLoading}
-                style={{ backgroundColor: '#722ed1', borderColor: '#722ed1', color: 'white' }}
-                size="small"
-              >
-                🔍 Трассировка 423-51412
               </Button>
             </Col>
           </>

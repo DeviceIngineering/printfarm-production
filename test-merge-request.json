@@ -1,0 +1,32 @@
+{
+  "excel_data": [
+    {
+      "article": "FAKE-ARTICLE-999",
+      "orders": 100,
+      "row_number": 5,
+      "has_duplicates": false,
+      "duplicate_rows": null
+    },
+    {
+      "article": "540-50402",
+      "orders": 45,
+      "row_number": 1,
+      "has_duplicates": true,
+      "duplicate_rows": [4]
+    },
+    {
+      "article": "243-41302",
+      "orders": 45,
+      "row_number": 3,
+      "has_duplicates": false,
+      "duplicate_rows": null
+    },
+    {
+      "article": "337-42820",
+      "orders": 30,
+      "row_number": 2,
+      "has_duplicates": false,
+      "duplicate_rows": null
+    }
+  ]
+}
