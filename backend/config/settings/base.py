@@ -166,8 +166,8 @@ CACHES = {
 # МойСклад Configuration
 MOYSKLAD_CONFIG = {
     'base_url': 'https://api.moysklad.ru/api/remap/1.2',
-    'token': config('MOYSKLAD_TOKEN'),
-    'default_warehouse_id': config('MOYSKLAD_DEFAULT_WAREHOUSE'),
+    'token': config('MOYSKLAD_TOKEN', default=''),
+    'default_warehouse_id': config('MOYSKLAD_DEFAULT_WAREHOUSE', default=''),
     'rate_limit': 5,  # requests per second
     'retry_attempts': 3,
     'timeout': 30,

@@ -530,23 +530,17 @@ build_and_run() {
     print_header "СБОРКА И ЗАПУСК ПРИЛОЖЕНИЯ"
     
     print_info "Собираем образы... (это может занять 10-15 минут)"
-    newgrp docker << SCRIPT
-docker-compose -f docker-compose.prod.yml build --no-cache
-SCRIPT
+    docker-compose -f docker-compose.prod.yml build --no-cache
     
     print_info "Запускаем контейнеры..."
-    newgrp docker << SCRIPT
-docker-compose -f docker-compose.prod.yml up -d
-SCRIPT
+    docker-compose -f docker-compose.prod.yml up -d
     
     print_info "Ждем запуска сервисов..."
     sleep 30
     
-    # Применяем миграции
-    print_info "Применяем миграции базы данных..."
-    newgrp docker << SCRIPT
-docker-compose -f docker-compose.prod.yml exec -T backend python manage.py migrate
-SCRIPT
+    # Миграции применятся автоматически через entrypoint
+    print_info "Проверяем статус миграций..."
+    docker-compose -f docker-compose.prod.yml logs backend | tail -20
     
     print_success "Приложение запущено!"
 }
@@ -557,18 +551,18 @@ create_superuser() {
     
     read -p "Логин администратора: " ADMIN_USER
     read -p "Email администратора: " ADMIN_EMAIL
+    read -s -p "Пароль администратора: " ADMIN_PASSWORD
+    echo
     
-    newgrp docker << SCRIPT
-docker-compose -f docker-compose.prod.yml exec -T backend python manage.py shell << 'PYEOF'
+    docker-compose -f docker-compose.prod.yml exec backend python manage.py shell << EOF
 from django.contrib.auth import get_user_model
 User = get_user_model()
 if not User.objects.filter(username='$ADMIN_USER').exists():
-    User.objects.create_superuser('$ADMIN_USER', '$ADMIN_EMAIL', input('Пароль: '))
-    print("Суперпользователь создан!")
+    User.objects.create_superuser('$ADMIN_USER', '$ADMIN_EMAIL', '$ADMIN_PASSWORD')
+    print("✅ Суперпользователь создан!")
 else:
-    print("Пользователь уже существует!")
-PYEOF
-SCRIPT
+    print("ℹ️ Пользователь уже существует!")
+EOF
     
     print_success "Суперпользователь настроен!"
 }
