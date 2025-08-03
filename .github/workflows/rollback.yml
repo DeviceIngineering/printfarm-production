@@ -1,0 +1,119 @@
+name: 🔄 Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        default: 'Critical bug found'
+      commit:
+        description: 'Commit SHA to rollback to (leave empty for last known good)'
+        required: false
+
+env:
+  SERVER_HOST: ${{ secrets.SERVER_HOST }}
+  SERVER_USER: ${{ secrets.SERVER_USER }}
+  PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+
+jobs:
+  rollback:
+    name: Rollback to Previous Version
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔐 Setup SSH Key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: 🔄 Perform Rollback
+      run: |
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ROLLBACK_SCRIPT'
+          set -e
+          
+          echo "═══════════════════════════════════════"
+          echo "🔄 PrintFarm Rollback Procedure"
+          echo "═══════════════════════════════════════"
+          echo "📅 Time: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "👤 Initiated by: ${{ github.actor }}"
+          echo "📝 Reason: ${{ inputs.reason }}"
+          echo "═══════════════════════════════════════"
+          
+          cd ${{ secrets.PROJECT_PATH }} || exit 1
+          
+          # Определение версии для отката
+          if [ -n "${{ inputs.commit }}" ]; then
+            ROLLBACK_COMMIT="${{ inputs.commit }}"
+            echo "🎯 Rolling back to specified commit: $ROLLBACK_COMMIT"
+          elif [ -f ".last_deployed_commit" ]; then
+            ROLLBACK_COMMIT=$(cat .last_deployed_commit)
+            echo "🎯 Rolling back to last deployed version: $ROLLBACK_COMMIT"
+          else
+            echo "❌ No rollback point found!"
+            exit 1
+          fi
+          
+          # Сохранение текущей версии
+          git rev-parse HEAD > .failed_deployment_commit
+          
+          # Откат кода
+          echo "📥 Rolling back code..."
+          git fetch origin
+          git checkout $ROLLBACK_COMMIT
+          
+          # Остановка контейнеров
+          echo "🛑 Stopping current containers..."
+          docker-compose down
+          
+          # Запуск предыдущей версии
+          echo "🐳 Starting previous version..."
+          docker-compose up -d --build
+          
+          # Ожидание запуска
+          echo "⏳ Waiting for services..."
+          sleep 30
+          
+          # Применение миграций
+          echo "🗃️ Running migrations..."
+          docker-compose exec -T backend python manage.py migrate --noinput
+          
+          # Сбор статических файлов
+          echo "📦 Collecting static files..."
+          docker-compose exec -T backend python manage.py collectstatic --noinput
+          
+          echo "═══════════════════════════════════════"
+          echo "✅ Rollback completed successfully!"
+          echo "═══════════════════════════════════════"
+          
+          docker-compose ps
+        ROLLBACK_SCRIPT
+    
+    - name: 🏥 Health Check
+      run: |
+        echo "🔍 Verifying rollback..."
+        sleep 15
+        
+        response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.SERVER_HOST }}/)
+        if [ "$response" != "200" ] && [ "$response" != "301" ]; then
+          echo "❌ Site not responding after rollback!"
+          exit 1
+        fi
+        echo "✅ Site is working after rollback (HTTP $response)"
+    
+    - name: 📊 Rollback Summary
+      if: always()
+      run: |
+        echo "═══════════════════════════════════════"
+        echo "📊 ROLLBACK SUMMARY"
+        echo "═══════════════════════════════════════"
+        echo "🔄 Status: ${{ job.status }}"
+        echo "📝 Reason: ${{ inputs.reason }}"
+        echo "👤 Initiated by: ${{ github.actor }}"
+        echo "═══════════════════════════════════════"

@@ -1,0 +1,161 @@
+name: 🚀 Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  SERVER_HOST: ${{ secrets.SERVER_HOST }}
+  SERVER_USER: ${{ secrets.SERVER_USER }}
+  PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔐 Setup SSH Key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+    
+    - name: 📋 Create deployment info
+      run: |
+        echo "DEPLOY_TIME=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+        echo "DEPLOY_COMMIT=${{ github.sha }}" >> $GITHUB_ENV
+        echo "DEPLOY_BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
+        echo "DEPLOY_USER=${{ github.actor }}" >> $GITHUB_ENV
+    
+    - name: 🚀 Deploy to server
+      run: |
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'DEPLOY_SCRIPT'
+          set -e
+          
+          echo "═══════════════════════════════════════"
+          echo "🚀 PrintFarm Production Deployment"
+          echo "═══════════════════════════════════════"
+          echo "📅 Time: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "🔀 Branch: ${{ github.ref_name }}"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Triggered by: ${{ github.actor }}"
+          echo "═══════════════════════════════════════"
+          
+          # Переход в директорию проекта
+          cd ${{ secrets.PROJECT_PATH }} || exit 1
+          
+          # Сохранение текущей версии для отката
+          echo "💾 Saving current state for rollback..."
+          git rev-parse HEAD > .last_deployed_commit
+          
+          # Обновление кода
+          echo "📥 Pulling latest changes..."
+          git fetch origin
+          git checkout main
+          git pull origin main
+          
+          # Проверка .env файла
+          echo "🔧 Checking environment configuration..."
+          if [ ! -f ".env" ]; then
+            echo "⚠️ .env file not found, creating from template..."
+            cp .env.example .env || echo "No .env.example found"
+          fi
+          
+          # Остановка старых контейнеров
+          echo "🛑 Stopping old containers..."
+          docker-compose down || true
+          
+          # Очистка неиспользуемых образов
+          echo "🧹 Cleaning up unused Docker resources..."
+          docker system prune -f
+          
+          # Сборка и запуск новых контейнеров
+          echo "🐳 Building and starting containers..."
+          docker-compose up -d --build
+          
+          # Ожидание запуска
+          echo "⏳ Waiting for services to start..."
+          sleep 45
+          
+          # Проверка статуса контейнеров
+          echo "🔍 Checking container status..."
+          docker-compose ps
+          
+          # Применение миграций
+          echo "🗃️ Running database migrations..."
+          docker-compose exec -T backend python manage.py migrate --noinput
+          
+          # Сбор статических файлов
+          echo "📦 Collecting static files..."
+          docker-compose exec -T backend python manage.py collectstatic --noinput
+          
+          # Перезапуск Nginx для применения изменений
+          echo "🔄 Reloading Nginx..."
+          docker-compose exec -T nginx nginx -s reload || true
+          
+          echo "═══════════════════════════════════════"
+          echo "✅ Deployment completed successfully!"
+          echo "═══════════════════════════════════════"
+          
+          # Финальная проверка
+          docker-compose ps
+        DEPLOY_SCRIPT
+    
+    - name: 🏥 Health Check
+      run: |
+        echo "🔍 Running health checks..."
+        sleep 15
+        
+        # Проверка основного сайта
+        echo "Checking main site..."
+        response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.SERVER_HOST }}/)
+        if [ "$response" != "200" ] && [ "$response" != "301" ]; then
+          echo "❌ Main site returned $response"
+          exit 1
+        fi
+        echo "✅ Main site is up (HTTP $response)"
+        
+        # Проверка API
+        echo "Checking API..."
+        api_response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.SERVER_HOST }}/api/v1/)
+        if [ "$api_response" != "200" ] && [ "$api_response" != "401" ]; then
+          echo "❌ API returned $api_response"
+          exit 1
+        fi
+        echo "✅ API is responding (HTTP $api_response)"
+        
+        echo "✅ All health checks passed!"
+    
+    - name: 📊 Deployment Summary
+      if: always()
+      run: |
+        echo "═══════════════════════════════════════"
+        echo "📊 DEPLOYMENT SUMMARY"
+        echo "═══════════════════════════════════════"
+        echo "🌐 URL: http://${{ secrets.SERVER_HOST }}"
+        echo "📝 Commit: ${{ github.sha }}"
+        echo "👤 Deployed by: ${{ github.actor }}"
+        echo "📅 Time: ${{ env.DEPLOY_TIME }}"
+        echo "═══════════════════════════════════════"
+    
+    - name: 💬 Notify on failure
+      if: failure()
+      run: |
+        echo "❌ Deployment failed!"
+        echo "Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
