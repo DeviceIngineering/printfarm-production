@@ -17,13 +17,10 @@ import { DebugInfo } from './components/common/DebugInfo';
 function App() {
   useEffect(() => {
     console.log('App component mounted');
-    // Auto-set token for demo if not exists
-    const token = localStorage.getItem('auth_token');
-    console.log('Current token:', token);
-    if (!token) {
-      console.log('Setting default token...');
-      localStorage.setItem('auth_token', '549ebaf641ffa608a26b79a21d72a296c99a02b7');
-    }
+    // Force clear old token and set new one
+    localStorage.removeItem('auth_token');
+    localStorage.setItem('auth_token', '0a8fee03bca2b530a15b1df44d38b304e3f57484');
+    console.log('Token updated to:', localStorage.getItem('auth_token'));
   }, []);
 
   return (

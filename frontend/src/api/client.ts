@@ -12,12 +12,11 @@ const apiClient = axios.create({
 // Request interceptor for auth token
 apiClient.interceptors.request.use(
   (config) => {
-    // ВРЕМЕННО ОТКЛЮЧЕНО для локальной разработки
-    // const token = localStorage.getItem('auth_token');
-    // if (token) {
-    //   // Django REST Framework использует Token auth, не Bearer
-    //   config.headers.Authorization = `Token ${token}`;
-    // }
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      // Django REST Framework использует Token auth, не Bearer
+      config.headers.Authorization = `Token ${token}`;
+    }
     console.log('API Request:', config.method?.toUpperCase(), config.url);
     return config;
   },
@@ -36,15 +35,14 @@ apiClient.interceptors.response.use(
   (error) => {
     console.error('API Error:', error.response?.status, error.response?.data || error.message);
     
-    // ВРЕМЕННО ОТКЛЮЧЕНО для локальной разработки
-    // if (error.response?.status === 401) {
-    //   // For demo, set the token instead of redirecting
-    //   const token = localStorage.getItem('auth_token');
-    //   if (!token) {
-    //     localStorage.setItem('auth_token', '549ebaf641ffa608a26b79a21d72a296c99a02b7');
-    //     window.location.reload();
-    //   }
-    // }
+    if (error.response?.status === 401) {
+      // For demo, set the token instead of redirecting
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        localStorage.setItem('auth_token', '0a8fee03bca2b530a15b1df44d38b304e3f57484');
+        window.location.reload();
+      }
+    }
     return Promise.reject(error);
   }
 );

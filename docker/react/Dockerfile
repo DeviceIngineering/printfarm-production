@@ -13,4 +13,7 @@ COPY frontend/ .
 
 EXPOSE 3000
 
+# Allow React dev server to be accessible from outside the container
+ENV HOST=0.0.0.0
+
 CMD ["npm", "start"]
