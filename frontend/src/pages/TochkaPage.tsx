@@ -8,6 +8,7 @@ import {
   FileExcelOutlined,
   SearchOutlined
 } from '@ant-design/icons';
+import { API_BASE_URL } from '../utils/constants';
 
 const { Title, Paragraph } = Typography;
 
@@ -88,7 +89,7 @@ export const TochkaPage: React.FC = () => {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/tochka/products/');
+      const response = await fetch(`${API_BASE_URL}/tochka/products/`);
       if (response.ok) {
         const data = await response.json();
         setProductsData(data.results || data);
@@ -107,7 +108,7 @@ export const TochkaPage: React.FC = () => {
   const loadProductionList = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/v1/tochka/production/');
+      const response = await fetch(`${API_BASE_URL}/tochka/production/`);
       if (response.ok) {
         const data = await response.json();
         setProductionData(data.results || data);
@@ -163,7 +164,7 @@ export const TochkaPage: React.FC = () => {
     formData.append('file', file);
     
     try {
-      const response = await fetch('http://localhost:8000/api/v1/tochka/upload-excel/', {
+      const response = await fetch(`${API_BASE_URL}/tochka/upload-excel/`, {
         method: 'POST',
         body: formData,
       });
@@ -218,7 +219,7 @@ export const TochkaPage: React.FC = () => {
     setMergeLoading(true);
     
     try {
-      const response = await fetch('http://localhost:8000/api/v1/tochka/merge-with-products/', {
+      const response = await fetch(`${API_BASE_URL}/tochka/merge-with-products/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -263,7 +264,7 @@ export const TochkaPage: React.FC = () => {
     setFilterLoading(true);
     
     try {
-      const response = await fetch('http://localhost:8000/api/v1/tochka/filtered-production/', {
+      const response = await fetch(`${API_BASE_URL}/tochka/filtered-production/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -301,7 +302,7 @@ export const TochkaPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/tochka/export-deduplicated/', {
+      const response = await fetch(`${API_BASE_URL}/tochka/export-deduplicated/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -352,7 +353,7 @@ export const TochkaPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/tochka/export-production/', {
+      const response = await fetch(`${API_BASE_URL}/tochka/export-production/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
