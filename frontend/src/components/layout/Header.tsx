@@ -6,7 +6,6 @@ import {
   FileTextOutlined, 
   SettingOutlined,
   SyncOutlined,
-  PictureOutlined,
   ShopOutlined
 } from '@ant-design/icons';
 
@@ -36,11 +35,6 @@ export const Header: React.FC = () => {
       key: '/settings',
       icon: <SettingOutlined />,
       label: <Link to="/settings">Настройки</Link>,
-    },
-    {
-      key: '/test-images',
-      icon: <PictureOutlined />,
-      label: <Link to="/test-images">Тест изображений</Link>,
     },
   ];
 

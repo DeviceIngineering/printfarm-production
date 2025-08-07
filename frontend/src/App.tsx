@@ -9,7 +9,6 @@ import { TochkaPage } from './pages/TochkaPage';
 import { TestWarehousesPage } from './pages/TestWarehousesPage';
 import { TestProductGroupsPage } from './pages/TestProductGroupsPage';
 import { TestProductsPage } from './pages/TestProductsPage';
-import { TestImagesPage } from './pages/TestImagesPage';
 import TestPodiumsPage from './pages/TestPodiumsPage';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ScrollToTop } from './components/common/ScrollToTop';
@@ -42,7 +41,6 @@ function App() {
               <Route path="/test-warehouses" element={<TestWarehousesPage />} />
               <Route path="/test-product-groups" element={<TestProductGroupsPage />} />
               <Route path="/test-products" element={<TestProductsPage />} />
-              <Route path="/test-images" element={<TestImagesPage />} />
               <Route path="/test-podiums" element={<TestPodiumsPage />} />
             </Routes>
             <ScrollToTop />
