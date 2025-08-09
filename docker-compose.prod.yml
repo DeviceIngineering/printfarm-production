@@ -38,7 +38,7 @@ services:
       dockerfile: docker/django/Dockerfile
       target: production
     restart: unless-stopped
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --worker-class gevent --worker-connections 1000 --max-requests 1000 --timeout 30
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - /opt/printfarm/data/static:/app/static
       - /opt/printfarm/data/media:/app/media
@@ -48,69 +48,36 @@ services:
     env_file:
       - .env
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - printfarm-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  celery:
-    build:
-      context: .
-      dockerfile: docker/django/Dockerfile
-      target: production
-    restart: unless-stopped
-    command: celery -A config worker -l info --concurrency=4 --max-tasks-per-child=1000
-    volumes:
-      - /opt/printfarm/data/media:/app/media
-      - /opt/printfarm/logs:/app/logs
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.production
-    env_file:
-      - .env
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - db
+      - redis
     networks:
       - printfarm-network
 
-  celery-beat:
-    build:
-      context: .
-      dockerfile: docker/django/Dockerfile
-      target: production
-    restart: unless-stopped
-    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
-    volumes:
-      - /opt/printfarm/logs:/app/logs
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.production
-    env_file:
-      - .env
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - printfarm-network
+  # celery:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/django/Dockerfile
+  #     target: production
+  #   restart: unless-stopped
+  #   command: celery -A config worker -l info
+  #   volumes:
+  #     - /opt/printfarm/data/media:/app/media
+  #     - /opt/printfarm/logs:/app/logs
+  #   environment:
+  #     - DJANGO_SETTINGS_MODULE=config.settings.production
+  #   env_file:
+  #     - .env
+  #   depends_on:
+  #     - db
+  #     - redis
+  #   networks:
+  #     - printfarm-network
 
   frontend:
     build:
       context: .
       dockerfile: docker/react/Dockerfile
-      target: production
     restart: unless-stopped
-    environment:
-      - NODE_ENV=production
     networks:
       - printfarm-network
 
@@ -128,17 +95,15 @@ services:
       - /opt/printfarm/logs:/var/log/nginx
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
-      backend:
-        condition: service_healthy
-      frontend:
-        condition: service_started
+      - backend
+      - frontend
     networks:
       - printfarm-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 5
 
 networks:
   printfarm-network:
