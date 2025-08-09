@@ -1,0 +1,48 @@
+# Django и основные зависимости
+Django==4.2.7
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+django-filter==23.3
+
+# База данных
+psycopg2-binary==2.9.7
+
+# Celery для фоновых задач
+celery==5.3.4
+django-celery-beat==2.5.0
+redis==5.0.1
+
+# HTTP клиенты
+requests==2.31.0
+httpx==0.25.1
+
+# Работа с изображениями
+Pillow==10.1.0
+
+# Экспорт в Excel
+openpyxl==3.1.2
+
+# Валидация и сериализация
+marshmallow==3.20.1
+
+# Утилиты для времени
+python-decouple==3.8
+pytz==2023.3
+
+# Production сервер
+gunicorn==21.2.0
+gevent==23.9.1
+
+# Мониторинг и логирование
+sentry-sdk==1.38.0
+
+# Разработка и тесты
+django-debug-toolbar==4.2.0
+pytest==7.4.3
+pytest-django==4.7.0
+factory-boy==3.3.0
+
+# Линтеры и форматеры
+black==23.10.1
+flake8==6.1.0
+isort==5.12.0
