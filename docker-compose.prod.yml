@@ -12,6 +12,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     networks:
       - printfarm-network
+    # Не экспонируем порт наружу - только внутри Docker сети
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 30s
@@ -26,6 +27,7 @@ services:
       - /opt/printfarm/data/redis:/data
     networks:
       - printfarm-network
+    # Не экспонируем порт наружу - только внутри Docker сети  
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -52,6 +54,8 @@ services:
       - redis
     networks:
       - printfarm-network
+    # Не экспонируем порт 8000 наружу - только внутри Docker сети
+    # Доступ через nginx proxy
 
   # celery:
   #   build:
@@ -87,8 +91,8 @@ services:
       dockerfile: docker/nginx/Dockerfile
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:80"  # PrintFarm будет доступен на порту 8080
+      - "8443:443" # HTTPS на порту 8443
     volumes:
       - /opt/printfarm/data/static:/app/static:ro
       - /opt/printfarm/data/media:/app/media:ro
@@ -99,11 +103,8 @@ services:
       - frontend
     networks:
       - printfarm-network
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost/health"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 5
+    environment:
+      - VIRTUAL_HOST=printfarm.local  # Уникальное имя для этого проекта
 
 networks:
   printfarm-network:

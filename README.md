@@ -97,10 +97,12 @@ cd /opt/printfarm && docker-compose -f docker-compose.prod.yml logs -f
 
 После развертывания доступны:
 
-- `http://your-server/` - Frontend приложение
-- `http://your-server/api/v1/products/` - API товаров
-- `http://your-server/api/v1/sync/` - API синхронизации
-- `http://your-server:9000/health` - Webhook статус
+- `http://your-server:8080/` - Frontend приложение (порт 8080)
+- `http://your-server:8080/api/v1/products/` - API товаров
+- `http://your-server:8080/api/v1/sync/` - API синхронизации  
+- `http://your-server:9001/health` - Webhook статус (порт 9001)
+
+**Примечание:** PrintFarm использует порты 8080 и 9001 для избежания конфликтов с другими проектами на сервере.
 
 ## 🏗️ Архитектура
 

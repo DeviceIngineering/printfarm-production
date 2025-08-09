@@ -140,7 +140,7 @@ check_system() {
     
     # Проверка портов
     print_info "Проверка используемых портов:"
-    for port in 80 443 5432 6379 8000 9000; do
+    for port in 80 443 5432 6379 8000 8080 9000 9001; do
         if netstat -tln 2>/dev/null | grep -q ":$port "; then
             local process=$(netstat -tlnp 2>/dev/null | grep ":$port " | awk '{print $7}' | head -1)
             print_info "Порт $port: используется ($process)"
@@ -285,10 +285,10 @@ check_connectivity() {
     
     # Проверка локальных endpoint'ов
     local endpoints=(
-        "http://localhost/health:Nginx health"
-        "http://localhost:80:Frontend"
-        "http://localhost:8000/health/:Backend health"
-        "http://localhost:9000/health:Webhook health"
+        "http://localhost:8080/health:Nginx health"
+        "http://localhost:8080:Frontend"
+        "http://localhost:8000/health/:Backend health (internal)"
+        "http://localhost:9001/health:Webhook health"
     )
     
     for endpoint in "${endpoints[@]}"; do
@@ -306,10 +306,10 @@ check_connectivity() {
     if [ -n "$server_ip" ]; then
         print_info "Внешний IP сервера: $server_ip"
         
-        if curl -f -s --max-time 5 "http://$server_ip/" > /dev/null 2>&1; then
-            print_success "Веб-сайт доступен извне по http://$server_ip/"
+        if curl -f -s --max-time 5 "http://$server_ip:8080/" > /dev/null 2>&1; then
+            print_success "Веб-сайт доступен извне по http://$server_ip:8080/"
         else
-            print_warning "Веб-сайт недоступен извне"
+            print_warning "Веб-сайт недоступен извне по порту 8080"
             print_info "Проверьте файрвол: sudo ufw status"
         fi
     fi
@@ -426,9 +426,9 @@ generate_report() {
         echo ""
         
         echo "Сетевая доступность:"
-        curl -f -s --max-time 5 "http://localhost/" > /dev/null && echo "- Frontend: ✓" || echo "- Frontend: ✗"
+        curl -f -s --max-time 5 "http://localhost:8080/" > /dev/null && echo "- Frontend: ✓" || echo "- Frontend: ✗"
         curl -f -s --max-time 5 "http://localhost:8000/health/" > /dev/null && echo "- Backend: ✓" || echo "- Backend: ✗"
-        curl -f -s --max-time 5 "http://localhost:9000/health" > /dev/null && echo "- Webhook: ✓" || echo "- Webhook: ✗"
+        curl -f -s --max-time 5 "http://localhost:9001/health" > /dev/null && echo "- Webhook: ✓" || echo "- Webhook: ✗"
         echo ""
         
         echo "Рекомендации:"
@@ -579,7 +579,7 @@ main() {
     fi
     
     local server_ip=$(hostname -I | awk '{print $1}')
-    echo -e "\n${CYAN}🌐 Ваш сайт: ${BOLD}http://$server_ip/${NC}"
+    echo -e "\n${CYAN}🌐 Ваш сайт: ${BOLD}http://$server_ip:8080/${NC}"
     echo -e "${CYAN}📚 Документация: AUTO-DEPLOY.md${NC}"
 }
 

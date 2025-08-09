@@ -16,7 +16,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Переменные
-WEBHOOK_PORT=9000
+WEBHOOK_PORT=9001  # Изменен с 9000 на 9001 для избежания конфликтов
 WEBHOOK_SECRET=""
 APP_DIR="/opt/printfarm"
 
