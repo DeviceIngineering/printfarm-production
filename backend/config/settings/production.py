@@ -22,5 +22,5 @@ STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', 
     default='http://localhost,http://127.0.0.1').split(',')
 
-# Logging for production
-LOGGING['handlers']['file']['filename'] = '/app/logs/django.log'
+# Logging for production - временно отключено
+# LOGGING['handlers']['file']['filename'] = '/app/logs/django.log'
