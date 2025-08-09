@@ -121,11 +121,49 @@ check_health() {
     
     # Простая проверка HTTP
     echo "Проверка HTTP доступности..."
-    sleep 5
-    if curl -f http://localhost/api/v1/products/ > /dev/null 2>&1; then
-        echo "✓ API доступно"
+    sleep 10
+    
+    local checks=0
+    local passed=0
+    
+    # Проверка основных endpoint'ов
+    if curl -f -s --max-time 10 http://localhost/health > /dev/null 2>&1; then
+        echo "✓ Nginx health check"
+        ((passed++))
     else
-        echo "✗ API недоступно"
+        echo "✗ Nginx health check failed"
+    fi
+    ((checks++))
+    
+    if curl -f -s --max-time 10 http://localhost:8000/health/ > /dev/null 2>&1; then
+        echo "✓ Backend health check"
+        ((passed++))
+    else
+        echo "✗ Backend health check failed"
+        echo "Backend logs:"
+        docker-compose -f docker-compose.prod.yml logs --tail=10 backend
+    fi
+    ((checks++))
+    
+    if curl -f -s --max-time 10 http://localhost/ > /dev/null 2>&1; then
+        echo "✓ Frontend доступен"
+        ((passed++))
+    else
+        echo "✗ Frontend недоступен"
+    fi
+    ((checks++))
+    
+    echo "Результат проверки: $passed из $checks сервисов работают"
+    
+    if [ $passed -eq $checks ]; then
+        echo "🎉 Все сервисы работают корректно!"
+        return 0
+    else
+        echo "⚠️ Обнаружены проблемы. Запуск диагностики..."
+        if [ -x "./scripts/diagnose.sh" ]; then
+            ./scripts/diagnose.sh --auto
+        fi
+        return 1
     fi
 }
 
