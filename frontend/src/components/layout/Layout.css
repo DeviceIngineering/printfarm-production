@@ -1,0 +1,107 @@
+.printfarm-layout {
+  min-height: 100vh;
+}
+
+.printfarm-sider {
+  background: #1E1E1E !important;
+  box-shadow: 2px 0 8px rgba(6, 234, 252, 0.1);
+}
+
+.printfarm-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  border-bottom: 1px solid rgba(6, 234, 252, 0.2);
+  margin-bottom: 16px;
+}
+
+.logo-icon {
+  font-size: 24px;
+  margin-right: 8px;
+}
+
+.logo-text {
+  color: #06EAFC;
+  font-weight: bold;
+  font-size: 16px;
+  text-shadow: 0 0 10px rgba(6, 234, 252, 0.5);
+}
+
+.printfarm-menu {
+  background: transparent !important;
+  border: none;
+}
+
+.printfarm-menu .ant-menu-item {
+  color: #ffffff;
+  border-radius: 6px;
+  margin: 4px 8px;
+}
+
+.printfarm-menu .ant-menu-item:hover {
+  background-color: rgba(6, 234, 252, 0.2) !important;
+  color: #06EAFC !important;
+}
+
+.printfarm-menu .ant-menu-item-selected {
+  background-color: #06EAFC !important;
+  color: #1E1E1E !important;
+}
+
+.printfarm-header {
+  background: linear-gradient(135deg, #1E1E1E 0%, #2a2a2a 100%);
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(6, 234, 252, 0.2);
+  box-shadow: 0 2px 8px rgba(6, 234, 252, 0.1);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.collapse-btn {
+  color: #ffffff;
+  margin-right: 16px;
+}
+
+.collapse-btn:hover {
+  color: #06EAFC !important;
+  background-color: rgba(6, 234, 252, 0.1) !important;
+}
+
+.page-title {
+  color: #ffffff !important;
+  margin: 0;
+  text-shadow: 0 0 10px rgba(6, 234, 252, 0.3);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-avatar {
+  background-color: #06EAFC;
+  color: #1E1E1E;
+  font-weight: bold;
+}
+
+.printfarm-content {
+  background: #f5f5f5;
+  min-height: calc(100vh - 64px);
+}
+
+.content-wrapper {
+  padding: 24px;
+  background: #ffffff;
+  margin: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  min-height: calc(100vh - 136px);
+}

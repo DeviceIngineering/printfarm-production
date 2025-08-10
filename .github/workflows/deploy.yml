@@ -79,15 +79,15 @@ jobs:
           
           # Остановка старых контейнеров
           echo "🛑 Stopping old containers..."
-          docker-compose down || true
+          docker-compose -f docker-compose.prod.yml down || true
           
           # Очистка неиспользуемых образов
           echo "🧹 Cleaning up unused Docker resources..."
           docker system prune -f
           
-          # Сборка и запуск новых контейнеров
-          echo "🐳 Building and starting containers..."
-          docker-compose up -d --build
+          # Сборка и запуск новых контейнеров (production версия v7.0)
+          echo "🐳 Building and starting containers (Production v7.0)..."
+          docker-compose -f docker-compose.prod.yml up -d --build
           
           # Ожидание запуска
           echo "⏳ Waiting for services to start..."
@@ -95,26 +95,22 @@ jobs:
           
           # Проверка статуса контейнеров
           echo "🔍 Checking container status..."
-          docker-compose ps
+          docker-compose -f docker-compose.prod.yml ps
           
           # Применение миграций
           echo "🗃️ Running database migrations..."
-          docker-compose exec -T backend python manage.py migrate --noinput
+          docker-compose -f docker-compose.prod.yml exec -T backend python manage.py migrate --noinput
           
           # Сбор статических файлов
           echo "📦 Collecting static files..."
-          docker-compose exec -T backend python manage.py collectstatic --noinput
-          
-          # Перезапуск Nginx для применения изменений
-          echo "🔄 Reloading Nginx..."
-          docker-compose exec -T nginx nginx -s reload || true
+          docker-compose -f docker-compose.prod.yml exec -T backend python manage.py collectstatic --noinput
           
           echo "═══════════════════════════════════════"
           echo "✅ Deployment completed successfully!"
           echo "═══════════════════════════════════════"
           
           # Финальная проверка
-          docker-compose ps
+          docker-compose -f docker-compose.prod.yml ps
         DEPLOY_SCRIPT
     
     - name: 🏥 Health Check
@@ -122,18 +118,18 @@ jobs:
         echo "🔍 Running health checks..."
         sleep 15
         
-        # Проверка основного сайта
-        echo "Checking main site..."
-        response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.SERVER_HOST }}/)
+        # Проверка фронтенда (port 8090)
+        echo "Checking frontend (port 8090)..."
+        response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.SERVER_HOST }}:8090/)
         if [ "$response" != "200" ] && [ "$response" != "301" ]; then
-          echo "❌ Main site returned $response"
+          echo "❌ Frontend returned $response"
           exit 1
         fi
-        echo "✅ Main site is up (HTTP $response)"
+        echo "✅ Frontend is up (HTTP $response)"
         
-        # Проверка API
-        echo "Checking API..."
-        api_response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.SERVER_HOST }}/api/v1/)
+        # Проверка API (port 8001)
+        echo "Checking API (port 8001)..."
+        api_response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.SERVER_HOST }}:8001/api/v1/)
         if [ "$api_response" != "200" ] && [ "$api_response" != "401" ]; then
           echo "❌ API returned $api_response"
           exit 1
@@ -148,7 +144,8 @@ jobs:
         echo "═══════════════════════════════════════"
         echo "📊 DEPLOYMENT SUMMARY"
         echo "═══════════════════════════════════════"
-        echo "🌐 URL: http://${{ secrets.SERVER_HOST }}"
+        echo "🌐 Frontend URL: http://${{ secrets.SERVER_HOST }}:8090"
+        echo "🔧 API URL: http://${{ secrets.SERVER_HOST }}:8001/api/v1"
         echo "📝 Commit: ${{ github.sha }}"
         echo "👤 Deployed by: ${{ github.actor }}"
         echo "📅 Time: ${{ env.DEPLOY_TIME }}"
