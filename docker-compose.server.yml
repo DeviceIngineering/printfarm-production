@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-printfarm_db}
+      - POSTGRES_USER=${POSTGRES_USER:-printfarm_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
+    ports:
+      - "5433:5432"  # Альтернативный порт, так как 5432 занят
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6380:6379"  # Альтернативный порт
+    restart: always
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile.prod
+    image: ${BACKEND_IMAGE:-factory_v3-backend:latest}
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    volumes:
+      - static_volume:/app/static
+      - media_volume:/app/media
+    ports:
+      - "8001:8000"  # Альтернативный порт, так как 8000 занят
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-printfarm_user}:${POSTGRES_PASSWORD:-secure_password}@db:5432/${POSTGRES_DB:-printfarm_db}
+      - REDIS_URL=redis://redis:6379/0
+    restart: always
+
+  celery:
+    image: ${BACKEND_IMAGE:-factory_v3-backend:latest}
+    command: celery -A config worker -l info
+    volumes:
+      - media_volume:/app/media
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-printfarm_user}:${POSTGRES_PASSWORD:-secure_password}@db:5432/${POSTGRES_DB:-printfarm_db}
+      - REDIS_URL=redis://redis:6379/0
+    restart: always
+
+  celery-beat:
+    image: ${BACKEND_IMAGE:-factory_v3-backend:latest}
+    command: celery -A config beat -l info
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-printfarm_user}:${POSTGRES_PASSWORD:-secure_password}@db:5432/${POSTGRES_DB:-printfarm_db}
+      - REDIS_URL=redis://redis:6379/0
+    restart: always
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/react/Dockerfile.prod
+    image: ${FRONTEND_IMAGE:-factory_v3-frontend:latest}
+    volumes:
+      - frontend_build:/usr/share/nginx/html
+    restart: always
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8090:80"  # Альтернативный порт, так как 80 занят
+    volumes:
+      - ./docker/nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf
+      - static_volume:/app/static
+      - media_volume:/app/media
+      - frontend_build:/app/frontend
+    depends_on:
+      - backend
+      - frontend
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
+  frontend_build:
