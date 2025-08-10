@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=printfarm_db
+      - POSTGRES_USER=printfarm_user
+      - POSTGRES_PASSWORD=printfarm2024pass
+    ports:
+      - "5433:5432"
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6380:6379"
+    restart: always
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+      - static_volume:/app/static
+      - media_volume:/app/media
+    ports:
+      - "8001:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=django-insecure-simple-key
+      - ALLOWED_HOSTS=*
+      - DATABASE_URL=postgresql://printfarm_user:printfarm2024pass@db:5432/printfarm_db
+      - REDIS_URL=redis://redis:6379/0
+      - MOYSKLAD_TOKEN=f9be4985f5e3488716c040ca52b8e04c7c0f9e0b
+      - MOYSKLAD_DEFAULT_WAREHOUSE=241ed919-a631-11ee-0a80-07a9000bb947
+    restart: always
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/react/Dockerfile.dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "8090:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:8001/api/v1
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
