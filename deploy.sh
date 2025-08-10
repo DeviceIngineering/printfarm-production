@@ -1,12 +1,16 @@
 #!/bin/bash
-# Скрипт автоматического развертывания PrintFarm
+# Скрипт развертывания PrintFarm Production v7.0
 
 set -e  # Останавливаем при ошибках
 
-echo "🚀 Начинаем развертывание PrintFarm..."
+echo "🚀 Развертывание PrintFarm Production v7.0 на удаленном сервере..."
+echo "=================================================="
+echo "Frontend: http://kemomail3.keenetic.pro:8090"
+echo "API: http://kemomail3.keenetic.pro:8001"
+echo "=================================================="
 
 # Переменные
-REPO_URL="https://github.com/yourusername/printfarm.git"  # Замените на ваш репозиторий
+REPO_URL="https://github.com/DeviceIngineering/printfarm-production.git"
 APP_DIR="/opt/printfarm"
 BRANCH="main"
 
