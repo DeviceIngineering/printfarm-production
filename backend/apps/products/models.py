@@ -18,6 +18,8 @@ class Product(TimestampedModel):
     
     # Stock and sales data
     current_stock = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
+    reserved_stock = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'), 
+                                        help_text="Количество товара в резерве")
     sales_last_2_months = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
     average_daily_consumption = models.DecimalField(max_digits=10, decimal_places=4, default=Decimal('0'))
     
@@ -48,6 +50,27 @@ class Product(TimestampedModel):
     
     def __str__(self):
         return f"{self.article} - {self.name[:50]}"
+    
+    @property
+    def total_stock(self) -> Decimal:
+        """
+        Возвращает общее количество товара (остаток + резерв).
+        """
+        return self.current_stock + self.reserved_stock
+    
+    def get_effective_stock(self, include_reserve: bool = False) -> Decimal:
+        """
+        Возвращает эффективный остаток с учетом или без учета резерва.
+        
+        Args:
+            include_reserve: Если True, включает резерв в расчет остатка
+        
+        Returns:
+            Эффективный остаток товара
+        """
+        if include_reserve:
+            return self.total_stock
+        return self.current_stock
     
     def classify_product_type(self):
         """

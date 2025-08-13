@@ -14,11 +14,19 @@ from apps.sync.services import SyncService
 class ProductListView(generics.ListAPIView):
     """
     List view for products with filtering and search.
+    Supports include_reserve parameter for calculating effective stock.
     """
     serializer_class = ProductListSerializer
     # # permission_classes = [IsAuthenticated]  # Временно отключено  # Временно отключено для разработки
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['product_type', 'product_group_id']
+    
+    def get_serializer_context(self):
+        """Pass include_reserve flag to serializer context."""
+        context = super().get_serializer_context()
+        include_reserve = self.request.query_params.get('include_reserve', 'false').lower() == 'true'
+        context['include_reserve'] = include_reserve
+        return context
     
     def get_queryset(self):
         queryset = Product.objects.select_related().prefetch_related('images')

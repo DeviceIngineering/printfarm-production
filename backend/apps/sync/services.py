@@ -153,6 +153,9 @@ class SyncService:
                 product.name = item.get('name', '')
                 product.current_stock = Decimal(str(item.get('stock', 0)))
                 
+                # Update reserved stock if available
+                product.reserved_stock = Decimal(str(item.get('reserve', 0)))
+                
                 # Update product group from folder
                 if 'folder' in item:
                     folder = item['folder']
