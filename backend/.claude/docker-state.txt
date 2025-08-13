@@ -1,0 +1,8 @@
+NAMES                      STATUS      PORTS
+factory_v3-celery-beat-1   Up 3 days   8000/tcp
+factory_v3-celery-1        Up 3 days   8000/tcp
+factory_v3-frontend-1      Up 3 days   0.0.0.0:8090->80/tcp, [::]:8090->80/tcp
+factory_v3-backend-1       Up 3 days   0.0.0.0:8001->8000/tcp, [::]:8001->8000/tcp
+factory_v3-db-1            Up 3 days   0.0.0.0:5433->5432/tcp, [::]:5433->5432/tcp
+factory_v3-redis-1         Up 3 days   0.0.0.0:6380->6379/tcp, [::]:6380->6379/tcp
+factory_v3-nginx-1         Up 3 days   0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp

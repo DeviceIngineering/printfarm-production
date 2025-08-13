@@ -1,0 +1,9 @@
+ M apps/api/v1/tochka_views.py
+ M apps/products/models.py
+ M ../frontend/src/api/products.ts
+ M ../frontend/src/components/products/ProductTable.tsx
+ M ../frontend/src/pages/TochkaPage.tsx
+?? ../.claude/
+?? .claude/
+?? apps/api/v1/tests/
+?? test_reserve_production_hotfix.py

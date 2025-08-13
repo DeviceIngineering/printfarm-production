@@ -6,6 +6,8 @@ export interface Product {
   name: string;
   product_type: 'new' | 'old' | 'critical';
   current_stock: number;
+  reserved_stock: number;
+  effective_stock?: number;
   production_needed: number;
   production_priority: number;
   days_of_stock?: number;
@@ -48,6 +50,7 @@ export interface ProductListParams {
   page_size?: number;
   search?: string;
   product_type?: string;
+  include_reserve?: boolean;
   product_group_id?: string;
   min_stock?: number;
   max_stock?: number;

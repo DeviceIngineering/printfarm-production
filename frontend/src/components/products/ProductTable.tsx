@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Space, Button, Input, Select, Card, Statistic, Row, Col, message } from 'antd';
+import { Table, Tag, Space, Button, Input, Select, Card, Statistic, Row, Col, message, Switch, Tooltip } from 'antd';
 import { ReloadOutlined, DownloadOutlined, PictureOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store';
@@ -18,6 +18,7 @@ export const ProductTable: React.FC = () => {
   const { status } = useSelector((state: RootState) => state.sync);
   const [searchText, setSearchText] = useState(filters.search || '');
   const [searchTimer, setSearchTimer] = useState<NodeJS.Timeout | null>(null);
+  const [includeReserve, setIncludeReserve] = useState(false);
 
   useEffect(() => {
     const params = {
@@ -187,21 +188,47 @@ export const ProductTable: React.FC = () => {
     },
     {
       title: 'Остаток',
-      dataIndex: 'current_stock',
+      dataIndex: includeReserve ? 'effective_stock' : 'current_stock',
       key: 'current_stock',
       width: 100,
       align: 'center' as const,
       sorter: true,
-      render: (stock: number | null | string) => {
-        if (stock === null || stock === undefined || stock === '') return '-';
+      render: (stock: number | null | string, record: any) => {
+        const currentStock = record.current_stock || 0;
+        const reservedStock = record.reserved_stock || 0;
+        const displayStock = includeReserve ? currentStock + reservedStock : currentStock;
         
-        const numericStock = typeof stock === 'string' ? parseFloat(stock) : stock;
+        if (displayStock === null || displayStock === undefined || displayStock === '') return '-';
+        
+        const numericStock = typeof displayStock === 'string' ? parseFloat(displayStock) : displayStock;
         if (isNaN(numericStock)) return '-';
         
         return (
           <span className={numericStock < 5 ? 'text-red-600 font-bold' : ''}>
             {numericStock}
           </span>
+        );
+      },
+    },
+    {
+      title: 'Резерв',
+      dataIndex: 'reserved_stock',
+      key: 'reserved_stock',
+      width: 100,
+      align: 'center' as const,
+      sorter: true,
+      render: (reservedStock: number | null | string) => {
+        if (reservedStock === null || reservedStock === undefined || reservedStock === '') return '-';
+        
+        const numericReserved = typeof reservedStock === 'string' ? parseFloat(reservedStock) : reservedStock;
+        if (isNaN(numericReserved) || numericReserved === 0) return '-';
+        
+        return (
+          <Tooltip title="Количество товара в резерве">
+            <span className="text-orange-600">
+              {numericReserved}
+            </span>
+          </Tooltip>
         );
       },
     },
@@ -412,6 +439,22 @@ export const ProductTable: React.FC = () => {
           >
             Экспорт в Excel
           </Button>
+          
+          <Tooltip title="При включении учитывает резерв товара в расчетах остатка">
+            <Space>
+              <span>Учитывать резерв:</span>
+              <Switch 
+                checked={includeReserve}
+                onChange={(checked) => {
+                  setIncludeReserve(checked);
+                  dispatch(fetchProducts({
+                    ...filters,
+                    include_reserve: checked
+                  }));
+                }}
+              />
+            </Space>
+          </Tooltip>
           
           <Button
             icon={<PictureOutlined />}

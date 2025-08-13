@@ -44,6 +44,7 @@ def normalize_article(article):
 def get_products_for_tochka(request):
     """
     API для получения списка всех товаров для вкладки Точка
+    Поддерживает параметр include_reserve для отображения колонки Резерв
     """
     try:
         # Получаем все товары с базовой информацией
@@ -58,12 +59,23 @@ def get_products_for_tochka(request):
             except ValueError:
                 pass
         
-        # Сериализация данных
-        serializer = ProductListSerializer(products, many=True, context={'request': request})
+        # Получаем параметр include_reserve
+        include_reserve = request.GET.get('include_reserve', '').lower() in ['true', '1', 'yes']
+        
+        # Сериализация данных с контекстом include_reserve
+        serializer = ProductListSerializer(
+            products, 
+            many=True, 
+            context={
+                'request': request,
+                'include_reserve': include_reserve
+            }
+        )
         
         return Response({
             'results': serializer.data,
             'count': len(serializer.data),
+            'include_reserve': include_reserve,
             'message': 'Товары успешно загружены'
         })
         
@@ -77,11 +89,14 @@ def get_products_for_tochka(request):
 def get_production_list_for_tochka(request):
     """
     API для получения списка товаров на производство для вкладки Точка
+    Поддерживает параметр include_reserve для отображения колонки Резерв
     """
     try:
-        # Получаем только товары, которые требуют производства
+        # Получаем товары, которые требуют производства ИЛИ имеют резерв
+        # Бизнес-правило: товары с резервом всегда включаются в планирование производства
+        from django.db.models import Q
         products = Product.objects.filter(
-            production_needed__gt=0
+            Q(production_needed__gt=0) | Q(reserved_stock__gt=0)
         ).order_by('-production_priority', 'article')
         
         # Применяем пагинацию если нужно
@@ -93,12 +108,45 @@ def get_production_list_for_tochka(request):
             except ValueError:
                 pass
         
-        # Сериализация данных
-        serializer = ProductListSerializer(products, many=True, context={'request': request})
+        # Получаем параметр include_reserve
+        include_reserve = request.GET.get('include_reserve', '').lower() in ['true', '1', 'yes']
+        
+        # Сериализация данных с контекстом include_reserve
+        serializer = ProductListSerializer(
+            products, 
+            many=True, 
+            context={
+                'request': request,
+                'include_reserve': include_reserve
+            }
+        )
+        
+        # Добавляем информацию о товарах с резервом для подсветки
+        results_with_highlight = []
+        for item in serializer.data:
+            # Проверяем есть ли резерв у товара
+            reserved_stock = float(item.get('reserved_stock', 0))
+            has_reserve = reserved_stock > 0
+            
+            # Добавляем флаг для подсветки в UI
+            item_with_highlight = dict(item)
+            item_with_highlight['has_reserve'] = has_reserve
+            item_with_highlight['reserve_amount'] = reserved_stock
+            
+            # Рассчитываем значение колонки "Резерв" (Reserve - Stock)
+            if include_reserve and has_reserve:
+                current_stock = float(item.get('current_stock', 0))
+                reserve_minus_stock = reserved_stock - current_stock
+                item_with_highlight['reserve_minus_stock'] = reserve_minus_stock
+            else:
+                item_with_highlight['reserve_minus_stock'] = None
+            
+            results_with_highlight.append(item_with_highlight)
         
         return Response({
-            'results': serializer.data,
-            'count': len(serializer.data),
+            'results': results_with_highlight,
+            'count': len(results_with_highlight),
+            'include_reserve': include_reserve,
             'message': 'Список на производство успешно загружен'
         })
         
@@ -332,9 +380,10 @@ def merge_excel_with_products(request):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         
-        # Загружаем ВСЕ товары из базы данных (МойСклад) которые требуют производства
+        # Загружаем ВСЕ товары из базы данных (МойСклад) которые требуют производства (включая товары с резервом)
+        from django.db.models import Q
         products_for_production = Product.objects.filter(
-            production_needed__gt=0
+            Q(production_needed__gt=0) | Q(reserved_stock__gt=0)
         ).order_by('-production_priority', 'article')
         
         
@@ -429,9 +478,11 @@ def get_filtered_production_list(request):
     """
     API для получения отфильтрованного списка на производство
     Возвращает только товары которые ЕСТЬ в Точке (исключает товары отсутствующие в Точке)
+    Поддерживает параметр include_reserve для отображения колонки Резерв
     """
     try:
         excel_data = request.data.get('excel_data', [])
+        include_reserve = request.data.get('include_reserve', False)
         
         if not excel_data:
             return Response({
@@ -454,9 +505,10 @@ def get_filtered_production_list(request):
                 'error': 'Не найдены артикулы в данных Excel'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Загружаем ВСЕ товары на производство и фильтруем те, которые ЕСТЬ в Точке
+        # Загружаем ВСЕ товары на производство (включая товары с резервом) и фильтруем те, которые ЕСТЬ в Точке
+        from django.db.models import Q
         all_products_for_production = Product.objects.filter(
-            production_needed__gt=0
+            Q(production_needed__gt=0) | Q(reserved_stock__gt=0)
         ).order_by('-production_priority', 'article')
         
         # Фильтруем товары, которые есть в Excel (Точке)
@@ -466,34 +518,54 @@ def get_filtered_production_list(request):
             if normalized_product_article in excel_articles:
                 products_in_tochka.append(product)
         
-        # Формируем отфильтрованный список на производство
+        # Используем сериализатор для корректной обработки резерва
+        serializer = ProductListSerializer(
+            products_in_tochka, 
+            many=True, 
+            context={
+                'request': request,
+                'include_reserve': include_reserve
+            }
+        )
+        
+        # Обогащаем данные Excel информацией и подсветкой
         production_list = []
         total_quantity = 0
         
-        for product in products_in_tochka:
-            normalized_product_article = normalize_article(product.article)
+        for product_data in serializer.data:
+            normalized_product_article = normalize_article(product_data['article'])
             excel_item = excel_dict.get(normalized_product_article, {})
             
-            item = {
-                'article': product.article,
-                'product_name': product.name,
-                'production_needed': float(product.production_needed),
-                'production_priority': product.production_priority,
-                'current_stock': float(product.current_stock),
-                'product_type': product.product_type,
-                'sales_last_2_months': float(product.sales_last_2_months),
+            # Добавляем Excel данные
+            item = dict(product_data)
+            item.update({
                 'orders_in_tochka': excel_item.get('orders', 0),
                 'has_duplicates': excel_item.get('has_duplicates', False),
-            }
+            })
+            
+            # Добавляем информацию для подсветки
+            reserved_stock = float(item.get('reserved_stock', 0))
+            has_reserve = reserved_stock > 0
+            item['has_reserve'] = has_reserve
+            item['reserve_amount'] = reserved_stock
+            
+            # Рассчитываем значение колонки "Резерв" (Reserve - Stock)
+            if include_reserve and has_reserve:
+                current_stock = float(item.get('current_stock', 0))
+                reserve_minus_stock = reserved_stock - current_stock
+                item['reserve_minus_stock'] = reserve_minus_stock
+            else:
+                item['reserve_minus_stock'] = None
             
             production_list.append(item)
-            total_quantity += float(product.production_needed)
+            total_quantity += float(item.get('production_needed', 0))
         
         return Response({
             'message': f'Отфильтрованный список готов: {len(production_list)} товаров к производству',
             'data': production_list,
             'total_items': len(production_list),
             'total_quantity': round(total_quantity, 2),
+            'include_reserve': include_reserve,
             'filtered_by_tochka': True,
         })
         
