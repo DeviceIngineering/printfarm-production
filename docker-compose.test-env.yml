@@ -1,0 +1,263 @@
+version: '3.8'
+
+services:
+  # Test Database - изолированная БД с анонимизированными данными
+  test-db:
+    image: postgres:15-alpine
+    container_name: printfarm_test_db
+    environment:
+      - POSTGRES_DB=printfarm_test_db
+      - POSTGRES_USER=test_user
+      - POSTGRES_PASSWORD=test_password_2025
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+      - ./scripts/anonymize_data.sql:/docker-entrypoint-initdb.d/01-anonymize.sql
+    ports:
+      - "5433:5432"  # Другой порт чтобы не конфликтовать с prod
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Test Redis для кэширования и очередей
+  test-redis:
+    image: redis:7-alpine
+    container_name: printfarm_test_redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - test_redis_data:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Test Backend API с A/B функциональностью
+  test-backend:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+      args:
+        - ENVIRONMENT=testing
+    container_name: printfarm_test_backend
+    command: >
+      sh -c "
+        python manage.py migrate &&
+        python manage.py collectstatic --noinput &&
+        gunicorn config.wsgi:application --bind 0.0.0.0:8000 --reload --workers 2
+      "
+    volumes:
+      - ./backend:/app
+      - test_static_volume:/app/static
+      - test_media_volume:/app/media
+      - ./logs/test:/app/logs
+    ports:
+      - "8001:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.testing
+      - DATABASE_URL=postgresql://test_user:test_password_2025@test-db:5432/printfarm_test_db
+      - REDIS_URL=redis://test-redis:6379/0
+      - DEBUG=True
+      - ALLOWED_HOSTS=*
+      - SECRET_KEY=test-secret-key-for-focus-group-2025
+      - MOYSKLAD_TOKEN=${MOYSKLAD_TEST_TOKEN}
+      - AB_TESTING_ENABLED=True
+      - ANALYTICS_ENABLED=True
+      - FEEDBACK_ENABLED=True
+    depends_on:
+      test-db:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    networks:
+      - test-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.test-backend.rule=Host(`test-api.printfarm.local`)"
+
+  # Test Frontend с A/B тестированием
+  test-frontend:
+    build:
+      context: .
+      dockerfile: docker/react/Dockerfile
+      args:
+        - REACT_APP_ENVIRONMENT=testing
+    container_name: printfarm_test_frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:8001/api/v1
+      - REACT_APP_AB_TESTING=true
+      - REACT_APP_ANALYTICS_ID=UA-TEST-123456
+      - REACT_APP_FEEDBACK_ENABLED=true
+      - PORT=3000
+      - HOST=0.0.0.0
+    networks:
+      - test-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.test-frontend.rule=Host(`test.printfarm.local`)"
+
+  # Test Celery Worker для фоновых задач
+  test-celery:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    container_name: printfarm_test_celery
+    command: celery -A config worker -l info --concurrency=2
+    volumes:
+      - ./backend:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.testing
+      - DATABASE_URL=postgresql://test_user:test_password_2025@test-db:5432/printfarm_test_db
+      - REDIS_URL=redis://test-redis:6379/0
+    depends_on:
+      - test-db
+      - test-redis
+    networks:
+      - test-network
+
+  # Test Celery Beat для периодических задач
+  test-celery-beat:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    container_name: printfarm_test_celery_beat
+    command: celery -A config beat -l info
+    volumes:
+      - ./backend:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.testing
+      - DATABASE_URL=postgresql://test_user:test_password_2025@test-db:5432/printfarm_test_db
+      - REDIS_URL=redis://test-redis:6379/0
+    depends_on:
+      - test-db
+      - test-redis
+    networks:
+      - test-network
+
+  # Analytics Service для сбора метрик
+  test-analytics:
+    image: plausible/analytics:latest
+    container_name: printfarm_test_analytics
+    command: sh -c "sleep 10 && /entrypoint.sh db createdb && /entrypoint.sh db migrate && /entrypoint.sh db init-admin && /entrypoint.sh run"
+    environment:
+      - BASE_URL=http://analytics.printfarm.local
+      - SECRET_KEY_BASE=test-analytics-secret-key-base-2025
+      - DATABASE_URL=postgres://test_user:test_password_2025@test-db:5432/plausible_test
+      - CLICKHOUSE_DATABASE_URL=http://test-clickhouse:8123/plausible_test
+      - DISABLE_AUTH=false
+      - DISABLE_REGISTRATION=false
+    ports:
+      - "8002:8000"
+    depends_on:
+      - test-db
+      - test-clickhouse
+    networks:
+      - test-network
+
+  # ClickHouse для аналитики
+  test-clickhouse:
+    image: clickhouse/clickhouse-server:latest-alpine
+    container_name: printfarm_test_clickhouse
+    volumes:
+      - test_clickhouse_data:/var/lib/clickhouse
+      - ./docker/clickhouse/config.xml:/etc/clickhouse-server/config.xml:ro
+      - ./docker/clickhouse/users.xml:/etc/clickhouse-server/users.xml:ro
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    networks:
+      - test-network
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  # Nginx для маршрутизации тестового трафика
+  test-nginx:
+    image: nginx:alpine
+    container_name: printfarm_test_nginx
+    volumes:
+      - ./nginx/test.nginx.conf:/etc/nginx/nginx.conf:ro
+      - test_static_volume:/app/static:ro
+      - test_media_volume:/app/media:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - test-backend
+      - test-frontend
+    networks:
+      - test-network
+
+  # Mailhog для тестирования email уведомлений
+  test-mailhog:
+    image: mailhog/mailhog:latest
+    container_name: printfarm_test_mailhog
+    ports:
+      - "1025:1025"  # SMTP сервер
+      - "8025:8025"  # Web UI
+    networks:
+      - test-network
+
+  # Prometheus для мониторинга метрик
+  test-prometheus:
+    image: prom/prometheus:latest
+    container_name: printfarm_test_prometheus
+    volumes:
+      - ./docker/prometheus/test-prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - test_prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - "9090:9090"
+    networks:
+      - test-network
+
+  # Grafana для визуализации метрик
+  test-grafana:
+    image: grafana/grafana:latest
+    container_name: printfarm_test_grafana
+    volumes:
+      - test_grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=test-admin-2025
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    ports:
+      - "3002:3000"
+    networks:
+      - test-network
+    depends_on:
+      - test-prometheus
+
+networks:
+  test-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  test_postgres_data:
+  test_redis_data:
+  test_static_volume:
+  test_media_volume:
+  test_clickhouse_data:
+  test_prometheus_data:
+  test_grafana_data:
