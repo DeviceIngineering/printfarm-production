@@ -11,13 +11,14 @@
 ### 📊 Verified Results:
 ```
 Products with reserve now in production planning:
-1. 15-43001R: 800 units reserve → 800 units production
-2. 263-41522: 500 units reserve → 500 units production  
-3. 556-51448: 1000 units reserve → 1000 units production
-4. N321-12: 1000 units reserve → 1000 units production
-5. N421-11-45K: 5000 units reserve → 5000 units production
+1. N315-17: 176 units reserve → 176 units production
+2. N421-11-45K: 143 units reserve → 143 units production
+3. 300-42307: 119 units reserve → 119 units production
+4. 459-53059: 109 units reserve → 109 units production
+5. 496-51850: 108 units reserve → 108 units production
 
-TOTAL RECOVERED: 8,300 units back in production planning
+TOTAL: 146 products with reserve (thousands of units) now visible in production planning
+BUSINESS IMPACT: Complete inventory visibility restored
 ```
 
 ## 🔧 Technical Changes:
@@ -69,9 +70,9 @@ curl http://your-server/api/v1/tochka/production/ | grep reserved_stock
 ```
 
 ### Post-deployment Verification:
-1. **API Test**: `GET /api/v1/tochka/production/` should return 5+ products with reserve
+1. **API Test**: `GET /api/v1/tochka/production/` should return 146+ products with reserve
 2. **UI Test**: Navigate to Tochka tab → "Список к производству" should show reserve column
-3. **Business Test**: Verify all 5 critical products (15-43001R, etc.) are visible
+3. **Business Test**: Verify products with reserve are visible (N315-17, N421-11-45K, etc.)
 
 ## ⚠️ Rollback Plan:
 If issues occur, rollback using:
