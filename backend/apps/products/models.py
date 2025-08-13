@@ -100,6 +100,25 @@ class Product(TimestampedModel):
     def calculate_production_need(self) -> Decimal:
         """
         Calculate production need based on product type and consumption.
+        Includes logic for products with reserve stock.
+        """
+        # КРИТИЧЕСКОЕ ПРАВИЛО: Если есть резерв, товар всегда нуждается в производстве
+        if self.reserved_stock > 0:
+            # Рассчитываем потребность как минимум равную резерву
+            # Это гарантирует, что товары с резервом попадут в список производства
+            base_need = self.reserved_stock
+            
+            # Добавляем стандартный расчет, если он больше резерва
+            standard_need = self._calculate_standard_production_need()
+            
+            return max(base_need, standard_need)
+        
+        # Стандартный расчет для товаров без резерва
+        return self._calculate_standard_production_need()
+    
+    def _calculate_standard_production_need(self) -> Decimal:
+        """
+        Standard production need calculation without reserve consideration.
         """
         # Get the actual product type based on current conditions
         actual_type = self.classify_product_type()

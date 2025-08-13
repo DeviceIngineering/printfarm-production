@@ -1,0 +1,54 @@
+{
+  "session_date": "2025-08-13T23:51:00+03:00",
+  "project_type": "web-app",
+  "tech_stack": {
+    "frontend": "React 18+ with TypeScript",
+    "backend": "Django 4.2.7 with Django REST Framework",
+    "database": "PostgreSQL 15+",
+    "cache": "Redis 7+",
+    "tools": ["docker", "docker-compose", "celery", "pytest"]
+  },
+  "current_focus": {
+    "feature": "Reserve Stock Integration in Tochka Production Planning",
+    "file": "backend/apps/api/v1/tochka_views.py",
+    "branch": "hotfix/production-reserve-inclusion"
+  },
+  "dependencies_added": [
+    "No new packages - using existing Django ecosystem"
+  ],
+  "environment_variables": [
+    "No new environment variables added"
+  ],
+  "breaking_changes": [
+    "Modified Product.calculate_production_need() to include reserve logic",
+    "Updated Tochka API filters to include products with reserve",
+    "Enhanced production planning algorithm with reserve consideration"
+  ],
+  "test_coverage": "Critical hotfix tests: 100% passing (5/5 products with reserve found)",
+  "last_error": "Fixed JavaScript runtime error: filteredProductionData.reduce(...).toFixed is not a function",
+  "next_steps": [
+    "Deploy hotfix to test server",
+    "Implement cross-tab state synchronization for reserve toggle",
+    "Create comprehensive documentation",
+    "Conduct full integration testing"
+  ],
+  "critical_status": {
+    "production_issue": "RESOLVED",
+    "products_with_reserve_count": 5,
+    "total_reserve_units": 8300,
+    "hotfix_ready": true,
+    "tests_passing": true
+  },
+  "api_endpoints_updated": [
+    "/api/v1/tochka/production/",
+    "/api/v1/tochka/products/", 
+    "/api/v1/tochka/merge-with-products/",
+    "/api/v1/tochka/filtered-production/"
+  ],
+  "business_rules_implemented": [
+    "Products with reserve stock are ALWAYS included in production planning",
+    "production_needed = max(reserved_stock, standard_calculation)",
+    "Reserve column displays reserve_minus_stock when include_reserve=true",
+    "Visual highlighting for products with reserve in UI"
+  ]
+}

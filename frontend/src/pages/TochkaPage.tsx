@@ -429,6 +429,21 @@ export const TochkaPage: React.FC = () => {
       render: (value: number) => `${value} шт`,
     },
     {
+      title: 'Резерв',
+      dataIndex: 'reserved_stock',
+      key: 'reserved_stock',
+      width: 100,
+      sorter: (a: any, b: any) => (a.reserved_stock || 0) - (b.reserved_stock || 0),
+      render: (value: number) => (
+        <span style={{ 
+          color: value > 0 ? '#1890ff' : '#999',
+          fontWeight: value > 0 ? 'bold' : 'normal' 
+        }}>
+          {value || 0} шт
+        </span>
+      ),
+    },
+    {
       title: 'Тип',
       dataIndex: 'product_type',
       key: 'product_type',
@@ -482,8 +497,15 @@ export const TochkaPage: React.FC = () => {
       key: 'production_needed',
       width: 120,
       sorter: (a: any, b: any) => a.production_needed - b.production_needed,
-      render: (value: number) => (
-        <span style={{ color: '#f5222d', fontWeight: 'bold' }}>
+      render: (value: number, record: any) => (
+        <span style={{ 
+          color: '#f5222d', 
+          fontWeight: 'bold',
+          backgroundColor: record.has_reserve ? '#fff7e6' : 'transparent',
+          padding: record.has_reserve ? '2px 6px' : '0',
+          borderRadius: record.has_reserve ? '4px' : '0',
+          border: record.has_reserve ? '1px dashed #fa8c16' : 'none'
+        }}>
           {value} шт
         </span>
       ),
@@ -507,6 +529,28 @@ export const TochkaPage: React.FC = () => {
       width: 120,
       sorter: (a: any, b: any) => a.current_stock - b.current_stock,
       render: (value: number) => `${value} шт`,
+    },
+    {
+      title: 'Резерв',
+      dataIndex: 'reserved_stock',
+      key: 'reserved_stock',
+      width: 100,
+      sorter: (a: any, b: any) => (a.reserved_stock || 0) - (b.reserved_stock || 0),
+      render: (value: number, record: any) => (
+        <div>
+          <span style={{ 
+            color: value > 0 ? '#1890ff' : '#999',
+            fontWeight: value > 0 ? 'bold' : 'normal' 
+          }}>
+            {value || 0} шт
+          </span>
+          {record.reserve_minus_stock !== null && record.reserve_minus_stock !== undefined && (
+            <div style={{ fontSize: '10px', color: '#666' }}>
+              Резерв-Остаток: {record.reserve_minus_stock > 0 ? '+' : ''}{record.reserve_minus_stock}
+            </div>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -781,10 +825,39 @@ export const TochkaPage: React.FC = () => {
       key: 'production_needed',
       width: 120,
       sorter: (a: any, b: any) => a.production_needed - b.production_needed,
-      render: (value: number) => (
-        <span style={{ color: '#f5222d', fontWeight: 'bold' }}>
+      render: (value: number, record: any) => (
+        <span style={{ 
+          color: '#f5222d', 
+          fontWeight: 'bold',
+          backgroundColor: record.has_reserve ? '#fff7e6' : 'transparent',
+          padding: record.has_reserve ? '2px 6px' : '0',
+          borderRadius: record.has_reserve ? '4px' : '0',
+          border: record.has_reserve ? '1px dashed #fa8c16' : 'none'
+        }}>
           {value} шт
         </span>
+      ),
+    },
+    {
+      title: 'Резерв',
+      dataIndex: 'reserved_stock',
+      key: 'reserved_stock',
+      width: 100,
+      sorter: (a: any, b: any) => (a.reserved_stock || 0) - (b.reserved_stock || 0),
+      render: (value: number, record: any) => (
+        <div>
+          <span style={{ 
+            color: value > 0 ? '#1890ff' : '#999',
+            fontWeight: value > 0 ? 'bold' : 'normal' 
+          }}>
+            {value || 0} шт
+          </span>
+          {record.reserve_minus_stock !== null && record.reserve_minus_stock !== undefined && (
+            <div style={{ fontSize: '10px', color: '#666' }}>
+              Резерв-Остаток: {record.reserve_minus_stock > 0 ? '+' : ''}{record.reserve_minus_stock}
+            </div>
+          )}
+        </div>
       ),
     },
     {
@@ -1115,7 +1188,10 @@ export const TochkaPage: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Tag color="green">✅ Только товары в Точке</Tag>
                 <Tag color="blue">
-                  {filteredProductionData.reduce((sum: number, item: any) => sum + item.production_needed, 0).toFixed(0)} шт всего
+                  {filteredProductionData.reduce((sum: number, item: any) => {
+                    const value = parseFloat(item.production_needed) || 0;
+                    return sum + value;
+                  }, 0).toFixed(0)} шт всего
                 </Tag>
                 <Button 
                   type="primary"
