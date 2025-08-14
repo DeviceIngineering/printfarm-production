@@ -1,0 +1,129 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-printfarm_db}
+      - POSTGRES_USER=${POSTGRES_USER:-printfarm_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
+    ports:
+      - "5433:5432"  # Changed from 5432 to avoid conflicts
+    restart: unless-stopped
+    networks:
+      - printfarm-network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6380:6379"  # Changed from 6379 to avoid conflicts
+    restart: unless-stopped
+    networks:
+      - printfarm-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4
+    volumes:
+      - static_volume:/app/static
+      - media_volume:/app/media
+    ports:
+      - "8001:8000"  # Changed from 8000 to 8001 (8000 is occupied)
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env.prod
+    restart: unless-stopped
+    networks:
+      - printfarm-network
+    environment:
+      - DEBUG=False
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
+
+  celery:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    command: celery -A config worker -l info --concurrency=2
+    volumes:
+      - media_volume:/app/media
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env.prod
+    restart: unless-stopped
+    networks:
+      - printfarm-network
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    command: celery -A config beat -l info
+    volumes:
+      - media_volume:/app/media
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env.prod
+    restart: unless-stopped
+    networks:
+      - printfarm-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/react/Dockerfile
+    ports:
+      - "3001:3000"  # Changed from 3000 to 3001 for better separation
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8001/api/v1}
+      - PORT=3000
+    restart: unless-stopped
+    networks:
+      - printfarm-network
+
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    ports:
+      - "8080:80"   # Changed from 80 to 8080 for easier access
+      - "8443:443"  # HTTPS port
+    volumes:
+      - static_volume:/app/static
+      - media_volume:/app/media
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+    networks:
+      - printfarm-network
+    environment:
+      - BACKEND_HOST=backend
+      - FRONTEND_HOST=frontend
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+
+networks:
+  printfarm-network:
+    driver: bridge

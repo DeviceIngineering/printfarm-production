@@ -1,307 +1,308 @@
-# 🚀 Руководство по развертыванию PrintFarm на Linux сервере
+# 🚀 PrintFarm v3.3.4 - Production Deployment Guide
 
-## 📋 Содержание
-1. [Подготовка сервера](#подготовка-сервера)
-2. [Загрузка проекта на сервер](#загрузка-проекта)
-3. [Настройка окружения](#настройка-окружения)
-4. [Запуск приложения](#запуск-приложения)
-5. [Настройка автозапуска](#автозапуск)
-6. [Настройка домена и SSL](#домен-и-ssl)
-7. [Мониторинг и обслуживание](#мониторинг)
+## 📋 Overview
 
-## 🔧 Подготовка сервера
+This guide explains how to deploy PrintFarm v3.3.4 to a remote server using Docker, with automatic handling of port conflicts and comprehensive testing.
 
-### Шаг 1: Подключение к серверу
+**Key Features v3.3.4:**
+- Reserve Stock Integration in production planning
+- Critical hotfix for 146+ products visibility  
+- Alternative ports for conflict resolution
+- Automated deployment with rollback capability
+
+---
+
+## 🏗️ Architecture & Ports
+
+### Port Mapping (Modified for Production)
+
+| Service | Local Port | Production Port | Purpose |
+|---------|------------|-----------------|----------|
+| **Backend API** | 8000 | **8001** | Django REST API (changed due to conflict) |
+| **Frontend** | 3000 | **3001** | React application |
+| **Nginx** | 80 | **8080** | Reverse proxy & static files |
+| **PostgreSQL** | 5432 | **5433** | Database |
+| **Redis** | 6379 | **6380** | Cache & Celery broker |
+
+### Service URLs After Deployment
+- **🌐 Main Application**: `http://your-server:8080`
+- **🔧 Backend API**: `http://your-server:8001/api/v1/`
+- **⚛️ Frontend**: `http://your-server:3001`
+- **📊 System Info**: `http://your-server:8001/api/v1/settings/system-info/`
+
+---
+
+## 🔧 Prerequisites
+
+### Local Machine
 ```bash
-ssh root@your-server-ip
+# Required tools
+docker --version          # Docker 20.10+
+docker-compose --version  # Docker Compose 2.0+
+rsync --version           # For file synchronization
+ssh-keygen -t rsa         # SSH key authentication
 ```
 
-### Шаг 2: Создание пользователя для приложения (рекомендуется)
+### Remote Server
 ```bash
-adduser printfarm
-usermod -aG sudo printfarm
-su - printfarm
-```
-
-### Шаг 3: Обновление системы
-```bash
-sudo apt update && sudo apt upgrade -y
-```
-
-### Шаг 4: Установка необходимых пакетов
-```bash
-sudo apt install -y git curl wget nginx postgresql redis-server python3-pip python3-venv build-essential libpq-dev
-```
-
-### Шаг 5: Установка Docker
-```bash
+# Install Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
-rm get-docker.sh
 
-# Добавляем пользователя в группу docker
-sudo usermod -aG docker $USER
-# Перелогиньтесь или выполните: newgrp docker
-```
-
-### Шаг 6: Установка Docker Compose
-```bash
-sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+# Install Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
+
+# Add user to docker group
+sudo usermod -aG docker $USER
+
+# Verify installation
+docker --version
+docker-compose --version
 ```
 
-## 📦 Загрузка проекта
+---
 
-### Вариант 1: Через Git (если проект в репозитории)
+## ⚙️ Configuration
+
+### 1. Environment Setup
+
+Copy and customize the production environment file:
+
 ```bash
-cd /opt
-sudo git clone https://github.com/yourusername/printfarm.git
-sudo chown -R $USER:$USER printfarm
-cd printfarm
+cp .env.prod .env.prod.local
 ```
 
-### Вариант 2: Через SCP (загрузка с локального компьютера)
-На вашем локальном компьютере:
+**Critical Settings to Update in .env.prod:**
+
 ```bash
-# Архивируем проект
-cd /Users/dim11/Documents/myProjects/
-tar -czf Factory_v2.tar.gz Factory_v2/
+# Security - MUST CHANGE
+SECRET_KEY=your-super-secret-production-key
 
-# Загружаем на сервер
-scp Factory_v2.tar.gz root@your-server-ip:/opt/
+# Server details - UPDATE THESE
+ALLOWED_HOSTS=localhost,127.0.0.1,YOUR_SERVER_IP,your-domain.com
+REACT_APP_API_URL=http://YOUR_SERVER_IP:8001/api/v1
 
-# Или используем rsync (рекомендуется)
-rsync -avz --exclude 'node_modules' --exclude '.git' --exclude '__pycache__' \
-  --exclude '*.pyc' --exclude 'media/*' --exclude 'logs/*' \
-  Factory_v2/ root@your-server-ip:/opt/printfarm/
+# Database - SECURE PASSWORDS
+POSTGRES_PASSWORD=super-secure-database-password
+
+# MoySklad API
+MOYSKLAD_TOKEN=your-actual-moysklad-token
+MOYSKLAD_DEFAULT_WAREHOUSE=your-warehouse-id
 ```
 
-На сервере:
+### 2. SSH Key Authentication
+
 ```bash
-cd /opt
-tar -xzf Factory_v2.tar.gz
-mv Factory_v2 printfarm
-rm Factory_v2.tar.gz
+# Generate SSH key (if needed)
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+
+# Copy public key to server  
+ssh-copy-id user@your-server-ip
+
+# Test connection
+ssh user@your-server-ip "echo 'SSH connection successful'"
 ```
 
-## ⚙️ Настройка окружения
+---
 
-### Шаг 1: Создание файла окружения
+## 🚀 Deployment Process
+
+### Quick Deployment
+
 ```bash
-cd /opt/printfarm
-cp .env.production .env
+# 1. Test connection and ports (dry run)
+./deploy.sh user@your-server-ip --dry-run
+
+# 2. Deploy to production
+./deploy.sh user@your-server-ip
+
+# 3. Test deployment
+./test-deployment.sh user@your-server-ip
 ```
 
-### Шаг 2: Редактирование конфигурации
+### Deployment Steps
+
+The deployment script automatically:
+1. 📦 Creates backup of current deployment
+2. 🔄 Syncs project files to server  
+3. 🛑 Stops old containers
+4. 🏗️ Builds new Docker images
+5. 🚀 Starts new containers
+6. ⏳ Waits for services to be ready
+7. ✅ Shows deployment status
+
+---
+
+## 🔍 Verification & Testing
+
+### Health Checks
+
 ```bash
-nano .env
+# Quick API health check
+curl http://your-server:8001/api/v1/settings/system-info/
+
+# Expected response:
+{
+  "version": "v3.3.4",
+  "build_date": "2025-08-14 09:34:25 +0300"
+}
 ```
 
-Обязательно измените:
-- `SECRET_KEY` - сгенерируйте новый: `python3 -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'`
-- `ALLOWED_HOSTS` - укажите ваш домен и IP
-- `POSTGRES_PASSWORD` - установите надежный пароль
-- `REACT_APP_API_URL` - укажите ваш домен
+### Comprehensive Testing
 
-### Шаг 3: Настройка Nginx
 ```bash
-sudo nano nginx/nginx.prod.conf
+# Run full test suite
+./test-deployment.sh user@your-server-ip
 ```
-Замените `your-domain.com` на ваш реальный домен.
 
-## 🚀 Запуск приложения
+Tests include:
+- 🐳 Container health status
+- 🌐 Port accessibility 
+- 🔌 API endpoint responses
+- 📱 Frontend accessibility
+- 🗄️ Database connectivity
+- 📋 Log analysis for errors
+- 🎯 **Reserve stock functionality (v3.3.4 critical feature)**
 
-### Шаг 1: Сборка и запуск контейнеров
+### Critical v3.3.4 Feature Test
+
 ```bash
-# Сборка образов
-docker-compose -f docker-compose.prod.yml build
-
-# Запуск в фоновом режиме
-docker-compose -f docker-compose.prod.yml up -d
+# Verify reserve stock integration
+curl -s http://your-server:8001/api/v1/tochka/production/ | grep -c '"reserved_stock":[^0]'
+# Should return > 0 (products with reserve stock)
 ```
 
-### Шаг 2: Проверка статуса
+---
+
+## 🔄 Rollback Procedures
+
+### Quick Rollback
+
 ```bash
-docker-compose -f docker-compose.prod.yml ps
+# Rollback to latest backup
+./rollback.sh user@your-server-ip
+
+# Rollback to specific backup
+./rollback.sh user@your-server-ip backup-20250814-143022
 ```
 
-### Шаг 3: Первоначальная настройка
+The rollback script:
+- Lists available backups
+- Creates pre-rollback backup
+- Restores specified backup
+- Restarts services
+- Verifies rollback success
+
+---
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+#### 1. Port Conflicts
 ```bash
-# Выполнение миграций
-docker-compose -f docker-compose.prod.yml exec backend python manage.py migrate
+# Check what's using the port
+ssh user@your-server-ip "sudo ss -tlnp | grep 8001"
 
-# Сбор статических файлов
-docker-compose -f docker-compose.prod.yml exec backend python manage.py collectstatic --noinput
-
-# Создание суперпользователя
-docker-compose -f docker-compose.prod.yml exec backend python manage.py createsuperuser
+# Deploy with force flag to ignore conflicts
+./deploy.sh user@your-server-ip --force
 ```
 
-## 🔄 Настройка автозапуска
-
-### Создание systemd сервиса
+#### 2. API Not Responding
 ```bash
-sudo nano /etc/systemd/system/printfarm.service
+# Check backend container logs
+ssh user@your-server-ip "cd /opt/printfarm-production && docker-compose -f docker-compose.server.prod.yml logs backend"
 ```
 
-Вставьте следующее содержимое:
-```ini
-[Unit]
-Description=PrintFarm Production System
-Requires=docker.service
-After=docker.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-WorkingDirectory=/opt/printfarm
-ExecStart=/usr/local/bin/docker-compose -f docker-compose.prod.yml up -d
-ExecStop=/usr/local/bin/docker-compose -f docker-compose.prod.yml down
-ExecReload=/usr/local/bin/docker-compose -f docker-compose.prod.yml restart
-User=printfarm
-StandardOutput=journal
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### Активация автозапуска
+#### 3. Frontend Issues
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable printfarm.service
-sudo systemctl start printfarm.service
-sudo systemctl status printfarm.service
+# Check frontend logs
+ssh user@your-server-ip "cd /opt/printfarm-production && docker-compose -f docker-compose.server.prod.yml logs frontend"
+
+# Verify API URL in .env.prod
+grep REACT_APP_API_URL .env.prod
 ```
 
-## 🔐 Настройка домена и SSL
-
-### Шаг 1: Настройка DNS
-В панели управления вашего домена создайте A-запись:
-```
-Type: A
-Name: @ (или subdomain)
-Value: your-server-ip
-```
-
-### Шаг 2: Установка Certbot
+#### 4. Database Connection
 ```bash
-sudo apt install certbot python3-certbot-nginx
+# Test database connection
+ssh user@your-server-ip "cd /opt/printfarm-production && docker-compose -f docker-compose.server.prod.yml exec backend python manage.py check --database default"
 ```
 
-### Шаг 3: Получение SSL сертификата
+### Log Locations
 ```bash
-sudo certbot --nginx -d your-domain.com -d www.your-domain.com
+# Application logs inside containers
+docker-compose -f docker-compose.server.prod.yml logs [service-name]
+
+# System logs
+sudo journalctl -u docker.service -f
 ```
 
-### Шаг 4: Настройка автообновления сертификата
+---
+
+## 📊 Monitoring & Maintenance
+
+### Quick Status Check
 ```bash
-sudo systemctl enable certbot.timer
+# Run deployment test
+./test-deployment.sh user@your-server-ip
+
+# Check container status
+ssh user@your-server-ip "cd /opt/printfarm-production && docker-compose -f docker-compose.server.prod.yml ps"
 ```
 
-## 📊 Мониторинг и обслуживание
-
-### Просмотр логов
+### Performance Monitoring
 ```bash
-# Все логи
-docker-compose -f docker-compose.prod.yml logs -f
+# Container resource usage
+ssh user@your-server-ip "docker stats"
 
-# Логи конкретного сервиса
-docker-compose -f docker-compose.prod.yml logs -f backend
-docker-compose -f docker-compose.prod.yml logs -f celery
+# Check disk space
+ssh user@your-server-ip "df -h"
 ```
 
-### Перезапуск сервисов
+---
+
+## 📞 Quick Reference
+
+### Commands Summary
 ```bash
-# Перезапуск всех сервисов
-docker-compose -f docker-compose.prod.yml restart
+# Deploy
+./deploy.sh user@server-ip [--dry-run] [--force]
 
-# Перезапуск конкретного сервиса
-docker-compose -f docker-compose.prod.yml restart backend
+# Test  
+./test-deployment.sh user@server-ip
+
+# Rollback
+./rollback.sh user@server-ip [backup-name]
+
+# Status
+ssh user@server-ip "cd /opt/printfarm-production && docker-compose -f docker-compose.server.prod.yml ps"
 ```
 
-### Обновление приложения
-```bash
-cd /opt/printfarm
+### Service URLs
+- **Main App**: `http://your-server:8080` 
+- **API**: `http://your-server:8001/api/v1/`
+- **Frontend**: `http://your-server:3001`
+- **System Info**: `http://your-server:8001/api/v1/settings/system-info/`
 
-# Получение обновлений
-git pull origin main
-
-# Пересборка и перезапуск
-docker-compose -f docker-compose.prod.yml build
-docker-compose -f docker-compose.prod.yml up -d
-
-# Применение миграций
-docker-compose -f docker-compose.prod.yml exec backend python manage.py migrate
+### File Structure
+```
+printfarm-production/
+├── deploy.sh                        # Deployment script
+├── test-deployment.sh               # Testing script
+├── rollback.sh                      # Rollback script  
+├── docker-compose.server.prod.yml   # Production compose
+├── .env.prod                        # Production config
+├── DEPLOYMENT.md                    # This guide
+├── backend/                         # Django app
+├── frontend/                        # React app
+└── docker/                          # Docker configs
 ```
 
-### Резервное копирование
-```bash
-# Backup базы данных
-docker-compose -f docker-compose.prod.yml exec db pg_dump -U printfarm_user printfarm_db > backup_$(date +%Y%m%d).sql
+---
 
-# Backup медиафайлов
-tar -czf media_backup_$(date +%Y%m%d).tar.gz backend/media/
-```
+**🎉 PrintFarm v3.3.4 is ready for production deployment\!**
 
-### Мониторинг ресурсов
-```bash
-# Использование дисков
-docker system df
-
-# Статистика контейнеров
-docker stats
-
-# Очистка неиспользуемых ресурсов
-docker system prune -a
-```
-
-## 🆘 Решение проблем
-
-### Ошибка подключения к базе данных
-```bash
-# Проверьте, запущен ли контейнер с БД
-docker-compose -f docker-compose.prod.yml ps db
-
-# Проверьте логи
-docker-compose -f docker-compose.prod.yml logs db
-```
-
-### Ошибка 502 Bad Gateway
-```bash
-# Проверьте, запущен ли backend
-docker-compose -f docker-compose.prod.yml ps backend
-
-# Проверьте логи Nginx
-docker-compose -f docker-compose.prod.yml logs nginx
-```
-
-### Недостаточно памяти
-```bash
-# Проверьте использование памяти
-free -h
-
-# Добавьте swap файл
-sudo fallocate -l 2G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-```
-
-## 📝 Чек-лист после развертывания
-
-- [ ] Проверьте, что сайт доступен по IP адресу
-- [ ] Настройте домен и проверьте его работу
-- [ ] Установите SSL сертификат
-- [ ] Проверьте работу админ-панели (/admin)
-- [ ] Протестируйте синхронизацию с МойСклад
-- [ ] Настройте резервное копирование
-- [ ] Настройте мониторинг (опционально)
-- [ ] Обновите пароли в .env файле
-
-## 🚨 Важные замечания
-
-1. **Безопасность**: Обязательно измените все пароли по умолчанию
-2. **Firewall**: Настройте ufw или iptables для ограничения доступа
-3. **Обновления**: Регулярно обновляйте систему и Docker образы
-4. **Мониторинг**: Рассмотрите установку систем мониторинга (Prometheus, Grafana)
-5. **Бэкапы**: Настройте автоматическое резервное копирование
+The system includes critical Reserve Stock Integration ensuring all 146+ products with reserve are visible in production planning.
+README_EOF < /dev/null
