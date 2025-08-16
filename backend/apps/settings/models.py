@@ -26,9 +26,14 @@ class SystemInfo(models.Model):
     
     @property
     def version(self):
-        """Получить текущую версию из VERSION файла или git"""
+        """Получить текущую версию"""
         try:
-            # Сначала пытаемся прочитать из файла VERSION
+            # Сначала пытаемся получить из настроек Django
+            from django.conf import settings
+            if hasattr(settings, 'APP_VERSION') and settings.APP_VERSION:
+                return f"v{settings.APP_VERSION}"
+            
+            # Потом пытаемся прочитать из файла VERSION
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
             version_file = os.path.join(project_root, 'VERSION')
             
@@ -65,21 +70,27 @@ class SystemInfo(models.Model):
     
     @property
     def build_date(self):
-        """Получить дату последнего коммита"""
+        """Получить дату сборки/последнего коммита"""
         try:
+            # Сначала пытаемся получить дату из git
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
             result = subprocess.run(
-                ['git', 'log', '-1', '--format=%cd', '--date=iso'],
+                ['git', 'log', '-1', '--format=%cd', '--date=format:%Y-%m-%d %H:%M:%S'],
                 capture_output=True,
                 text=True,
                 cwd=project_root
             )
-            if result.returncode == 0:
+            if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
+            
+            # Если git недоступен, используем текущую дату как fallback
+            from datetime import datetime
+            return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
         except Exception:
-            pass
-        
-        return "unknown"
+            # В случае любой ошибки, возвращаем текущую дату
+            from datetime import datetime
+            return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     def __str__(self):
         return f"System Info (v{self.version})"

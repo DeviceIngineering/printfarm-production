@@ -2,18 +2,10 @@
   min-height: 100vh;
 }
 
-.printfarm-sider {
-  background: #1E1E1E !important;
-  box-shadow: 2px 0 8px rgba(6, 234, 252, 0.1);
-}
-
 .printfarm-logo {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 16px;
-  border-bottom: 1px solid rgba(6, 234, 252, 0.2);
-  margin-bottom: 16px;
+  padding-right: 20px;
 }
 
 .logo-icon {
@@ -24,19 +16,21 @@
 .logo-text {
   color: #06EAFC;
   font-weight: bold;
-  font-size: 16px;
+  font-size: 18px;
   text-shadow: 0 0 10px rgba(6, 234, 252, 0.5);
 }
 
 .printfarm-menu {
   background: transparent !important;
   border: none;
+  min-width: 0;
 }
 
 .printfarm-menu .ant-menu-item {
   color: #ffffff;
   border-radius: 6px;
-  margin: 4px 8px;
+  margin: 0 4px;
+  padding: 0 16px;
 }
 
 .printfarm-menu .ant-menu-item:hover {
@@ -62,22 +56,7 @@
 .header-left {
   display: flex;
   align-items: center;
-}
-
-.collapse-btn {
-  color: #ffffff;
-  margin-right: 16px;
-}
-
-.collapse-btn:hover {
-  color: #06EAFC !important;
-  background-color: rgba(6, 234, 252, 0.1) !important;
-}
-
-.page-title {
-  color: #ffffff !important;
-  margin: 0;
-  text-shadow: 0 0 10px rgba(6, 234, 252, 0.3);
+  flex: 1;
 }
 
 .header-right {
