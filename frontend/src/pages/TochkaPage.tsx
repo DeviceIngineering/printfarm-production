@@ -414,23 +414,59 @@ export const TochkaPage: React.FC = () => {
       title: 'Резерв',
       dataIndex: 'reserved_stock',
       key: 'reserved_stock',
-      width: 100,
-      sorter: (a: any, b: any) => (a.reserved_stock || 0) - (b.reserved_stock || 0),
-      render: (value: number, record: any) => (
-        <div>
-          <span style={{ 
-            color: value > 0 ? '#1890ff' : '#999',
-            fontWeight: value > 0 ? 'bold' : 'normal' 
-          }}>
-            {value || 0} шт
-          </span>
-          {record.reserve_minus_stock !== null && record.reserve_minus_stock !== undefined && (
-            <div style={{ fontSize: '10px', color: '#666' }}>
-              Резерв-Остаток: {record.reserve_minus_stock > 0 ? '+' : ''}{record.reserve_minus_stock}
+      width: 120,
+      sorter: (a: any, b: any) => (a.calculated_reserve || a.reserved_stock || 0) - (b.calculated_reserve || b.reserved_stock || 0),
+      render: (value: number, record: any) => {
+        // Используем новый алгоритм отображения резерва если доступен
+        if (record.reserve_display_text && record.reserve_color) {
+          const colorMap = {
+            'blue': '#1890ff',    // Синий - резерв больше остатка (хорошо)
+            'red': '#ff4d4f',     // Красный - резерв меньше/равен остатку (внимание)
+            'gray': '#8c8c8c'     // Серый - нет резерва
+          };
+          
+          return (
+            <div>
+              <span 
+                style={{ 
+                  color: colorMap[record.reserve_color as keyof typeof colorMap] || colorMap.gray,
+                  fontWeight: record.reserve_needs_attention ? 'bold' : 'normal',
+                  fontSize: '12px'
+                }}
+                title={record.reserve_tooltip || 'Информация о резерве'}
+              >
+                {record.reserve_display_text}
+              </span>
+              {record.reserve_needs_attention && (
+                <div style={{ 
+                  fontSize: '10px', 
+                  color: '#ff4d4f',
+                  fontWeight: 'bold'
+                }}>
+                  ⚠ Требует внимания
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      ),
+          );
+        }
+        
+        // Fallback к старому отображению
+        return (
+          <div>
+            <span style={{ 
+              color: value > 0 ? '#1890ff' : '#999',
+              fontWeight: value > 0 ? 'bold' : 'normal' 
+            }}>
+              {value || 0} шт
+            </span>
+            {record.reserve_minus_stock !== null && record.reserve_minus_stock !== undefined && (
+              <div style={{ fontSize: '10px', color: '#666' }}>
+                Резерв-Остаток: {record.reserve_minus_stock > 0 ? '+' : ''}{record.reserve_minus_stock}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
   ];
 

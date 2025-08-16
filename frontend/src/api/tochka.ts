@@ -27,6 +27,23 @@ export interface FilteredProductionItem {
   production_priority: number;
   is_in_tochka: boolean;
   needs_registration: boolean;
+  
+  // Данные об остатках и резерве
+  current_stock?: number;
+  reserved_stock?: number;
+  orders_in_tochka?: number;
+  
+  // Новые поля расчета резерва
+  calculated_reserve?: number;
+  reserve_color?: 'blue' | 'red' | 'gray';
+  reserve_display_text?: string;
+  reserve_tooltip?: string;
+  reserve_needs_attention?: boolean;
+  
+  // Дополнительные поля для UI
+  has_reserve?: boolean;
+  reserve_amount?: number;
+  reserve_minus_stock?: number; // Обратная совместимость
 }
 
 export interface TochkaProduct {
@@ -40,6 +57,18 @@ export interface TochkaProduct {
   sales_last_2_months: string;
   production_needed: string;
   production_priority: number;
+  
+  // Новые поля расчета резерва
+  calculated_reserve?: number;
+  reserve_color?: 'blue' | 'red' | 'gray';
+  reserve_display_text?: string;
+  reserve_tooltip?: string;
+  reserve_needs_attention?: boolean;
+  
+  // Дополнительные поля для UI
+  has_reserve?: boolean;
+  reserve_amount?: number;
+  reserve_minus_stock?: number; // Обратная совместимость
 }
 
 export interface TochkaProductsResponse {
