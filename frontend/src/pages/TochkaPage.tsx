@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { Typography, Card, Button, Row, Col, Table, Tag, message, Spin, Upload, Modal, Input, Space } from 'antd';
 import { 
   ShopOutlined, 
@@ -8,22 +9,40 @@ import {
   FileExcelOutlined,
   SearchOutlined
 } from '@ant-design/icons';
-import { API_BASE_URL } from '../utils/constants';
+import { RootState } from '../store';
+import {
+  fetchTochkaProducts,
+  fetchTochkaProduction,
+  uploadExcelFile,
+  mergeWithProducts,
+  getFilteredProduction,
+  exportDeduplicated,
+  exportProduction,
+  clearError,
+  clearExcelData,
+  createDeduplicatedData
+} from '../store/tochka';
+import type { AppDispatch } from '../store';
 
 const { Title, Paragraph } = Typography;
 
 export const TochkaPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [productsData, setProductsData] = useState<any[]>([]);
-  const [productionData, setProductionData] = useState<any[]>([]);
-  const [excelData, setExcelData] = useState<any[]>([]);
-  const [deduplicatedExcelData, setDeduplicatedExcelData] = useState<any[]>([]);
-  const [mergedData, setMergedData] = useState<any[]>([]);
-  const [filteredProductionData, setFilteredProductionData] = useState<any[]>([]);
+  const dispatch = useDispatch<AppDispatch>();
+  const {
+    products: productsData,
+    production: productionData,
+    excelData,
+    deduplicatedExcelData,
+    mergedData,
+    filteredProductionData,
+    coverage,
+    productionStats,
+    loading,
+    error
+  } = useSelector((state: RootState) => state.tochka);
+  
+  // Local UI state
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
-  const [uploadLoading, setUploadLoading] = useState(false);
-  const [mergeLoading, setMergeLoading] = useState(false);
-  const [filterLoading, setFilterLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
   const searchInput = useRef<any>(null);
@@ -87,123 +106,47 @@ export const TochkaPage: React.FC = () => {
 
   // Функция для загрузки товаров
   const loadProducts = async () => {
-    setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/tochka/products/`);
-      if (response.ok) {
-        const data = await response.json();
-        setProductsData(data.results || data);
-        message.success('Товары загружены');
-      } else {
-        message.error('Ошибка загрузки товаров');
-      }
+      await dispatch(fetchTochkaProducts()).unwrap();
+      message.success('Товары загружены');
     } catch (error) {
-      message.error('Ошибка подключения к API');
-    } finally {
-      setLoading(false);
+      message.error('Ошибка загрузки товаров');
     }
   };
 
   // Функция для загрузки списка на производство
   const loadProductionList = async () => {
-    setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/tochka/production/`);
-      if (response.ok) {
-        const data = await response.json();
-        setProductionData(data.results || data);
-        message.success('Список на производство загружен');
-      } else {
-        message.error('Ошибка загрузки списка на производство');
-      }
+      await dispatch(fetchTochkaProduction()).unwrap();
+      message.success('Список на производство загружен');
     } catch (error) {
-      message.error('Ошибка подключения к API');
-    } finally {
-      setLoading(false);
+      message.error('Ошибка загрузки списка на производство');
     }
   };
 
 
-  // Функция для создания дедуплицированных данных из загруженного Excel
-  const createDeduplicatedData = (rawData: any[]) => {
-    const articleMap = new Map();
-    
-    // Группируем по артикулам
-    rawData.forEach((item) => {
-      const article = item.article;
-      if (articleMap.has(article)) {
-        const existing = articleMap.get(article);
-        // Суммируем заказы
-        existing.orders += item.orders;
-        // Добавляем номер строки к дубликатам
-        if (!existing.duplicate_rows) {
-          existing.duplicate_rows = [];
-        }
-        existing.duplicate_rows.push(item.row_number);
-        existing.has_duplicates = true;
-      } else {
-        articleMap.set(article, {
-          article: item.article,
-          orders: item.orders,
-          row_number: item.row_number,
-          has_duplicates: false,
-          duplicate_rows: []
-        });
-      }
-    });
-    
-    // Конвертируем Map в массив и сортируем по убыванию заказов
-    return Array.from(articleMap.values()).sort((a, b) => b.orders - a.orders);
-  };
 
   // Функция для загрузки Excel файла
   const handleExcelUpload = async (file: File) => {
-    setUploadLoading(true);
-    
-    const formData = new FormData();
-    formData.append('file', file);
-    
     try {
-      const response = await fetch(`${API_BASE_URL}/tochka/upload-excel/`, {
-        method: 'POST',
-        body: formData,
-      });
+      const result = await dispatch(uploadExcelFile(file)).unwrap();
+      setUploadModalVisible(false);
       
-      const data = await response.json();
+      // Более информативное сообщение о результатах
+      const successMessage = result.unique_articles < result.total_records 
+        ? `${result.message} (дубликаты объединены)`
+        : result.message;
       
-      if (response.ok) {
-        setExcelData(data.data || []);
-        
-        // Создаем дедуплицированные данные из исходных
-        const deduplicatedData = createDeduplicatedData(data.data || []);
-        setDeduplicatedExcelData(deduplicatedData);
-        
-        setUploadModalVisible(false);
-        
-        // Более информативное сообщение о результатах
-        const successMessage = data.duplicates_merged > 0 
-          ? `${data.message} (${data.duplicates_merged} дубликатов объединено)`
-          : data.message;
-        
-        message.success(successMessage, 5); // Показываем 5 секунд
-        
-        if (data.duplicates_merged > 0) {
-          console.log(`Дедупликация завершена:
-            - Исходных записей: ${data.total_raw_records}
-            - Уникальных артикулов: ${data.unique_articles}  
-            - Дубликатов объединено: ${data.duplicates_merged}
-            - Дедуплицированных записей создано: ${deduplicatedData.length}`);
-        }
-      } else {
-        message.error(data.error || 'Ошибка при загрузке файла');
-        if (data.available_columns) {
-          console.log('Доступные колонки:', data.available_columns);
-        }
+      message.success(successMessage, 5);
+      
+      if (result.unique_articles < result.total_records) {
+        console.log(`Дедупликация завершена:
+          - Исходных записей: ${result.total_records}
+          - Уникальных артикулов: ${result.unique_articles}  
+          - Дубликатов объединено: ${result.total_records - result.unique_articles}`);
       }
-    } catch (error) {
-      message.error('Ошибка подключения к серверу');
-    } finally {
-      setUploadLoading(false);
+    } catch (error: any) {
+      message.error(error.message || 'Ошибка при загрузке файла');
     }
     
     return false; // Предотвращаем автоматическую загрузку
@@ -216,41 +159,21 @@ export const TochkaPage: React.FC = () => {
       return;
     }
 
-    setMergeLoading(true);
-    
     try {
-      const response = await fetch(`${API_BASE_URL}/tochka/merge-with-products/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          excel_data: excelData
-        }),
-      });
+      const result = await dispatch(mergeWithProducts(excelData)).unwrap();
+      message.success(`${result.message} (${result.coverage_rate}% покрытие)`, 5);
       
-      const data = await response.json();
-      
-      if (response.ok) {
-        setMergedData(data.data || []);
-        message.success(`${data.message} (${data.coverage_rate}% покрытие)`, 5);
+      console.log(`Анализ производства завершен:
+        - Найдено продуктов: ${result.found_products}
+        - Всего артикулов: ${result.total_articles}
+        - Процент покрытия: ${result.coverage_rate}%`);
         
-        console.log(`Анализ производства завершен:
-          - Всего товаров к производству: ${data.total_production_needed}
-          - Есть в Точке: ${data.products_in_tochka}
-          - НЕТ в Точке: ${data.products_not_in_tochka}
-          - Процент покрытия: ${data.coverage_rate}%`);
-          
-        if (data.products_not_in_tochka > 0) {
-          message.warning(`Внимание! ${data.products_not_in_tochka} товаров требуют регистрации в Точке!`, 8);
-        }
-      } else {
-        message.error(data.error || 'Ошибка при объединении данных');
+      if (result.found_products < result.total_articles) {
+        const missing = result.total_articles - result.found_products;
+        message.warning(`Внимание! ${missing} товаров требуют регистрации в Точке!`, 8);
       }
-    } catch (error) {
-      message.error('Ошибка подключения к серверу');
-    } finally {
-      setMergeLoading(false);
+    } catch (error: any) {
+      message.error(error.message || 'Ошибка при объединении данных');
     }
   };
 
@@ -261,36 +184,16 @@ export const TochkaPage: React.FC = () => {
       return;
     }
 
-    setFilterLoading(true);
-    
     try {
-      const response = await fetch(`${API_BASE_URL}/tochka/filtered-production/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          excel_data: excelData
-        }),
-      });
+      const result = await dispatch(getFilteredProduction(excelData)).unwrap();
+      message.success(`${result.message}`, 5);
       
-      const data = await response.json();
-      
-      if (response.ok) {
-        setFilteredProductionData(data.data || []);
-        message.success(`${data.message} (${data.total_quantity} шт)`, 5);
-        
-        console.log(`Отфильтрованный список готов:
-          - Товаров к производству: ${data.total_items}
-          - Общее количество: ${data.total_quantity} шт
-          - Исключены товары отсутствующие в Точке`);
-      } else {
-        message.error(data.error || 'Ошибка при получении списка');
-      }
-    } catch (error) {
-      message.error('Ошибка подключения к серверу');
-    } finally {
-      setFilterLoading(false);
+      console.log(`Отфильтрованный список готов:
+        - Товаров к производству: ${result.total_products}
+        - Есть в Точке: ${result.products_in_tochka}
+        - Требуют регистрации: ${result.products_need_registration}`);
+    } catch (error: any) {
+      message.error(error.message || 'Ошибка при получении списка');
     }
   };
 
@@ -397,10 +300,21 @@ export const TochkaPage: React.FC = () => {
   };
 
 
-  // Загрузка данных при монтировании
+  // Загрузка данных при монтировании только если они отсутствуют
   useEffect(() => {
-    loadProducts();
+    if (productsData.length === 0) {
+      loadProducts();
+    }
   }, []);
+  
+  // Очистка ошибок при размонтировании
+  useEffect(() => {
+    return () => {
+      if (error) {
+        dispatch(clearError());
+      }
+    };
+  }, [dispatch, error]);
 
   // Колонки для таблицы товаров
   const productColumns = [
@@ -1008,7 +922,7 @@ export const TochkaPage: React.FC = () => {
                 type="primary"
                 icon={<AppstoreOutlined />}
                 onClick={handleMergeWithProducts}
-                loading={mergeLoading}
+                loading={loading.merge}
                 style={{ backgroundColor: '#722ed1', borderColor: '#722ed1' }}
               >
                 Анализ производства
@@ -1019,7 +933,7 @@ export const TochkaPage: React.FC = () => {
                 type="default"
                 icon={<UnorderedListOutlined />}
                 onClick={handleGetFilteredProduction}
-                loading={filterLoading}
+                loading={loading.filter}
                 style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', color: 'white' }}
               >
                 Список к производству
@@ -1269,35 +1183,35 @@ export const TochkaPage: React.FC = () => {
             accept=".xlsx,.xls"
             beforeUpload={handleExcelUpload}
             showUploadList={false}
-            disabled={uploadLoading}
+            disabled={loading.upload}
             style={{ 
-              opacity: uploadLoading ? 0.6 : 1,
-              pointerEvents: uploadLoading ? 'none' : 'auto'
+              opacity: loading.upload ? 0.6 : 1,
+              pointerEvents: loading.upload ? 'none' : 'auto'
             }}
           >
             <p className="ant-upload-drag-icon">
               <FileExcelOutlined 
                 style={{ 
                   fontSize: 48, 
-                  color: uploadLoading ? '#d9d9d9' : '#52c41a' 
+                  color: loading.upload ? '#d9d9d9' : '#52c41a' 
                 }} 
               />
             </p>
             <p className="ant-upload-text">
-              {uploadLoading 
+              {loading.upload 
                 ? 'Обрабатываем файл...' 
                 : 'Нажмите или перетащите Excel файл в эту область'
               }
             </p>
             <p className="ant-upload-hint">
-              {uploadLoading 
+              {loading.upload 
                 ? 'Пожалуйста, подождите...' 
                 : 'Поддерживаются форматы .xlsx и .xls'
               }
             </p>
           </Upload.Dragger>
           
-          {uploadLoading && (
+          {loading.upload && (
             <div style={{ textAlign: 'center', marginTop: 20 }}>
               <Spin />
               <p style={{ marginTop: 10 }}>Обработка файла...</p>
