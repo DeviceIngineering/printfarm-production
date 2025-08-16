@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from django.db.models import Q
 from apps.products.models import Product
 from apps.products.serializers import ProductListSerializer
+from apps.products.services.reserve_calculator import ReserveCalculatorService
 import pandas as pd
 import io
 import re
@@ -133,12 +134,31 @@ def get_production_list_for_tochka(request):
             item_with_highlight['has_reserve'] = has_reserve
             item_with_highlight['reserve_amount'] = reserved_stock
             
-            # Рассчитываем значение колонки "Резерв" (Reserve - Stock)
-            if include_reserve and has_reserve:
+            # Используем новый алгоритм расчета резерва с цветовой индикацией
+            if include_reserve:
                 current_stock = float(item.get('current_stock', 0))
-                reserve_minus_stock = reserved_stock - current_stock
-                item_with_highlight['reserve_minus_stock'] = reserve_minus_stock
+                reserve_calculator = ReserveCalculatorService()
+                reserve_calc = reserve_calculator.calculate_reserve_display(
+                    reserved_stock=reserved_stock,
+                    current_stock=current_stock
+                )
+                reserve_ui = reserve_calculator.format_reserve_for_display(reserve_calc)
+                
+                # Добавляем результаты расчета резерва
+                item_with_highlight['calculated_reserve'] = float(reserve_calc['calculated_reserve'])
+                item_with_highlight['reserve_color'] = reserve_calc['color_indicator']
+                item_with_highlight['reserve_display_text'] = reserve_ui['display_text']
+                item_with_highlight['reserve_tooltip'] = reserve_ui['tooltip_text']
+                item_with_highlight['reserve_needs_attention'] = reserve_ui['needs_attention']
+                
+                # Обратная совместимость со старым полем
+                item_with_highlight['reserve_minus_stock'] = float(reserve_calc['calculated_reserve'])
             else:
+                item_with_highlight['calculated_reserve'] = None
+                item_with_highlight['reserve_color'] = 'gray'
+                item_with_highlight['reserve_display_text'] = None
+                item_with_highlight['reserve_tooltip'] = None
+                item_with_highlight['reserve_needs_attention'] = False
                 item_with_highlight['reserve_minus_stock'] = None
             
             results_with_highlight.append(item_with_highlight)
@@ -549,12 +569,31 @@ def get_filtered_production_list(request):
             item['has_reserve'] = has_reserve
             item['reserve_amount'] = reserved_stock
             
-            # Рассчитываем значение колонки "Резерв" (Reserve - Stock)
-            if include_reserve and has_reserve:
+            # Используем новый алгоритм расчета резерва с цветовой индикацией
+            if include_reserve:
                 current_stock = float(item.get('current_stock', 0))
-                reserve_minus_stock = reserved_stock - current_stock
-                item['reserve_minus_stock'] = reserve_minus_stock
+                reserve_calculator = ReserveCalculatorService()
+                reserve_calc = reserve_calculator.calculate_reserve_display(
+                    reserved_stock=reserved_stock,
+                    current_stock=current_stock
+                )
+                reserve_ui = reserve_calculator.format_reserve_for_display(reserve_calc)
+                
+                # Добавляем результаты расчета резерва
+                item['calculated_reserve'] = float(reserve_calc['calculated_reserve'])
+                item['reserve_color'] = reserve_calc['color_indicator']
+                item['reserve_display_text'] = reserve_ui['display_text']
+                item['reserve_tooltip'] = reserve_ui['tooltip_text']
+                item['reserve_needs_attention'] = reserve_ui['needs_attention']
+                
+                # Обратная совместимость со старым полем
+                item['reserve_minus_stock'] = float(reserve_calc['calculated_reserve'])
             else:
+                item['calculated_reserve'] = None
+                item['reserve_color'] = 'gray'
+                item['reserve_display_text'] = None
+                item['reserve_tooltip'] = None
+                item['reserve_needs_attention'] = False
                 item['reserve_minus_stock'] = None
             
             production_list.append(item)
@@ -938,18 +977,41 @@ def upload_and_auto_process_excel(request):
                     excel_item = next((item for item in deduplicated_data if item['article'] == normalized_article), None)
                     orders_in_tochka = excel_item['orders'] if excel_item else 0
                     
+                    # Рассчитываем резерв с новым алгоритмом
+                    reserved_stock = float(getattr(product, 'reserved_stock', 0))
+                    current_stock = float(product.current_stock)
+                    
+                    reserve_calculator = ReserveCalculatorService()
+                    reserve_calc = reserve_calculator.calculate_reserve_display(
+                        reserved_stock=reserved_stock,
+                        current_stock=current_stock
+                    )
+                    reserve_ui = reserve_calculator.format_reserve_for_display(reserve_calc)
+                    
                     item = {
                         'article': product.article,
                         'product_name': product.name,
                         'production_needed': float(product.production_needed),
                         'production_priority': product.production_priority,
-                        'current_stock': float(product.current_stock),
+                        'current_stock': current_stock,
                         'sales_last_2_months': float(product.sales_last_2_months),
                         'product_type': product.product_type,
-                        'reserved_stock': getattr(product, 'reserved_stock', 0),
+                        'reserved_stock': reserved_stock,
                         'orders_in_tochka': orders_in_tochka,
                         'is_in_tochka': True,
                         'needs_registration': False,
+                        
+                        # Новые поля расчета резерва
+                        'calculated_reserve': float(reserve_calc['calculated_reserve']),
+                        'reserve_color': reserve_calc['color_indicator'],
+                        'reserve_display_text': reserve_ui['display_text'],
+                        'reserve_tooltip': reserve_ui['tooltip_text'],
+                        'reserve_needs_attention': reserve_ui['needs_attention'],
+                        
+                        # Дополнительные поля для UI
+                        'has_reserve': reserved_stock > 0,
+                        'reserve_amount': reserved_stock,
+                        'reserve_minus_stock': float(reserve_calc['calculated_reserve'])  # Обратная совместимость
                     }
                     filtered_production.append(item)
             

@@ -7,7 +7,7 @@ from django.db.models import Q, Count, Sum, Value
 from django.db.models.functions import Lower
 from .models import Product
 from .serializers import ProductListSerializer, ProductDetailSerializer, ProductStatsSerializer
-from .services import ProductionService
+# from .services import ProductionService  # TODO: Create ProductionService
 from apps.sync.models import ProductionList
 from apps.sync.services import SyncService
 
