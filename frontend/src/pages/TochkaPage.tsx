@@ -418,7 +418,12 @@ export const TochkaPage: React.FC = () => {
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
-      sorter: (a: any, b: any) => a.name.localeCompare(b.name),
+      sorter: (a: any, b: any) => {
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return nameA.localeCompare(nameB);
+      },
+      render: (text: string) => text || '-',
     },
     {
       title: 'Остаток',
@@ -489,7 +494,12 @@ export const TochkaPage: React.FC = () => {
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
-      sorter: (a: any, b: any) => a.name.localeCompare(b.name),
+      sorter: (a: any, b: any) => {
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return nameA.localeCompare(nameB);
+      },
+      render: (text: string) => text || '-',
     },
     {
       title: 'К производству',
@@ -816,8 +826,15 @@ export const TochkaPage: React.FC = () => {
       key: 'product_name',
       width: 250,
       ellipsis: true,
-      sorter: (a: any, b: any) => a.product_name.localeCompare(b.product_name),
-      render: (name: string) => <span style={{ color: '#1890ff' }}>{name}</span>,
+      sorter: (a: any, b: any) => {
+        const nameA = a.product_name || a.name || '';
+        const nameB = b.product_name || b.name || '';
+        return nameA.localeCompare(nameB);
+      },
+      render: (name: string, record: any) => {
+        const displayName = name || record.name || '-';
+        return <span style={{ color: '#1890ff' }}>{displayName}</span>;
+      },
     },
     {
       title: 'К производству',
