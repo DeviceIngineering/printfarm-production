@@ -751,3 +751,247 @@ def export_production_list(request):
             'error': f'Ошибка при экспорте: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def upload_and_auto_process_excel(request):
+    """
+    API для автоматической обработки Excel файла:
+    1. Загружает и дедуплицирует Excel
+    2. Автоматически выполняет анализ производства
+    3. Автоматически формирует список к производству
+    
+    Возвращает полный результат всех операций
+    """
+    import time
+    start_time = time.time()
+    
+    try:
+        # Проверяем, что файл передан
+        if 'file' not in request.FILES:
+            return Response({
+                'error': 'Файл не был загружен'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        excel_file = request.FILES['file']
+        
+        # Этап 1: Загрузка и дедупликация Excel файла
+        try:
+            file_content = excel_file.read()
+            df = pd.read_excel(io.BytesIO(file_content))
+            
+            # Поиск нужных колонок с различными вариантами названий
+            article_column = None
+            orders_column = None
+            
+            for col in df.columns:
+                col_lower = str(col).lower().strip()
+                if 'артикул' in col_lower and 'товар' in col_lower:
+                    article_column = col
+                elif 'заказ' in col_lower and 'шт' in col_lower:
+                    orders_column = col
+            
+            if not article_column or not orders_column:
+                return Response({
+                    'error': 'Не найдены необходимые колонки "Артикул товара" и "Заказов, шт."'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Фильтруем и очищаем данные
+            df_filtered = df[[article_column, orders_column]].copy()
+            df_filtered = df_filtered.dropna()
+            
+            # Приводим к нужным типам
+            df_filtered[article_column] = df_filtered[article_column].astype(str)
+            df_filtered[orders_column] = pd.to_numeric(df_filtered[orders_column], errors='coerce')
+            df_filtered = df_filtered.dropna()
+            
+            # Дедупликация по артикулу с суммированием заказов
+            deduplicated_data = []
+            article_groups = df_filtered.groupby(article_column)
+            
+            for article, group in article_groups:
+                normalized_article = normalize_article(article)
+                if not normalized_article:
+                    continue
+                    
+                total_orders = group[orders_column].sum()
+                row_numbers = group.index.tolist()
+                
+                item = {
+                    'article': normalized_article,
+                    'orders': int(total_orders),
+                    'row_number': row_numbers[0] + 2,  # +2 для Excel нумерации (1-based + header)
+                    'has_duplicates': len(row_numbers) > 1,
+                    'duplicate_rows': row_numbers[1:] if len(row_numbers) > 1 else []
+                }
+                deduplicated_data.append(item)
+            
+            # Сортируем по убыванию количества заказов
+            deduplicated_data.sort(key=lambda x: x['orders'], reverse=True)
+            
+            upload_result = {
+                'message': f'Excel файл обработан успешно',
+                'total_records': len(df_filtered),
+                'unique_articles': len(deduplicated_data),
+                'data': deduplicated_data
+            }
+            
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка при обработке Excel файла: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Этап 2: Автоматический анализ производства
+        try:
+            excel_articles = [item['article'] for item in deduplicated_data]
+            
+            # Получаем товары из базы данных
+            products = Product.objects.filter(article__in=excel_articles)
+            products_dict = {}
+            
+            for product in products:
+                normalized_article = normalize_article(product.article)
+                if normalized_article:
+                    products_dict[normalized_article] = product
+            
+            # Объединяем данные Excel с товарами
+            merged_data = []
+            found_products = 0
+            
+            for excel_item in deduplicated_data:
+                product = products_dict.get(excel_item['article'])
+                
+                if product:
+                    found_products += 1
+                    merged_item = {
+                        'article': excel_item['article'],
+                        'orders': excel_item['orders'],
+                        'orders_in_tochka': excel_item['orders'],
+                        'has_duplicates': excel_item.get('has_duplicates', False),
+                        'product_name': product.name,
+                        'current_stock': float(product.current_stock),
+                        'sales_last_2_months': float(product.sales_last_2_months),
+                        'product_type': product.product_type,
+                        'production_needed': float(product.production_needed),
+                        'production_priority': product.production_priority,
+                        'product_matched': True,
+                        'has_product_data': True,
+                        'is_in_tochka': True,
+                        'needs_registration': False,
+                    }
+                else:
+                    merged_item = {
+                        'article': excel_item['article'],
+                        'orders': excel_item['orders'],
+                        'orders_in_tochka': excel_item['orders'],
+                        'has_duplicates': excel_item.get('has_duplicates', False),
+                        'product_name': None,
+                        'current_stock': None,
+                        'sales_last_2_months': None,
+                        'product_type': None,
+                        'production_needed': None,
+                        'production_priority': None,
+                        'product_matched': False,
+                        'has_product_data': False,
+                        'is_in_tochka': False,
+                        'needs_registration': True,
+                    }
+                
+                merged_data.append(merged_item)
+            
+            # Сортируем: сначала требующие регистрации, потом по количеству заказов
+            merged_data.sort(key=lambda x: (not x['needs_registration'], -x['orders']))
+            
+            coverage_rate = round((found_products / len(deduplicated_data)) * 100, 1) if deduplicated_data else 0
+            
+            analysis_result = {
+                'message': f'Анализ производства завершен',
+                'total_articles': len(deduplicated_data),
+                'found_products': found_products,
+                'coverage_rate': coverage_rate,
+                'merged_data': merged_data
+            }
+            
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка при анализе производства: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Этап 3: Автоматическое формирование списка к производству
+        try:
+            # Получаем товары на производство из МойСклад
+            products_for_production = Product.objects.filter(
+                production_needed__gt=0
+            ).order_by('-production_priority')
+            
+            # Создаем множество артикулов из Excel (товары Точки)
+            tochka_articles = {item['article'] for item in deduplicated_data}
+            
+            filtered_production = []
+            for product in products_for_production:
+                normalized_article = normalize_article(product.article)
+                
+                if normalized_article in tochka_articles:
+                    # Находим соответствующую запись из Excel для orders_in_tochka
+                    excel_item = next((item for item in deduplicated_data if item['article'] == normalized_article), None)
+                    orders_in_tochka = excel_item['orders'] if excel_item else 0
+                    
+                    item = {
+                        'article': product.article,
+                        'product_name': product.name,
+                        'production_needed': float(product.production_needed),
+                        'production_priority': product.production_priority,
+                        'current_stock': float(product.current_stock),
+                        'sales_last_2_months': float(product.sales_last_2_months),
+                        'product_type': product.product_type,
+                        'reserved_stock': getattr(product, 'reserved_stock', 0),
+                        'orders_in_tochka': orders_in_tochka,
+                        'is_in_tochka': True,
+                        'needs_registration': False,
+                    }
+                    filtered_production.append(item)
+            
+            production_result = {
+                'message': f'Список к производству сформирован',
+                'total_products': len(filtered_production),
+                'products_in_tochka': len(filtered_production),
+                'products_need_registration': 0,
+                'filtered_production': filtered_production
+            }
+            
+        except Exception as e:
+            return Response({
+                'error': f'Ошибка при формировании списка производства: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Финальный ответ с результатами всех этапов
+        end_time = time.time()
+        processing_time = round(end_time - start_time, 2)
+        
+        return Response({
+            'success': True,
+            'processing_time_seconds': processing_time,
+            'upload_result': upload_result,
+            'analysis_result': analysis_result,
+            'production_result': production_result,
+            'summary': {
+                'excel_file_processed': True,
+                'analysis_completed': True,
+                'production_list_ready': True,
+                'total_excel_records': len(deduplicated_data),
+                'products_found_in_db': found_products,
+                'coverage_percentage': coverage_rate,
+                'production_items_count': len(filtered_production)
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        end_time = time.time()
+        processing_time = round(end_time - start_time, 2)
+        
+        return Response({
+            'error': f'Ошибка при автоматической обработке: {str(e)}',
+            'processing_time_seconds': processing_time
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

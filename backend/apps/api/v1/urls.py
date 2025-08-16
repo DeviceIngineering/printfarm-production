@@ -7,7 +7,8 @@ from .tochka_views import (
     merge_excel_with_products,
     get_filtered_production_list,
     export_deduplicated_excel,
-    export_production_list
+    export_production_list,
+    upload_and_auto_process_excel
 )
 
 urlpatterns = [
@@ -26,4 +27,5 @@ urlpatterns = [
     path('tochka/filtered-production/', get_filtered_production_list, name='tochka-filtered-production'),
     path('tochka/export-deduplicated/', export_deduplicated_excel, name='tochka-export-deduplicated'),
     path('tochka/export-production/', export_production_list, name='tochka-export-production'),
+    path('tochka/upload-and-auto-process/', upload_and_auto_process_excel, name='tochka-upload-and-auto-process'),
 ]

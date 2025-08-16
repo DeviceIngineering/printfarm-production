@@ -7,21 +7,20 @@ import {
   AppstoreOutlined,
   UnorderedListOutlined,
   FileExcelOutlined,
-  SearchOutlined
+  SearchOutlined,
+  UpOutlined,
+  DownOutlined
 } from '@ant-design/icons';
 import { API_BASE_URL } from '../utils/constants';
 import { RootState } from '../store';
 import {
   fetchTochkaProducts,
   fetchTochkaProduction,
-  uploadExcelFile,
-  mergeWithProducts,
-  getFilteredProduction,
+  uploadAndAutoProcess,
   exportDeduplicated,
   exportProduction,
   clearError,
-  clearExcelData,
-  createDeduplicatedData
+  clearExcelData
 } from '../store/tochka';
 import type { AppDispatch } from '../store';
 
@@ -47,6 +46,16 @@ export const TochkaPage: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
   const searchInput = useRef<any>(null);
+  
+  // Состояния для сворачивания таблиц
+  const [tablesCollapsed, setTablesCollapsed] = useState({
+    products: false,
+    production: false,
+    mergedData: true, // свернуто по умолчанию после обработки
+    excelData: true, // свернуто по умолчанию после обработки
+    deduplicatedData: true, // свернуто по умолчанию после обработки
+    filteredProduction: false // основная таблица результата - развернута
+  });
 
   // Функция поиска для колонок
   const handleSearch = (selectedKeys: any, confirm: any, dataIndex: any) => {
@@ -130,73 +139,73 @@ export const TochkaPage: React.FC = () => {
   // Функция для загрузки Excel файла
   const handleExcelUpload = async (file: File) => {
     try {
-      const result = await dispatch(uploadExcelFile(file)).unwrap();
+      const result = await dispatch(uploadAndAutoProcess(file)).unwrap();
       setUploadModalVisible(false);
       
-      // Более информативное сообщение о результатах
-      const successMessage = result.unique_articles < result.total_records 
-        ? `${result.message} (дубликаты объединены)`
-        : result.message;
+      // Показываем результат автоматической обработки
+      const { summary } = result;
+      const successMessage = `Файл обработан за ${result.processing_time_seconds.toFixed(1)}с! ` +
+        `Найдено товаров: ${summary.products_found_in_db}/${summary.total_excel_records} ` +
+        `(${summary.coverage_percentage.toFixed(1)}% покрытие)`;
       
-      message.success(successMessage, 5);
+      message.success(successMessage, 8);
       
-      if (result.unique_articles < result.total_records) {
-        console.log(`Дедупликация завершена:
-          - Исходных записей: ${result.total_records}
-          - Уникальных артикулов: ${result.unique_articles}  
-          - Дубликатов объединено: ${result.total_records - result.unique_articles}`);
-      }
+      console.log('Автоматическая обработка завершена:', {
+        'Время обработки': `${result.processing_time_seconds}с`,
+        'Excel записей': summary.total_excel_records,
+        'Найдено в БД': summary.products_found_in_db,
+        'Покрытие': `${summary.coverage_percentage.toFixed(1)}%`,
+        'К производству': summary.production_items_count
+      });
+      
+      // После успешной обработки сворачиваем промежуточные таблицы
+      setTablesCollapsed(prev => ({
+        ...prev,
+        mergedData: true,
+        excelData: true,
+        deduplicatedData: true,
+        filteredProduction: false // основная таблица результата остается развернутой
+      }));
     } catch (error: any) {
-      message.error(error.message || 'Ошибка при загрузке файла');
+      message.error(error.message || 'Ошибка при обработке файла');
     }
     
     return false; // Предотвращаем автоматическую загрузку
   };
 
-  // Функция для объединения Excel данных с товарами
-  const handleMergeWithProducts = async () => {
-    if (excelData.length === 0) {
-      message.warning('Сначала загрузите Excel файл');
-      return;
-    }
-
-    try {
-      const result = await dispatch(mergeWithProducts(excelData)).unwrap();
-      message.success(`${result.message} (${result.coverage_rate}% покрытие)`, 5);
-      
-      console.log(`Анализ производства завершен:
-        - Найдено продуктов: ${result.found_products}
-        - Всего артикулов: ${result.total_articles}
-        - Процент покрытия: ${result.coverage_rate}%`);
-        
-      if (result.found_products < result.total_articles) {
-        const missing = result.total_articles - result.found_products;
-        message.warning(`Внимание! ${missing} товаров требуют регистрации в Точке!`, 8);
-      }
-    } catch (error: any) {
-      message.error(error.message || 'Ошибка при объединении данных');
-    }
+  // Функция для переключения сворачивания таблиц
+  const toggleTableCollapse = (tableKey: keyof typeof tablesCollapsed) => {
+    setTablesCollapsed(prev => ({
+      ...prev,
+      [tableKey]: !prev[tableKey]
+    }));
   };
 
-  // Функция для получения отфильтрованного списка производства (только товары есть в Точке)
-  const handleGetFilteredProduction = async () => {
-    if (excelData.length === 0) {
-      message.warning('Сначала загрузите Excel файл');
-      return;
-    }
-
-    try {
-      const result = await dispatch(getFilteredProduction(excelData)).unwrap();
-      message.success(`${result.message}`, 5);
-      
-      console.log(`Отфильтрованный список готов:
-        - Товаров к производству: ${result.total_products}
-        - Есть в Точке: ${result.products_in_tochka}
-        - Требуют регистрации: ${result.products_need_registration}`);
-    } catch (error: any) {
-      message.error(error.message || 'Ошибка при получении списка');
-    }
+  // Вспомогательная функция для создания заголовка карточки с кнопкой сворачивания
+  const createCollapsibleTitle = (title: string, tableKey: keyof typeof tablesCollapsed, extra?: React.ReactNode) => {
+    const isCollapsed = tablesCollapsed[tableKey];
+    return (
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+        <span>{title}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {extra}
+          <Button
+            type="text"
+            size="small"
+            icon={isCollapsed ? <DownOutlined /> : <UpOutlined />}
+            onClick={() => toggleTableCollapse(tableKey)}
+            style={{ 
+              padding: '0 4px',
+              color: '#1890ff',
+              border: 'none'
+            }}
+            title={isCollapsed ? 'Развернуть таблицу' : 'Свернуть таблицу'}
+          />
+        </div>
+      </div>
+    );
   };
+
 
   // Функция для экспорта дедуплицированных данных Excel
   const handleExportDeduplicatedExcel = async () => {
@@ -842,18 +851,6 @@ export const TochkaPage: React.FC = () => {
         </Col>
         <Col>
           <Button 
-            icon={<ReloadOutlined />}
-            onClick={() => {
-              loadProducts();
-              loadProductionList();
-            }}
-            loading={loading.products || loading.production}
-          >
-            Обновить все
-          </Button>
-        </Col>
-        <Col>
-          <Button 
             type="default"
             icon={<FileExcelOutlined />}
             onClick={() => setUploadModalVisible(true)}
@@ -862,100 +859,69 @@ export const TochkaPage: React.FC = () => {
             Загрузить Excel
           </Button>
         </Col>
-        {excelData.length > 0 && (
-          <>
-            <Col>
-              <Button 
-                type="primary"
-                icon={<AppstoreOutlined />}
-                onClick={handleMergeWithProducts}
-                loading={loading.merge}
-                style={{ backgroundColor: '#722ed1', borderColor: '#722ed1' }}
-              >
-                Анализ производства
-              </Button>
-            </Col>
-            <Col>
-              <Button 
-                type="default"
-                icon={<UnorderedListOutlined />}
-                onClick={handleGetFilteredProduction}
-                loading={loading.filter}
-                style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', color: 'white' }}
-              >
-                Список к производству
-              </Button>
-            </Col>
-            <Col>
-              <Button 
-                type="default"
-                icon={<FileExcelOutlined />}
-                onClick={() => {
-                  const element = document.querySelector('[title*="без дублей"]')?.parentElement?.parentElement;
-                  if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-                }}
-                style={{ backgroundColor: '#13c2c2', borderColor: '#13c2c2', color: 'white' }}
-                size="small"
-              >
-                📊 Дедупликация
-              </Button>
-            </Col>
-          </>
-        )}
       </Row>
 
-      <Spin spinning={loading.products || loading.production || loading.upload || loading.merge || loading.filter || loading.export}>
+      <Spin spinning={loading.products || loading.production || loading.autoProcess || loading.export}>
         {/* Таблица товаров */}
         <Card 
-          title={`Товары (${productsData.length})`} 
+          title={createCollapsibleTitle(
+            `Товары (${productsData.length})`, 
+            'products',
+            <Tag color="blue">Все товары</Tag>
+          )}
           style={{ marginBottom: 24 }}
-          extra={<Tag color="blue">Все товары</Tag>}
         >
-          <Table
-            dataSource={productsData}
-            columns={productColumns}
-            rowKey="id"
-            pagination={{
-              pageSize: 20,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => 
-                `${range[0]}-${range[1]} из ${total} записей`,
-            }}
-            scroll={{ x: 800 }}
-            size="small"
-          />
+          {!tablesCollapsed.products && (
+            <Table
+              dataSource={productsData}
+              columns={productColumns}
+              rowKey="id"
+              pagination={{
+                pageSize: 20,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => 
+                  `${range[0]}-${range[1]} из ${total} записей`,
+              }}
+              scroll={{ x: 800 }}
+              size="small"
+            />
+          )}
         </Card>
 
         {/* Таблица производства */}
         <Card 
-          title={`Список на производство (${productionData.length})`}
-          extra={<Tag color="red">Требуют производства</Tag>}
+          title={createCollapsibleTitle(
+            `Список на производство (${productionData.length})`,
+            'production',
+            <Tag color="red">Требуют производства</Tag>
+          )}
           style={{ marginBottom: 24 }}
         >
-          <Table
-            dataSource={productionData}
-            columns={productionColumns}
-            rowKey="id"
-            pagination={{
-              pageSize: 20,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => 
-                `${range[0]}-${range[1]} из ${total} записей`,
-            }}
-            scroll={{ x: 800 }}
-            size="small"
-          />
+          {!tablesCollapsed.production && (
+            <Table
+              dataSource={productionData}
+              columns={productionColumns}
+              rowKey="id"
+              pagination={{
+                pageSize: 20,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => 
+                  `${range[0]}-${range[1]} из ${total} записей`,
+              }}
+              scroll={{ x: 800 }}
+              size="small"
+            />
+          )}
         </Card>
 
         {/* Таблица анализа производства */}
         {mergedData.length > 0 && (
           <Card 
-            title={`Список на производство с анализом Точки (${mergedData.length} товаров)`}
-            extra={
+            title={createCollapsibleTitle(
+              `Список на производство с анализом Точки (${mergedData.length} товаров)`,
+              'mergedData',
               <div>
                 <Tag color="purple">К производству</Tag>
                 <Tag color="green">
@@ -965,61 +931,67 @@ export const TochkaPage: React.FC = () => {
                   {mergedData.filter((item: any) => item.needs_registration).length} НЕТ в Точке!
                 </Tag>
               </div>
-            }
+            )}
             style={{ marginBottom: 24 }}
           >
-            <Table
-              dataSource={mergedData}
-              columns={mergedColumns}
-              rowKey={(record, index) => `merged-${index}`}
-              pagination={{
-                pageSize: 20,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total, range) => 
-                  `${range[0]}-${range[1]} из ${total} записей`,
-              }}
-              scroll={{ x: 1000 }}
-              size="small"
-            />
+            {!tablesCollapsed.mergedData && (
+              <Table
+                dataSource={mergedData}
+                columns={mergedColumns}
+                rowKey={(record, index) => `merged-${index}`}
+                pagination={{
+                  pageSize: 20,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  showTotal: (total, range) => 
+                    `${range[0]}-${range[1]} из ${total} записей`,
+                }}
+                scroll={{ x: 1000 }}
+                size="small"
+              />
+            )}
           </Card>
         )}
 
         {/* Таблица данных из Excel */}
         {excelData.length > 0 && mergedData.length === 0 && (
           <Card 
-            title={`Данные из Excel (${excelData.length} уникальных артикулов)`}
-            extra={
+            title={createCollapsibleTitle(
+              `Данные из Excel (${excelData.length} уникальных артикулов)`,
+              'excelData',
               <div>
                 <Tag color="green">Артикул + Заказы</Tag>
                 {excelData.some((item: any) => item.has_duplicates) && (
                   <Tag color="orange">Дубликаты объединены</Tag>
                 )}
               </div>
-            }
+            )}
           >
-            <Table
-              dataSource={excelData}
-              columns={excelColumns}
-              rowKey={(record, index) => `excel-${index}`}
-              pagination={{
-                pageSize: 20,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total, range) => 
-                  `${range[0]}-${range[1]} из ${total} записей`,
-              }}
-              scroll={{ x: 400 }}
-              size="small"
-            />
+            {!tablesCollapsed.excelData && (
+              <Table
+                dataSource={excelData}
+                columns={excelColumns}
+                rowKey={(record, index) => `excel-${index}`}
+                pagination={{
+                  pageSize: 20,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  showTotal: (total, range) => 
+                    `${range[0]}-${range[1]} из ${total} записей`,
+                }}
+                scroll={{ x: 400 }}
+                size="small"
+              />
+            )}
           </Card>
         )}
 
         {/* Таблица дедуплицированных данных Excel */}
         {deduplicatedExcelData.length > 0 && (
           <Card 
-            title={`Данные Excel без дублей (${deduplicatedExcelData.length} уникальных артикулов)`}
-            extra={
+            title={createCollapsibleTitle(
+              `Данные Excel без дублей (${deduplicatedExcelData.length} уникальных артикулов)`,
+              'deduplicatedData',
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Tag color="blue">Дедуплицированные данные</Tag>
                 <Tag color="green">
@@ -1039,31 +1011,34 @@ export const TochkaPage: React.FC = () => {
                   Экспорт в Excel
                 </Button>
               </div>
-            }
+            )}
             style={{ marginBottom: 24 }}
           >
-            <Table
-              dataSource={deduplicatedExcelData}
-              columns={deduplicatedExcelColumns}
-              rowKey={(record, index) => `deduplicated-${index}`}
-              pagination={{
-                pageSize: 20,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total, range) => 
-                  `${range[0]}-${range[1]} из ${total} записей`,
-              }}
-              scroll={{ x: 450 }}
-              size="small"
-            />
+            {!tablesCollapsed.deduplicatedData && (
+              <Table
+                dataSource={deduplicatedExcelData}
+                columns={deduplicatedExcelColumns}
+                rowKey={(record, index) => `deduplicated-${index}`}
+                pagination={{
+                  pageSize: 20,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  showTotal: (total, range) => 
+                    `${range[0]}-${range[1]} из ${total} записей`,
+                }}
+                scroll={{ x: 450 }}
+                size="small"
+              />
+            )}
           </Card>
         )}
 
         {/* Таблица отфильтрованного списка производства */}
         {filteredProductionData.length > 0 && (
           <Card 
-            title={`Список к производству (${filteredProductionData.length} товаров)`}
-            extra={
+            title={createCollapsibleTitle(
+              `Список к производству (${filteredProductionData.length} товаров)`,
+              'filteredProduction',
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Tag color="green">✅ Только товары в Точке</Tag>
                 <Tag color="blue">
@@ -1083,23 +1058,25 @@ export const TochkaPage: React.FC = () => {
                   Экспорт в Excel
                 </Button>
               </div>
-            }
+            )}
             style={{ marginBottom: 24 }}
           >
-            <Table
-              dataSource={filteredProductionData}
-              columns={filteredProductionColumns}
-              rowKey={(record, index) => `filtered-${index}`}
-              pagination={{
-                pageSize: 20,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total, range) => 
-                  `${range[0]}-${range[1]} из ${total} записей`,
-              }}
-              scroll={{ x: 1000 }}
-              size="small"
-            />
+            {!tablesCollapsed.filteredProduction && (
+              <Table
+                dataSource={filteredProductionData}
+                columns={filteredProductionColumns}
+                rowKey={(record, index) => `filtered-${index}`}
+                pagination={{
+                  pageSize: 20,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  showTotal: (total, range) => 
+                    `${range[0]}-${range[1]} из ${total} записей`,
+                }}
+                scroll={{ x: 1000 }}
+                size="small"
+              />
+            )}
           </Card>
         )}
       </Spin>
@@ -1132,38 +1109,38 @@ export const TochkaPage: React.FC = () => {
             accept=".xlsx,.xls"
             beforeUpload={handleExcelUpload}
             showUploadList={false}
-            disabled={loading.upload}
+            disabled={loading.autoProcess}
             style={{ 
-              opacity: loading.upload ? 0.6 : 1,
-              pointerEvents: loading.upload ? 'none' : 'auto'
+              opacity: loading.autoProcess ? 0.6 : 1,
+              pointerEvents: loading.autoProcess ? 'none' : 'auto'
             }}
           >
             <p className="ant-upload-drag-icon">
               <FileExcelOutlined 
                 style={{ 
                   fontSize: 48, 
-                  color: loading.upload ? '#d9d9d9' : '#52c41a' 
+                  color: loading.autoProcess ? '#d9d9d9' : '#52c41a' 
                 }} 
               />
             </p>
             <p className="ant-upload-text">
-              {loading.upload 
-                ? 'Обрабатываем файл...' 
+              {loading.autoProcess 
+                ? 'Автоматическая обработка файла...' 
                 : 'Нажмите или перетащите Excel файл в эту область'
               }
             </p>
             <p className="ant-upload-hint">
-              {loading.upload 
-                ? 'Пожалуйста, подождите...' 
+              {loading.autoProcess 
+                ? 'Анализ и формирование списка производства...' 
                 : 'Поддерживаются форматы .xlsx и .xls'
               }
             </p>
           </Upload.Dragger>
           
-          {loading.upload && (
+          {loading.autoProcess && (
             <div style={{ textAlign: 'center', marginTop: 20 }}>
               <Spin />
-              <p style={{ marginTop: 10 }}>Обработка файла...</p>
+              <p style={{ marginTop: 10 }}>Автоматическая обработка: дедупликация → анализ → список производства...</p>
             </div>
           )}
         </div>

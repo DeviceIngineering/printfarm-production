@@ -84,6 +84,40 @@ export interface ExportResponse {
   download_url: string;
 }
 
+export interface AutoProcessResponse {
+  success: boolean;
+  processing_time_seconds: number;
+  upload_result: {
+    message: string;
+    data: ExcelDataItem[];
+    total_records: number;
+    unique_articles: number;
+  };
+  analysis_result: {
+    message: string;
+    merged_data: MergedDataItem[];
+    coverage_rate: number;
+    found_products: number;
+    total_articles: number;
+  };
+  production_result: {
+    message: string;
+    filtered_production: FilteredProductionItem[];
+    total_products: number;
+    products_in_tochka: number;
+    products_need_registration: number;
+  };
+  summary: {
+    excel_file_processed: boolean;
+    analysis_completed: boolean;
+    production_list_ready: boolean;
+    total_excel_records: number;
+    products_found_in_db: number;
+    coverage_percentage: number;
+    production_items_count: number;
+  };
+}
+
 // API функции
 export const tochkaApi = {
   // Получить товары Точки
@@ -128,4 +162,15 @@ export const tochkaApi = {
     apiClient.post('/tochka/export-production/', {
       production_data: productionData,
     }),
+
+  // Автоматическая обработка Excel файла (загрузка + анализ + список производства)
+  uploadAndAutoProcess: (file: File): Promise<AutoProcessResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/tochka/upload-and-auto-process/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 };

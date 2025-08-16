@@ -10,7 +10,8 @@ import {
   UploadExcelResponse,
   MergeWithProductsResponse,
   FilteredProductionResponse,
-  ExportResponse
+  ExportResponse,
+  AutoProcessResponse
 } from '../../api/tochka';
 
 interface TochkaState {
@@ -47,6 +48,7 @@ interface TochkaState {
     merge: boolean;
     filter: boolean;
     export: boolean;
+    autoProcess: boolean;
   };
   
   // Ошибки
@@ -83,6 +85,7 @@ const initialState: TochkaState = {
     merge: false,
     filter: false,
     export: false,
+    autoProcess: false,
   },
   error: null,
   pagination: {
@@ -152,6 +155,15 @@ export const exportProduction = createAsyncThunk(
   'tochka/exportProduction',
   async (productionData: FilteredProductionItem[]) => {
     const response = await tochkaApi.exportProduction(productionData);
+    return response;
+  }
+);
+
+// Автоматическая обработка Excel файла
+export const uploadAndAutoProcess = createAsyncThunk(
+  'tochka/uploadAndAutoProcess',
+  async (file: File) => {
+    const response = await tochkaApi.uploadAndAutoProcess(file);
     return response;
   }
 );
@@ -318,6 +330,40 @@ const tochkaSlice = createSlice({
       .addCase(exportProduction.rejected, (state, action) => {
         state.loading.export = false;
         state.error = action.error.message || 'Failed to export production data';
+      })
+      
+      // Auto process Excel file
+      .addCase(uploadAndAutoProcess.pending, (state) => {
+        state.loading.autoProcess = true;
+        state.error = null;
+      })
+      .addCase(uploadAndAutoProcess.fulfilled, (state, action) => {
+        state.loading.autoProcess = false;
+        const { upload_result, analysis_result, production_result } = action.payload;
+        
+        // Обновляем Excel данные
+        state.excelData = upload_result.data;
+        state.deduplicatedExcelData = upload_result.data;
+        
+        // Обновляем результаты анализа
+        state.mergedData = analysis_result.merged_data;
+        state.coverage = {
+          rate: analysis_result.coverage_rate.toString(),
+          found_products: analysis_result.found_products,
+          total_articles: analysis_result.total_articles,
+        };
+        
+        // Обновляем список производства
+        state.filteredProductionData = production_result.filtered_production;
+        state.productionStats = {
+          total_products: production_result.total_products,
+          products_in_tochka: production_result.products_in_tochka,
+          products_need_registration: production_result.products_need_registration,
+        };
+      })
+      .addCase(uploadAndAutoProcess.rejected, (state, action) => {
+        state.loading.autoProcess = false;
+        state.error = action.error.message || 'Failed to auto process Excel file';
       });
   },
 });
