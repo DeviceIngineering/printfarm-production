@@ -9,6 +9,7 @@ import {
   FileExcelOutlined,
   SearchOutlined
 } from '@ant-design/icons';
+import { API_BASE_URL } from '../utils/constants';
 import { RootState } from '../store';
 import {
   fetchTochkaProducts,
@@ -205,46 +206,19 @@ export const TochkaPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/tochka/export-deduplicated/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          data: deduplicatedExcelData
-        }),
-      });
-
-      if (response.ok) {
-        // Получаем blob с файлом
-        const blob = await response.blob();
-        
-        // Создаем ссылку для скачивания
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        
-        // Извлекаем имя файла из заголовков
-        const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = 'Данные_Excel_без_дублей.xlsx';
-        if (contentDisposition) {
-          const match = contentDisposition.match(/filename="(.+)"/);
-          if (match) filename = match[1];
-        }
-        
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-        
-        message.success('Файл успешно экспортирован');
-      } else {
-        const errorData = await response.json();
-        message.error(errorData.error || 'Ошибка при экспорте');
-      }
-    } catch (error) {
-      message.error('Ошибка подключения к серверу');
+      const result = await dispatch(exportDeduplicated(deduplicatedExcelData)).unwrap();
+      
+      // Создаем ссылку для скачивания
+      const link = document.createElement('a');
+      link.href = result.download_url;
+      link.download = 'Данные_Excel_без_дублей.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      message.success('Файл успешно экспортирован');
+    } catch (error: any) {
+      message.error(error.message || 'Ошибка при экспорте');
     }
   };
 
@@ -256,46 +230,19 @@ export const TochkaPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/tochka/export-production/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          data: filteredProductionData
-        }),
-      });
-
-      if (response.ok) {
-        // Получаем blob с файлом
-        const blob = await response.blob();
-        
-        // Создаем ссылку для скачивания
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        
-        // Извлекаем имя файла из заголовков
-        const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = 'Список_к_производству.xlsx';
-        if (contentDisposition) {
-          const match = contentDisposition.match(/filename="(.+)"/);
-          if (match) filename = match[1];
-        }
-        
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-        
-        message.success('Файл успешно экспортирован');
-      } else {
-        const errorData = await response.json();
-        message.error(errorData.error || 'Ошибка при экспорте');
-      }
-    } catch (error) {
-      message.error('Ошибка подключения к серверу');
+      const result = await dispatch(exportProduction(filteredProductionData)).unwrap();
+      
+      // Создаем ссылку для скачивания
+      const link = document.createElement('a');
+      link.href = result.download_url;
+      link.download = 'Список_к_производству.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      message.success('Файл успешно экспортирован');
+    } catch (error: any) {
+      message.error(error.message || 'Ошибка при экспорте');
     }
   };
 
@@ -879,7 +826,7 @@ export const TochkaPage: React.FC = () => {
             type="primary" 
             icon={<AppstoreOutlined />}
             onClick={loadProducts}
-            loading={loading}
+            loading={loading.products}
           >
             Загрузить товары
           </Button>
@@ -888,7 +835,7 @@ export const TochkaPage: React.FC = () => {
           <Button 
             icon={<UnorderedListOutlined />}
             onClick={loadProductionList}
-            loading={loading}
+            loading={loading.production}
           >
             Загрузить список на производство
           </Button>
@@ -900,7 +847,7 @@ export const TochkaPage: React.FC = () => {
               loadProducts();
               loadProductionList();
             }}
-            loading={loading}
+            loading={loading.products || loading.production}
           >
             Обновить все
           </Button>
@@ -959,7 +906,7 @@ export const TochkaPage: React.FC = () => {
         )}
       </Row>
 
-      <Spin spinning={loading}>
+      <Spin spinning={loading.products || loading.production || loading.upload || loading.merge || loading.filter || loading.export}>
         {/* Таблица товаров */}
         <Card 
           title={`Товары (${productsData.length})`} 
@@ -1086,6 +1033,7 @@ export const TochkaPage: React.FC = () => {
                   size="small"
                   icon={<FileExcelOutlined />}
                   onClick={handleExportDeduplicatedExcel}
+                  loading={loading.export}
                   style={{ backgroundColor: '#13c2c2', borderColor: '#13c2c2' }}
                 >
                   Экспорт в Excel
@@ -1129,6 +1077,7 @@ export const TochkaPage: React.FC = () => {
                   size="small"
                   icon={<FileExcelOutlined />}
                   onClick={handleExportProductionList}
+                  loading={loading.export}
                   style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
                 >
                   Экспорт в Excel
