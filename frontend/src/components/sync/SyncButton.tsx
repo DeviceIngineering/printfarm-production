@@ -9,7 +9,7 @@ const { Option } = Select;
 
 export const SyncButton: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { warehouses, productGroups, status, loading, warehousesLoading, productGroupsLoading } = useSelector((state: RootState) => state.sync);
+  const { warehouses, productGroups, status, loading, warehousesLoading, productGroupsLoading, error } = useSelector((state: RootState) => state.sync);
   const [modalVisible, setModalVisible] = useState(false);
   const [form] = Form.useForm();
   const [syncInterval, setSyncInterval] = useState<NodeJS.Timer | null>(null);
@@ -20,10 +20,11 @@ export const SyncButton: React.FC = () => {
     // ИСПРАВЛЕНИЕ: Убеждаемся что auth token установлен перед API вызовами
     const ensureAuthToken = () => {
       const token = localStorage.getItem('auth_token');
+      console.log('Current auth token:', token ? 'exists' : 'missing');
       if (!token) {
         const demoToken = '0a8fee03bca2b530a15b1df44d38b304e3f57484';
         localStorage.setItem('auth_token', demoToken);
-        console.log('SyncButton: Demo auth token initialized');
+        console.log('SyncButton: Demo auth token initialized:', demoToken);
       }
     };
     
@@ -31,6 +32,9 @@ export const SyncButton: React.FC = () => {
     
     // Load warehouses and product groups when component mounts
     console.log('SyncButton mounted, loading data...');
+    console.log('Current warehouses count:', warehouses.length);
+    console.log('Current product groups count:', productGroups.length);
+    
     dispatch(fetchWarehouses());
     dispatch(fetchProductGroups());
     
@@ -123,14 +127,20 @@ export const SyncButton: React.FC = () => {
 
   const handleModalOpen = () => {
     setModalVisible(true);
-    // Data is already loaded on component mount
-    // Only refresh if needed
-    if (warehouses.length === 0) {
-      dispatch(fetchWarehouses());
-    }
-    if (productGroups.length === 0) {
-      dispatch(fetchProductGroups());
-    }
+    // ИСПРАВЛЕНИЕ: Принудительно перезагружаем данные при открытии модала
+    console.log('Modal opened, force reloading data...');
+    dispatch(fetchWarehouses());
+    dispatch(fetchProductGroups());
+  };
+  
+  const handleForceReload = () => {
+    console.log('Force reloading warehouses and product groups...');
+    // Очистка localStorage для отладки
+    const token = localStorage.getItem('auth_token');
+    console.log('Before reload - auth token:', token);
+    
+    dispatch(fetchWarehouses());
+    dispatch(fetchProductGroups());
   };
 
   const renderSyncStatus = () => {
@@ -193,9 +203,21 @@ export const SyncButton: React.FC = () => {
 
       <Modal
         title={
-          <Space>
-            {loading && <LoadingOutlined spin />}
-            {loading ? "Выполняется синхронизация с МойСклад" : "Синхронизация с МойСклад"}
+          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Space>
+              {loading && <LoadingOutlined spin />}
+              {loading ? "Выполняется синхронизация с МойСклад" : "Синхронизация с МойСклад"}
+            </Space>
+            {!loading && (
+              <Button 
+                size="small" 
+                onClick={handleForceReload}
+                loading={warehousesLoading || productGroupsLoading}
+                title="Перезагрузить списки складов и групп товаров"
+              >
+                ↻ Обновить списки
+              </Button>
+            )}
           </Space>
         }
         open={modalVisible}
@@ -289,6 +311,23 @@ export const SyncButton: React.FC = () => {
                 />
               ))}
             </div>
+          </div>
+        )}
+        
+        {/* DEBUG INFO */}
+        {process.env.NODE_ENV === 'development' && (
+          <div style={{ 
+            background: '#f0f0f0', 
+            padding: '8px', 
+            fontSize: '12px', 
+            marginBottom: '16px',
+            borderRadius: '4px' 
+          }}>
+            <div><strong>Debug Info:</strong></div>
+            <div>Warehouses: {warehouses.length} (loading: {warehousesLoading.toString()})</div>
+            <div>Product Groups: {productGroups.length} (loading: {productGroupsLoading.toString()})</div>
+            <div>Auth Token: {localStorage.getItem('auth_token') ? 'present' : 'missing'}</div>
+            <div>Error: {error || 'none'}</div>
           </div>
         )}
         

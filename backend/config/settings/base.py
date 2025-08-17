@@ -9,7 +9,7 @@ from decouple import config
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Application version
-APP_VERSION = '4.1.2'
+APP_VERSION = '4.1.3'
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-key')
@@ -147,6 +147,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+
+# Дополнительные CORS настройки для разработки
+CORS_ALLOW_ALL_ORIGINS = True  # Для разработки
 
 CORS_ALLOW_CREDENTIALS = True
 
