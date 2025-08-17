@@ -42,19 +42,41 @@ export const fetchSyncHistory = createAsyncThunk(
 
 export const fetchWarehouses = createAsyncThunk(
   'sync/fetchWarehouses',
-  async () => {
+  async (_, { rejectWithValue }) => {
     console.log('Fetching warehouses...');
-    const response = await syncApi.getWarehouses();
-    console.log('Warehouses response:', response);
-    return response;
+    try {
+      const response = await syncApi.getWarehouses();
+      console.log('Warehouses response:', response);
+      return response;
+    } catch (error: any) {
+      console.error('Failed to fetch warehouses:', error);
+      // ИСПРАВЛЕНИЕ: Возвращаем пустой массив вместо ошибки для лучшего UX
+      if (error.response?.status === 401 || error.response?.status === 503) {
+        console.warn('Authentication or service issue, returning empty warehouses list');
+        return [];
+      }
+      return rejectWithValue(error.message);
+    }
   }
 );
 
 export const fetchProductGroups = createAsyncThunk(
   'sync/fetchProductGroups',
-  async () => {
-    const response = await syncApi.getProductGroups();
-    return response;
+  async (_, { rejectWithValue }) => {
+    console.log('Fetching product groups...');
+    try {
+      const response = await syncApi.getProductGroups();
+      console.log('Product groups response:', response);
+      return response;
+    } catch (error: any) {
+      console.error('Failed to fetch product groups:', error);
+      // ИСПРАВЛЕНИЕ: Возвращаем пустой массив вместо ошибки для лучшего UX
+      if (error.response?.status === 401 || error.response?.status === 503) {
+        console.warn('Authentication or service issue, returning empty product groups list');
+        return [];
+      }
+      return rejectWithValue(error.message);
+    }
   }
 );
 

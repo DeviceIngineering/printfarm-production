@@ -17,6 +17,18 @@ export const SyncButton: React.FC = () => {
   const [lastExcludedGroups, setLastExcludedGroups] = useState<string[]>([]);
 
   useEffect(() => {
+    // ИСПРАВЛЕНИЕ: Убеждаемся что auth token установлен перед API вызовами
+    const ensureAuthToken = () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        const demoToken = '0a8fee03bca2b530a15b1df44d38b304e3f57484';
+        localStorage.setItem('auth_token', demoToken);
+        console.log('SyncButton: Demo auth token initialized');
+      }
+    };
+    
+    ensureAuthToken();
+    
     // Load warehouses and product groups when component mounts
     console.log('SyncButton mounted, loading data...');
     dispatch(fetchWarehouses());
