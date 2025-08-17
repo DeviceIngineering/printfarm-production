@@ -698,7 +698,8 @@ def export_production_list(request):
     API для экспорта списка к производству в Excel файл
     """
     try:
-        data = request.data.get('data', [])
+        # ИСПРАВЛЕНИЕ: Поддержка как 'production_data' (новое), так и 'data' (старое) для обратной совместимости
+        data = request.data.get('production_data', request.data.get('data', []))
         
         if not data:
             return Response({
