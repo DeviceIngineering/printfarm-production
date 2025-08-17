@@ -114,6 +114,28 @@ export const TochkaPage: React.FC = () => {
     },
   });
 
+  // Функция для создания фильтра по значениям (для цвета)
+  const getColumnFilterProps = (dataIndex: string, data: any[]) => {
+    // Получаем уникальные значения из данных
+    const uniqueValues = Array.from(new Set(
+      data.map(item => {
+        const value = item[dataIndex];
+        return value || 'Не указан';
+      })
+    )).sort();
+
+    return {
+      filters: uniqueValues.map(value => ({
+        text: value,
+        value: value === 'Не указан' ? '' : value,
+      })),
+      onFilter: (value: any, record: any) => {
+        const recordValue = record[dataIndex] || '';
+        return recordValue === value;
+      },
+    };
+  };
+
   // Функция для загрузки товаров
   const loadProducts = async () => {
     try {
@@ -296,6 +318,36 @@ export const TochkaPage: React.FC = () => {
       render: (text: string) => text || '-',
     },
     {
+      title: 'Цвет',
+      dataIndex: 'color',
+      key: 'color',
+      width: 100,
+      sorter: (a: any, b: any) => {
+        const colorA = a.color || '';
+        const colorB = b.color || '';
+        return colorA.localeCompare(colorB);
+      },
+      render: (color: string) => {
+        if (!color) {
+          return <span style={{ color: '#999', fontStyle: 'italic' }}>—</span>;
+        }
+        
+        return (
+          <Tag 
+            style={{ 
+              maxWidth: '90px',
+              textOverflow: 'ellipsis',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap'
+            }}
+            title={color}
+          >
+            {color}
+          </Tag>
+        );
+      },
+    },
+    {
       title: 'Остаток',
       dataIndex: 'current_stock',
       key: 'current_stock',
@@ -370,6 +422,36 @@ export const TochkaPage: React.FC = () => {
         return nameA.localeCompare(nameB);
       },
       render: (text: string) => text || '-',
+    },
+    {
+      title: 'Цвет',
+      dataIndex: 'color',
+      key: 'color',
+      width: 100,
+      sorter: (a: any, b: any) => {
+        const colorA = a.color || '';
+        const colorB = b.color || '';
+        return colorA.localeCompare(colorB);
+      },
+      render: (color: string) => {
+        if (!color) {
+          return <span style={{ color: '#999', fontStyle: 'italic' }}>—</span>;
+        }
+        
+        return (
+          <Tag 
+            style={{ 
+              maxWidth: '90px',
+              textOverflow: 'ellipsis',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap'
+            }}
+            title={color}
+          >
+            {color}
+          </Tag>
+        );
+      },
     },
     {
       title: 'К производству',
@@ -843,12 +925,26 @@ export const TochkaPage: React.FC = () => {
       ),
     },
     {
-      title: 'Продажи 2 мес',
-      dataIndex: 'sales_last_2_months',
-      key: 'sales_last_2_months',
-      width: 110,
-      sorter: (a: any, b: any) => a.sales_last_2_months - b.sales_last_2_months,
-      render: (value: number) => `${value} шт`,
+      title: 'Цвет',
+      dataIndex: 'color',
+      key: 'color',
+      width: 100,
+      ...getColumnFilterProps('color', filteredProductionData),
+      render: (value: string) => (
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div 
+            style={{ 
+              width: 16, 
+              height: 16, 
+              backgroundColor: value || '#cccccc',
+              border: '1px solid #ddd',
+              borderRadius: 2,
+              marginRight: 8 
+            }}
+          />
+          {value || 'Не указан'}
+        </div>
+      ),
     },
   ];
 
