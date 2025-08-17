@@ -50,6 +50,10 @@ class SyncService:
                 # Get ALL products including those with zero stock
                 stock_data = self.client.get_all_products_with_stock(warehouse_id, excluded_groups)
                 
+                # Update sync log with total products count
+                sync_log.total_products = len(stock_data)
+                sync_log.save()
+                
                 # Get turnover report (last 2 months)
                 date_to = timezone.now()
                 date_from = date_to - timedelta(days=60)
@@ -119,7 +123,7 @@ class SyncService:
         failed = 0
         synced_products = []  # Keep track of synced products for image sync
         
-        for item in stock_data:
+        for i, item in enumerate(stock_data, 1):
             try:
                 # Extract product data from new API format
                 meta = item.get('meta', {})
@@ -221,8 +225,17 @@ class SyncService:
                 synced += 1
                 synced_products.append(product)  # Add to list for image sync
                 
+                # Update current article being processed
+                sync_log.current_article = product.article
+                
                 # Update sync log progress periodically
-                if synced % 100 == 0:
+                if synced % 50 == 0:  # Update more frequently for better UX
+                    sync_log.synced_products = synced
+                    sync_log.save()
+                    logger.info(f"Sync progress: {synced}/{total} products processed")
+                
+                # Also update for the last few items
+                if synced % 10 == 0 and synced > (total - 20):
                     sync_log.synced_products = synced
                     sync_log.save()
                 
@@ -230,6 +243,11 @@ class SyncService:
                 logger.error(f"Failed to process product {item}: {str(e)}")
                 failed += 1
                 continue
+        
+        # Final sync log update
+        sync_log.synced_products = synced
+        sync_log.current_article = ''  # Clear current article when done
+        sync_log.save()
         
         return {
             'total': total,
