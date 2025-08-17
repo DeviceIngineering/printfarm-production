@@ -46,26 +46,28 @@ class SyncService:
         )
         
         try:
-            with transaction.atomic():
-                # Get ALL products including those with zero stock
-                stock_data = self.client.get_all_products_with_stock(warehouse_id, excluded_groups)
-                
-                # Update sync log with total products count
-                sync_log.total_products = len(stock_data)
-                sync_log.save()
-                
-                # Get turnover report (last 2 months)
-                date_to = timezone.now()
-                date_from = date_to - timedelta(days=60)
-                turnover_data = self.client.get_turnover_report(warehouse_id, date_from, date_to)
-                
-                # Clear existing products if we have excluded groups to ensure clean filtering
-                if excluded_groups:
-                    logger.info(f"Clearing existing products due to group filtering")
+            # Get ALL products including those with zero stock (outside transaction)
+            stock_data = self.client.get_all_products_with_stock(warehouse_id, excluded_groups)
+            
+            # Update sync log with total products count (outside transaction for visibility)
+            sync_log.total_products = len(stock_data)
+            sync_log.save()
+            
+            # Get turnover report (last 2 months)
+            date_to = timezone.now()
+            date_from = date_to - timedelta(days=60)
+            turnover_data = self.client.get_turnover_report(warehouse_id, date_from, date_to)
+            
+            # Clear existing products if we have excluded groups to ensure clean filtering
+            if excluded_groups:
+                logger.info(f"Clearing existing products due to group filtering")
+                with transaction.atomic():
                     Product.objects.all().delete()
-                
-                # Process data
-                sync_result = self._process_sync_data(stock_data, turnover_data, sync_log)
+            
+            # Process data (outside transaction for progress visibility)
+            sync_result = self._process_sync_data(stock_data, turnover_data, sync_log)
+            
+            with transaction.atomic():
                 
                 # Update sync log first
                 sync_log.total_products = sync_result['total']
@@ -142,15 +144,16 @@ class SyncService:
                     failed += 1
                     continue
                 
-                # Get or create product
-                product, created = Product.objects.get_or_create(
-                    moysklad_id=product_id,
-                    defaults={
-                        'article': item.get('article', ''),
-                        'name': item.get('name', ''),
-                        'description': '',
-                    }
-                )
+                # Get or create product (within individual transaction)
+                with transaction.atomic():
+                    product, created = Product.objects.get_or_create(
+                        moysklad_id=product_id,
+                        defaults={
+                            'article': item.get('article', ''),
+                            'name': item.get('name', ''),
+                            'description': '',
+                        }
+                    )
                 
                 # Update product data from stock report format
                 product.article = item.get('article', '')
@@ -219,25 +222,20 @@ class SyncService:
                     # Не прерываем синхронизацию из-за ошибки цвета
                     product.color = ''
                 
-                product.last_synced_at = timezone.now()
-                product.save()  # This will trigger calculation of derived fields
+                    product.last_synced_at = timezone.now()
+                    product.save()  # This will trigger calculation of derived fields
                 
                 synced += 1
                 synced_products.append(product)  # Add to list for image sync
                 
-                # Update current article being processed
-                sync_log.current_article = product.article
-                
-                # Update sync log progress periodically
+                # Update sync log progress periodically (outside of any nested transaction)
                 if synced % 50 == 0:  # Update more frequently for better UX
-                    sync_log.synced_products = synced
-                    sync_log.save()
+                    self._update_sync_progress(sync_log, synced, product.article)
                     logger.info(f"Sync progress: {synced}/{total} products processed")
                 
                 # Also update for the last few items
                 if synced % 10 == 0 and synced > (total - 20):
-                    sync_log.synced_products = synced
-                    sync_log.save()
+                    self._update_sync_progress(sync_log, synced, product.article)
                 
             except Exception as e:
                 logger.error(f"Failed to process product {item}: {str(e)}")
@@ -245,9 +243,7 @@ class SyncService:
                 continue
         
         # Final sync log update
-        sync_log.synced_products = synced
-        sync_log.current_article = ''  # Clear current article when done
-        sync_log.save()
+        self._update_sync_progress(sync_log, synced, '')  # Clear current article when done
         
         return {
             'total': total,
@@ -382,3 +378,12 @@ class SyncService:
         Test connection to МойСклад API.
         """
         return self.client.test_connection()
+    
+    def _update_sync_progress(self, sync_log: SyncLog, synced_products: int, current_article: str):
+        """
+        Update sync progress for real-time visibility.
+        """
+        # Simple direct update - no transaction issues since we're outside main transaction
+        sync_log.synced_products = synced_products
+        sync_log.current_article = current_article
+        sync_log.save()
