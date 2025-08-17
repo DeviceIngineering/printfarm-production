@@ -194,10 +194,11 @@ class MoySkladClient:
         Optimized version that combines product list with stock information.
         """
         try:
-            # Получаем все товары
+            # Получаем все товары с атрибутами
             params = {
                 'limit': 1000,
-                'archived': False  # Исключаем архивные товары
+                'archived': False,  # Исключаем архивные товары
+                'expand': 'attributes'  # ИСПРАВЛЕНИЕ: Запрашиваем атрибуты для получения цвета
             }
             
             data = self._make_request('GET', 'entity/product', params=params)
@@ -262,7 +263,9 @@ class MoySkladClient:
                 stock_info = stock_by_product_id.get(product_id)
                 
                 if stock_info:
-                    # Используем информацию из отчета по остаткам
+                    # Используем информацию из отчета по остаткам и добавляем атрибуты из товара
+                    # ИСПРАВЛЕНИЕ: Добавляем атрибуты к информации об остатках
+                    stock_info['attributes'] = product.get('attributes', [])
                     result_products.append(stock_info)
                 else:
                     # Создаем запись с нулевым остатком
@@ -274,7 +277,8 @@ class MoySkladClient:
                         'folder': product.get('productFolder'),
                         'stock': 0,  # Нулевой остаток
                         'quantity': 0,
-                        'price': 0
+                        'price': 0,
+                        'attributes': product.get('attributes', [])  # ИСПРАВЛЕНИЕ: Добавляем атрибуты
                     }
                     result_products.append(stock_info)
             
@@ -376,8 +380,30 @@ class MoySkladClient:
         
         # Ищем атрибут с названием "Цвет" (нечувствительно к регистру)
         for attr in attributes:
+            # Обрабатываем разные форматы атрибутов МойСклад
+            # В некоторых случаях МойСклад возвращает атрибут как объект с meta и value
+            if 'meta' in attr and 'value' in attr:
+                # Получаем имя атрибута из meta
+                meta = attr.get('meta', {})
+                if meta.get('type') == 'attributemetadata':
+                    # Пытаемся получить имя атрибута
+                    meta_href = meta.get('href', '')
+                    # Простая проверка на наличие слова "цвет" в href
+                    if 'цвет' in meta_href.lower() or 'color' in meta_href.lower():
+                        color_value = attr.get('value')
+                        if color_value:
+                            if isinstance(color_value, dict):
+                                color_name = color_value.get('name', '')
+                                if color_name:
+                                    logger.debug(f"Найден цвет товара (из customentity): {color_name}")
+                                    return str(color_name).strip()
+                            else:
+                                logger.debug(f"Найден цвет товара (строка из meta): {color_value}")
+                                return str(color_value).strip()
+            
+            # Старый формат с полем name
             attr_name = attr.get('name', '').lower().strip()
-            if attr_name == 'цвет':
+            if attr_name == 'цвет' or attr_name == 'color':
                 color_value = attr.get('value', '')
                 if color_value:
                     # ИСПРАВЛЕНИЕ: Обрабатываем случай, когда value - это объект (customentity)

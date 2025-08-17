@@ -222,8 +222,9 @@ class SyncService:
                     # Не прерываем синхронизацию из-за ошибки цвета
                     product.color = ''
                 
-                    product.last_synced_at = timezone.now()
-                    product.save()  # This will trigger calculation of derived fields
+                # ИСПРАВЛЕНИЕ: Эти строки были внутри блока except, теперь они выполняются всегда
+                product.last_synced_at = timezone.now()
+                product.save()  # This will trigger calculation of derived fields
                 
                 synced += 1
                 synced_products.append(product)  # Add to list for image sync
