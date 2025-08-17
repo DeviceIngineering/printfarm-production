@@ -360,3 +360,69 @@ class MoySkladClient:
         except Exception as e:
             logger.error(f"Connection test failed: {str(e)}")
             return False
+    
+    def extract_color_from_attributes(self, attributes: List[Dict]) -> str:
+        """
+        Извлекает значение цвета из атрибутов товара МойСклад.
+        
+        Args:
+            attributes: Список атрибутов товара из МойСклад API
+            
+        Returns:
+            Значение цвета или пустая строка, если цвет не найден
+        """
+        if not attributes:
+            return ''
+        
+        # Ищем атрибут с названием "Цвет" (нечувствительно к регистру)
+        for attr in attributes:
+            attr_name = attr.get('name', '').lower().strip()
+            if attr_name == 'цвет':
+                color_value = attr.get('value', '')
+                if color_value:
+                    # ИСПРАВЛЕНИЕ: Обрабатываем случай, когда value - это объект (customentity)
+                    if isinstance(color_value, dict):
+                        # Для custom entity извлекаем поле 'name'
+                        color_name = color_value.get('name', '')
+                        if color_name:
+                            logger.debug(f"Найден цвет товара (из customentity): {color_name}")
+                            return str(color_name).strip()
+                    else:
+                        # Для простых строковых значений
+                        logger.debug(f"Найден цвет товара (строка): {color_value}")
+                        return str(color_value).strip()
+        
+        return ''
+    
+    def get_product_details(self, product_id: str) -> Dict[str, Any]:
+        """
+        Получает детальную информацию о товаре, включая атрибуты.
+        
+        Args:
+            product_id: ID товара в МойСклад
+            
+        Returns:
+            Детальная информация о товаре с атрибутами
+        """
+        try:
+            # Запрашиваем товар с атрибутами
+            params = {
+                'expand': 'attributes'
+            }
+            
+            product_data = self._make_request('GET', f'entity/product/{product_id}', params=params)
+            
+            # Извлекаем цвет из атрибутов
+            attributes = product_data.get('attributes', [])
+            color = self.extract_color_from_attributes(attributes)
+            
+            # Добавляем цвет в данные товара
+            product_data['color'] = color
+            
+            logger.debug(f"Получена детальная информация о товаре {product_id}, цвет: {color}")
+            
+            return product_data
+            
+        except Exception as e:
+            logger.error(f"Ошибка при получении деталей товара {product_id}: {str(e)}")
+            return {}

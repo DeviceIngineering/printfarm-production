@@ -193,6 +193,28 @@ class SyncService:
                     if article:
                         logger.debug(f"  No turnover data for {article}")
                 
+                # Получение цвета товара из атрибутов МойСклад
+                try:
+                    # Извлекаем цвет из атрибутов, если они есть в данных
+                    attributes = item.get('attributes', [])
+                    if attributes:
+                        color = self.client.extract_color_from_attributes(attributes)
+                        product.color = color
+                        logger.debug(f"  Обновлен цвет для {article}: {color}")
+                    else:
+                        # Если атрибуты не включены в stock_data, делаем отдельный запрос
+                        # TODO: Оптимизация - получать цвета батчами для производительности
+                        if product_id:
+                            product_details = self.client.get_product_details(product_id)
+                            color = product_details.get('color', '')
+                            product.color = color
+                            if color:
+                                logger.debug(f"  Загружен цвет для {article}: {color}")
+                except Exception as e:
+                    logger.warning(f"Ошибка при загрузке цвета для товара {article}: {str(e)}")
+                    # Не прерываем синхронизацию из-за ошибки цвета
+                    product.color = ''
+                
                 product.last_synced_at = timezone.now()
                 product.save()  # This will trigger calculation of derived fields
                 

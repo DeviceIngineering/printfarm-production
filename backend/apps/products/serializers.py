@@ -20,7 +20,7 @@ class ProductListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'id', 'article', 'name', 'product_type', 
+            'id', 'article', 'name', 'product_type', 'color',
             'current_stock', 'reserved_stock', 'effective_stock',
             'sales_last_2_months', 'average_daily_consumption',
             'production_needed', 'production_priority',
@@ -65,7 +65,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'id', 'moysklad_id', 'article', 'name', 'description',
+            'id', 'moysklad_id', 'article', 'name', 'description', 'color',
             'product_group_id', 'product_group_name',
             'current_stock', 'reserved_stock', 'total_stock',
             'sales_last_2_months', 'average_daily_consumption',

@@ -11,6 +11,8 @@ class Product(TimestampedModel):
     article = models.CharField(max_length=255, db_index=True)
     name = models.CharField(max_length=500)
     description = models.TextField(blank=True)
+    color = models.CharField(max_length=100, blank=True, default='', 
+                           help_text="Цвет товара из МойСклад")
     
     # Product group
     product_group_id = models.CharField(max_length=36, blank=True)
@@ -49,7 +51,13 @@ class Product(TimestampedModel):
         ]
     
     def __str__(self):
-        return f"{self.article} - {self.name[:50]}"
+        """
+        Строковое представление товара с указанием цвета, если он есть.
+        """
+        base_str = f"{self.article} - {self.name[:50]}"
+        if self.color:
+            return f"{base_str} ({self.color})"
+        return base_str
     
     @property
     def total_stock(self) -> Decimal:
