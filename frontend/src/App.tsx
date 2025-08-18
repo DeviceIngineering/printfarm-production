@@ -12,7 +12,6 @@ import { TestProductsPage } from './pages/TestProductsPage';
 import TestPodiumsPage from './pages/TestPodiumsPage';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ScrollToTop } from './components/common/ScrollToTop';
-import { DebugInfo } from './components/common/DebugInfo';
 
 function App() {
   useEffect(() => {
@@ -44,7 +43,6 @@ function App() {
           </Layout>
         } />
       </Routes>
-      <DebugInfo />
     </ErrorBoundary>
   );
 }

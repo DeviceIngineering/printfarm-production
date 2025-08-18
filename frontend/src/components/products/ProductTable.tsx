@@ -187,6 +187,33 @@ export const ProductTable: React.FC = () => {
       },
     },
     {
+      title: 'Цвет',
+      dataIndex: 'color',
+      key: 'color',
+      width: 100,
+      align: 'center' as const,
+      ellipsis: true,
+      render: (color: string) => {
+        if (!color) {
+          return <span style={{ color: '#999', fontStyle: 'italic' }}>—</span>;
+        }
+        
+        return (
+          <Tag 
+            style={{ 
+              maxWidth: '90px',
+              textOverflow: 'ellipsis',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap'
+            }}
+            title={color}
+          >
+            {color}
+          </Tag>
+        );
+      },
+    },
+    {
       title: 'Остаток',
       dataIndex: includeReserve ? 'effective_stock' : 'current_stock',
       key: 'current_stock',

@@ -5,7 +5,6 @@ import {
   AppstoreOutlined, 
   FileTextOutlined, 
   SettingOutlined,
-  SyncOutlined,
   ShopOutlined
 } from '@ant-design/icons';
 
@@ -40,18 +39,31 @@ export const Header: React.FC = () => {
 
   return (
     <AntHeader style={{ display: 'flex', alignItems: 'center' }}>
-      <Title 
-        level={3} 
-        style={{ 
-          color: 'var(--color-primary)', 
-          margin: 0, 
-          marginRight: 'auto',
-          textShadow: 'var(--glow-primary)'
-        }}
-      >
-        <SyncOutlined style={{ marginRight: 8 }} />
-        PrintFarm Production
-      </Title>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        marginRight: 'auto' 
+      }}>
+        <img 
+          src="/favicon.ico" 
+          alt="PrintFarm Production" 
+          style={{ 
+            height: 32, 
+            width: 32, 
+            marginRight: 8 
+          }} 
+        />
+        <Title 
+          level={4} 
+          style={{ 
+            color: 'var(--color-primary)', 
+            margin: 0,
+            textShadow: 'var(--glow-primary)'
+          }}
+        >
+          PrintFarm Production
+        </Title>
+      </div>
       
       <Menu
         theme="dark"

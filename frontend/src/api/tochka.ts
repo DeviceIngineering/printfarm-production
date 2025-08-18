@@ -23,6 +23,7 @@ export interface MergedDataItem extends ExcelDataItem {
 export interface FilteredProductionItem {
   article: string;
   product_name: string;
+  color?: string;
   production_needed: number;
   production_priority: number;
   is_in_tochka: boolean;
@@ -51,6 +52,7 @@ export interface TochkaProduct {
   article: string;
   name: string;
   product_type: string;
+  color?: string;
   current_stock: string;
   reserved_stock: string;
   effective_stock: number;

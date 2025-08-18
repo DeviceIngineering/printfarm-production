@@ -22,6 +22,11 @@ export const ProductionListView: React.FC = () => {
         min_priority: 20,
         apply_coefficients: true
       })).unwrap();
+      
+      // Обновляем список и статистику после расчета
+      dispatch(fetchProductionList());
+      dispatch(fetchProductionStats());
+      
       message.success('Список производства рассчитан успешно');
     } catch (error) {
       message.error('Ошибка расчета списка производства');

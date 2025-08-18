@@ -314,22 +314,6 @@ export const SyncButton: React.FC = () => {
           </div>
         )}
         
-        {/* DEBUG INFO */}
-        {process.env.NODE_ENV === 'development' && (
-          <div style={{ 
-            background: '#f0f0f0', 
-            padding: '8px', 
-            fontSize: '12px', 
-            marginBottom: '16px',
-            borderRadius: '4px' 
-          }}>
-            <div><strong>Debug Info:</strong></div>
-            <div>Warehouses: {warehouses.length} (loading: {warehousesLoading.toString()})</div>
-            <div>Product Groups: {productGroups.length} (loading: {productGroupsLoading.toString()})</div>
-            <div>Auth Token: {localStorage.getItem('auth_token') ? 'present' : 'missing'}</div>
-            <div>Error: {error || 'none'}</div>
-          </div>
-        )}
         
         <Form
           form={form}

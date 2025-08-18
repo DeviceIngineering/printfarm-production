@@ -5,6 +5,7 @@ export interface Product {
   article: string;
   name: string;
   product_type: 'new' | 'old' | 'critical';
+  color?: string;
   current_stock: number;
   reserved_stock: number;
   effective_stock?: number;
