@@ -202,24 +202,17 @@ class SyncService:
                 
                 # Получение цвета товара из атрибутов МойСклад
                 try:
-                    # Извлекаем цвет из атрибутов, если они есть в данных
+                    # Извлекаем цвет из атрибутов, которые уже должны быть в данных
+                    # благодаря expand='attributes' в get_all_products_with_stock()
                     attributes = item.get('attributes', [])
-                    if attributes:
-                        color = self.client.extract_color_from_attributes(attributes)
-                        product.color = color
-                        logger.debug(f"  Обновлен цвет для {article}: {color}")
+                    color = self.client.extract_color_from_attributes(attributes)
+                    product.color = color
+                    if color:
+                        logger.debug(f"  Установлен цвет для {article}: {color}")
                     else:
-                        # Если атрибуты не включены в stock_data, делаем отдельный запрос
-                        # TODO: Оптимизация - получать цвета батчами для производительности
-                        if product_id:
-                            product_details = self.client.get_product_details(product_id)
-                            color = product_details.get('color', '')
-                            product.color = color
-                            if color:
-                                logger.debug(f"  Загружен цвет для {article}: {color}")
+                        logger.debug(f"  Цвет не найден для {article}")
                 except Exception as e:
-                    logger.warning(f"Ошибка при загрузке цвета для товара {article}: {str(e)}")
-                    # Не прерываем синхронизацию из-за ошибки цвета
+                    logger.warning(f"Ошибка при извлечении цвета для товара {article}: {str(e)}")
                     product.color = ''
                 
                 # ИСПРАВЛЕНИЕ: Эти строки были внутри блока except, теперь они выполняются всегда
