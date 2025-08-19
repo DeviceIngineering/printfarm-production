@@ -115,6 +115,11 @@ export interface ExportResponse {
   download_url: string;
 }
 
+export interface ExportBlobResponse {
+  download_url: string;
+  blob: Blob;
+}
+
 export interface AutoProcessResponse {
   success: boolean;
   processing_time_seconds: number;
@@ -189,10 +194,13 @@ export const tochkaApi = {
     }),
 
   // Экспорт списка производства
-  exportProduction: (productionData: FilteredProductionItem[]): Promise<ExportResponse> =>
-    apiClient.post('/tochka/export-production/', {
+  exportProduction: (productionData: FilteredProductionItem[]): Promise<Blob> => {
+    return apiClient.post('/tochka/export-production/', {
       production_data: productionData,
-    }),
+    }, {
+      responseType: 'blob',
+    }) as Promise<Blob>;
+  },
 
   // Автоматическая обработка Excel файла (загрузка + анализ + список производства)
   uploadAndAutoProcess: (file: File): Promise<AutoProcessResponse> => {

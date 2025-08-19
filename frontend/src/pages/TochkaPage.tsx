@@ -271,6 +271,11 @@ export const TochkaPage: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       
+      // Освобождаем URL blob после скачивания
+      setTimeout(() => {
+        window.URL.revokeObjectURL(result.download_url);
+      }, 100);
+      
       message.success('Файл успешно экспортирован');
     } catch (error: any) {
       message.error(error.message || 'Ошибка при экспорте');

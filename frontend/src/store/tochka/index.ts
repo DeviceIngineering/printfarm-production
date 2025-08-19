@@ -11,6 +11,7 @@ import {
   MergeWithProductsResponse,
   FilteredProductionResponse,
   ExportResponse,
+  ExportBlobResponse,
   AutoProcessResponse
 } from '../../api/tochka';
 
@@ -151,11 +152,18 @@ export const exportDeduplicated = createAsyncThunk(
   }
 );
 
-export const exportProduction = createAsyncThunk(
+export const exportProduction = createAsyncThunk<ExportBlobResponse, FilteredProductionItem[]>(
   'tochka/exportProduction',
   async (productionData: FilteredProductionItem[]) => {
-    const response = await tochkaApi.exportProduction(productionData);
-    return response;
+    const blob = await tochkaApi.exportProduction(productionData);
+    
+    // Создаем URL для blob
+    const downloadUrl = window.URL.createObjectURL(blob);
+    
+    return {
+      download_url: downloadUrl,
+      blob
+    };
   }
 );
 
