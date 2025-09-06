@@ -10,8 +10,21 @@ from .tochka_views import (
     export_production_list,
     upload_and_auto_process_excel
 )
+from .health import (
+    health_check,
+    health_check_detailed,
+    readiness_check,
+    liveness_check
+)
 
 urlpatterns = [
+    # Health check endpoints
+    path('health/', health_check, name='health-check'),
+    path('health/detailed/', health_check_detailed, name='health-check-detailed'),
+    path('readiness/', readiness_check, name='readiness-check'),
+    path('liveness/', liveness_check, name='liveness-check'),
+    
+    # Main API endpoints
     path('products/', include('apps.products.urls')),
     path('sync/', include('apps.sync.urls')),
     path('reports/', include('apps.reports.urls')),

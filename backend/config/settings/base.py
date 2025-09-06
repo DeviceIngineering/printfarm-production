@@ -9,7 +9,7 @@ from decouple import config
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Application version
-APP_VERSION = '4.1.8'
+APP_VERSION = '4.2.0'
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-key')
@@ -187,6 +187,13 @@ SIMPLEPRINT_CONFIG = {
 }
 
 # Logging
+# Conditional file logging based on environment variable
+DISABLE_FILE_LOGGING = config('DISABLE_FILE_LOGGING', default='false').lower() == 'true'
+
+LOGGING_HANDLERS = ['console']
+if not DISABLE_FILE_LOGGING:
+    LOGGING_HANDLERS.append('file')
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -201,12 +208,6 @@ LOGGING = {
         },
     },
     'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'django.log',
-            'formatter': 'verbose',
-        },
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
@@ -214,22 +215,31 @@ LOGGING = {
         },
     },
     'root': {
-        'handlers': ['console', 'file'],
+        'handlers': LOGGING_HANDLERS,
         'level': 'INFO',
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': LOGGING_HANDLERS,
             'level': 'INFO',
             'propagate': False,
         },
         'apps': {
-            'handlers': ['console', 'file'],
+            'handlers': LOGGING_HANDLERS,
             'level': 'INFO',
             'propagate': False,
         },
     },
 }
+
+# Add file handler only if file logging is not disabled
+if not DISABLE_FILE_LOGGING:
+    LOGGING['handlers']['file'] = {
+        'level': 'INFO',
+        'class': 'logging.FileHandler',
+        'filename': BASE_DIR / 'logs' / 'django.log',
+        'formatter': 'verbose',
+    }
 
 # Create logs directory
 import os

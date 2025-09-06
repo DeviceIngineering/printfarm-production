@@ -1,0 +1,59 @@
+#!/bin/bash
+# ============================================================
+# Git pre-push hook для проверки перед развертыванием
+# PrintFarm v4.1.8
+# ============================================================
+
+set -e
+
+# Цвета
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+echo -e "${YELLOW}Running pre-push checks...${NC}"
+
+# Проверка Python синтаксиса
+echo "Checking Python syntax..."
+find backend -name "*.py" -exec python -m py_compile {} \; 2>&1 | grep -v "__pycache__" || true
+
+# Проверка наличия requirements.txt
+if [ ! -f "backend/requirements.txt" ]; then
+    echo -e "${RED}ERROR: backend/requirements.txt not found!${NC}"
+    exit 1
+fi
+
+# Проверка package.json
+if [ ! -f "frontend/package.json" ]; then
+    echo -e "${RED}ERROR: frontend/package.json not found!${NC}"
+    exit 1
+fi
+
+# Проверка Docker файлов
+if [ ! -f "docker-compose.test.yml" ]; then
+    echo -e "${YELLOW}WARNING: docker-compose.test.yml not found${NC}"
+fi
+
+# Проверка переменных окружения
+if [ ! -f ".env.test" ]; then
+    echo -e "${YELLOW}WARNING: .env.test not found - using defaults${NC}"
+fi
+
+# Проверка версии
+VERSION=$(grep "APP_VERSION" backend/config/settings/base.py | cut -d"'" -f2)
+echo "Current version: $VERSION"
+
+# Проверка на наличие конфликтов слияния
+if grep -rn "<<<<<<< HEAD" backend/ frontend/ 2>/dev/null; then
+    echo -e "${RED}ERROR: Merge conflicts found!${NC}"
+    exit 1
+fi
+
+# Проверка на наличие TODO/FIXME в критических файлах
+TODOS=$(grep -rn "TODO\|FIXME" backend/apps/api/ backend/apps/products/ backend/apps/sync/ 2>/dev/null | wc -l)
+if [ "$TODOS" -gt 0 ]; then
+    echo -e "${YELLOW}WARNING: Found $TODOS TODO/FIXME comments${NC}"
+fi
+
+echo -e "${GREEN}Pre-push checks completed successfully!${NC}"

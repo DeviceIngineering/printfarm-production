@@ -1,0 +1,50 @@
+[Unit]
+Description=PrintFarm Production Management System v4.1.8
+Documentation=https://github.com/printfarm/documentation
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=forking
+User=printfarm
+Group=printfarm
+WorkingDirectory=/home/printfarm/printfarm-test
+
+# Переменные окружения
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="HOME=/home/printfarm"
+
+# Основные команды
+ExecStartPre=/usr/bin/docker system prune -f
+ExecStart=/home/printfarm/printfarm-test/scripts/start-printfarm.sh start
+ExecStop=/home/printfarm/printfarm-test/scripts/start-printfarm.sh stop
+ExecReload=/home/printfarm/printfarm-test/scripts/start-printfarm.sh restart
+
+# PID файл
+PIDFile=/var/run/printfarm/printfarm.pid
+
+# Перезапуск при сбоях
+Restart=on-failure
+RestartSec=30
+StartLimitInterval=600
+StartLimitBurst=3
+
+# Таймауты
+TimeoutStartSec=300
+TimeoutStopSec=60
+
+# Логирование
+StandardOutput=append:/home/printfarm/printfarm-test/logs/systemd.log
+StandardError=append:/home/printfarm/printfarm-test/logs/systemd-error.log
+
+# Безопасность
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/printfarm/printfarm-test
+ReadWritePaths=/var/run/printfarm
+
+[Install]
+WantedBy=multi-user.target

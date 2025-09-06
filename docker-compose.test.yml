@@ -1,133 +1,213 @@
 version: '3.8'
 
 services:
-  db-test:
+  # PostgreSQL база данных (порт 15432 вместо 5432)
+  printfarm-test-db:
     image: postgres:15-alpine
+    container_name: printfarm_test_db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: printfarm_test
-      POSTGRES_USER: printfarm_test
-      POSTGRES_PASSWORD: test_password
-      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: ${DB_USER:-printfarm}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-printfarm_test_2025}
+      POSTGRES_HOST_AUTH_METHOD: md5
     volumes:
-      - test_postgres_data:/var/lib/postgresql/data
+      - printfarm_test_postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - "15432:5432"
+    networks:
+      - printfarm_test_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U printfarm_test -d printfarm_test"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-printfarm}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  redis-test:
+  # Redis кеш и брокер (порт 16379 вместо 6379)
+  printfarm-test-redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes
+    container_name: printfarm_test_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-printfarm_redis_2025}
     volumes:
-      - test_redis_data:/data
+      - printfarm_test_redis_data:/data
     ports:
-      - "6380:6379"
+      - "16379:6379"
+    networks:
+      - printfarm_test_network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
       interval: 10s
-      timeout: 3s
+      timeout: 5s
       retries: 5
 
-  backend-test:
+  # Backend Django приложение (порт 18000 вместо 8000)
+  printfarm-test-backend:
     build:
       context: .
-      dockerfile: docker/django/Dockerfile
+      dockerfile: docker/backend.Dockerfile
+      args:
+        ENVIRONMENT: test
+    container_name: printfarm_test_backend
+    restart: unless-stopped
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.test
-      - DATABASE_URL=postgresql://printfarm_test:test_password@db-test:5432/printfarm_test
-      - REDIS_URL=redis://redis-test:6379/0
-      - CELERY_BROKER_URL=redis://redis-test:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis-test:6379/0
-      - MOYSKLAD_TOKEN=test-token
+      - DATABASE_URL=postgresql://${DB_USER:-printfarm}:${DB_PASSWORD:-printfarm_test_2025}@printfarm-test-db:5432/printfarm_test
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-printfarm_redis_2025}@printfarm-test-redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-printfarm_redis_2025}@printfarm-test-redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-test-key-change-in-production}
+      - DEBUG=${DEBUG:-False}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,printfarm-test-backend}
+      - MOYSKLAD_TOKEN=${MOYSKLAD_TOKEN}
+      - MOYSKLAD_DEFAULT_WAREHOUSE=${MOYSKLAD_DEFAULT_WAREHOUSE}
+      - APP_VERSION=4.1.8
+      - ENVIRONMENT=test
     volumes:
       - ./backend:/app
-      - test_static_volume:/app/static
-      - test_media_volume:/app/media
+      - printfarm_test_static:/app/static
+      - printfarm_test_media:/app/media
+      - ./logs:/app/logs
+    ports:
+      - "18000:8000"
     depends_on:
-      db-test:
+      printfarm-test-db:
         condition: service_healthy
-      redis-test:
+      printfarm-test-redis:
         condition: service_healthy
-    working_dir: /app
+    networks:
+      - printfarm_test_network
     command: >
-      bash -c "
-        echo 'Waiting for database...';
-        python manage.py migrate --noinput;
-        echo 'Running tests...';
-        python -m pytest --tb=short --disable-warnings -v;
-        echo 'Tests completed';
+      sh -c "
+        echo 'Waiting for database...' &&
+        python manage.py migrate --noinput &&
+        python manage.py collectstatic --noinput &&
+        echo 'Starting Gunicorn...' &&
+        gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2 --log-level info --access-logfile /app/logs/access.log --error-logfile /app/logs/error.log
       "
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  # Separate service for test coverage
-  backend-test-coverage:
+  # Celery worker для фоновых задач
+  printfarm-test-celery:
     build:
       context: .
-      dockerfile: docker/django/Dockerfile
+      dockerfile: docker/backend.Dockerfile
+    container_name: printfarm_test_celery
+    restart: unless-stopped
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.test
-      - DATABASE_URL=postgresql://printfarm_test:test_password@db-test:5432/printfarm_test
-      - REDIS_URL=redis://redis-test:6379/0
+      - DATABASE_URL=postgresql://${DB_USER:-printfarm}:${DB_PASSWORD:-printfarm_test_2025}@printfarm-test-db:5432/printfarm_test
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-printfarm_redis_2025}@printfarm-test-redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-printfarm_redis_2025}@printfarm-test-redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-test-key-change-in-production}
+      - MOYSKLAD_TOKEN=${MOYSKLAD_TOKEN}
+      - MOYSKLAD_DEFAULT_WAREHOUSE=${MOYSKLAD_DEFAULT_WAREHOUSE}
     volumes:
       - ./backend:/app
-      - ./test-reports:/app/test-reports
+      - ./logs:/app/logs
     depends_on:
-      db-test:
-        condition: service_healthy
-      redis-test:
-        condition: service_healthy
-    working_dir: /app
-    profiles: ["coverage"]
-    command: >
-      bash -c "
-        python manage.py migrate --noinput;
-        python -m pytest --cov=apps --cov-report=html:/app/test-reports/htmlcov --cov-report=xml:/app/test-reports/coverage.xml --cov-report=term-missing --tb=short;
-      "
+      - printfarm-test-db
+      - printfarm-test-redis
+      - printfarm-test-backend
+    networks:
+      - printfarm_test_network
+    command: celery -A config worker -l info --logfile=/app/logs/celery.log
 
-  # Performance testing service
-  backend-test-performance:
+  # Celery beat для периодических задач
+  printfarm-test-celery-beat:
     build:
       context: .
-      dockerfile: docker/django/Dockerfile
+      dockerfile: docker/backend.Dockerfile
+    container_name: printfarm_test_celery_beat
+    restart: unless-stopped
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.test
-      - DATABASE_URL=postgresql://printfarm_test:test_password@db-test:5432/printfarm_test
-      - REDIS_URL=redis://redis-test:6379/0
+      - DATABASE_URL=postgresql://${DB_USER:-printfarm}:${DB_PASSWORD:-printfarm_test_2025}@printfarm-test-db:5432/printfarm_test
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-printfarm_redis_2025}@printfarm-test-redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-printfarm_redis_2025}@printfarm-test-redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-test-key-change-in-production}
+      - MOYSKLAD_TOKEN=${MOYSKLAD_TOKEN}
+      - MOYSKLAD_DEFAULT_WAREHOUSE=${MOYSKLAD_DEFAULT_WAREHOUSE}
     volumes:
       - ./backend:/app
-      - ./test-reports:/app/test-reports
+      - ./logs:/app/logs
     depends_on:
-      db-test:
-        condition: service_healthy
-      redis-test:
-        condition: service_healthy
-    working_dir: /app
-    profiles: ["performance"]
-    command: >
-      bash -c "
-        python manage.py migrate --noinput;
-        echo 'Loading test data...';
-        python manage.py shell -c \"
-from apps.products.tests.factories import ProductFactory;
-from decimal import Decimal;
-import random;
-print('Creating 1000 test products...');
-for i in range(1000):
-    ProductFactory.create(
-        article=f'PERF-{i:04d}',
-        current_stock=Decimal(str(random.randint(0, 50))),
-        sales_last_2_months=Decimal(str(random.randint(0, 30)))
-    );
-print('Test data loaded');
-        \";
-        echo 'Running performance tests...';
-        python -m pytest -m slow --tb=short -v;
-      "
+      - printfarm-test-db
+      - printfarm-test-redis
+      - printfarm-test-backend
+    networks:
+      - printfarm_test_network
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler --logfile=/app/logs/celery-beat.log
+
+  # Frontend React приложение (порт 13000 вместо 3000)
+  printfarm-test-frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        REACT_APP_API_URL: http://localhost:18000/api/v1
+        REACT_APP_VERSION: 4.1.8
+        REACT_APP_ENVIRONMENT: test
+    container_name: printfarm_test_frontend
+    restart: unless-stopped
+    environment:
+      - REACT_APP_API_URL=http://localhost:18000/api/v1
+      - REACT_APP_VERSION=4.1.8
+      - REACT_APP_ENVIRONMENT=test
+      - PORT=3000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "13000:3000"
+    depends_on:
+      - printfarm-test-backend
+    networks:
+      - printfarm_test_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx reverse proxy (порт 18080 вместо 80)
+  printfarm-test-nginx:
+    image: nginx:alpine
+    container_name: printfarm_test_nginx
+    restart: unless-stopped
+    ports:
+      - "18080:80"
+    volumes:
+      - ./docker/nginx.test.conf:/etc/nginx/nginx.conf:ro
+      - printfarm_test_static:/usr/share/nginx/html/static:ro
+      - printfarm_test_media:/usr/share/nginx/html/media:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - printfarm-test-backend
+      - printfarm-test-frontend
+    networks:
+      - printfarm_test_network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -O /dev/null http://localhost || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
-  test_postgres_data:
-  test_redis_data:
-  test_static_volume:
-  test_media_volume:
+  printfarm_test_postgres_data:
+    name: printfarm_test_postgres_data
+  printfarm_test_redis_data:
+    name: printfarm_test_redis_data
+  printfarm_test_static:
+    name: printfarm_test_static
+  printfarm_test_media:
+    name: printfarm_test_media
+
+networks:
+  printfarm_test_network:
+    name: printfarm_test_network
+    driver: bridge
