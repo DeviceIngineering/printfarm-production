@@ -1,18 +1,27 @@
 """
 SimplePrint Views
 
-Включает webhook endpoint для приема событий от SimplePrint.
+Включает webhook endpoint и REST API endpoints для SimplePrint.
 """
 
 import logging
-from rest_framework import status
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework import filters
+from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 
-from .models import SimplePrintWebhookEvent, SimplePrintFile, SimplePrintFolder
+from .models import SimplePrintWebhookEvent, SimplePrintFile, SimplePrintFolder, SimplePrintSync
 from .services import SimplePrintSyncService
+from .serializers import (
+    SimplePrintFileSerializer, SimplePrintFileListSerializer,
+    SimplePrintFolderSerializer, SimplePrintFolderListSerializer,
+    SimplePrintSyncSerializer, SimplePrintWebhookEventSerializer,
+    SyncStatsSerializer, TriggerSyncSerializer
+)
 
 logger = logging.getLogger(__name__)
 
@@ -186,3 +195,148 @@ class SimplePrintWebhookView(APIView):
                 logger.info(f"Deleted folder {folder_id} from database")
             except SimplePrintFolder.DoesNotExist:
                 logger.warning(f"Folder {folder_id} not found in database")
+
+
+class SimplePrintFileViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet для просмотра файлов SimplePrint
+
+    GET /api/v1/simpleprint/files/ - список файлов
+    GET /api/v1/simpleprint/files/{id}/ - детали файла
+    GET /api/v1/simpleprint/files/stats/ - статистика файлов
+    """
+    queryset = SimplePrintFile.objects.select_related('folder').all()
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['folder', 'file_type', 'ext']
+    search_fields = ['name', 'simpleprint_id']
+    ordering_fields = ['name', 'size', 'created_at_sp', 'last_synced_at']
+    ordering = ['-created_at_sp']
+
+    def get_serializer_class(self):
+        """Выбрать serializer в зависимости от action"""
+        if self.action == 'list':
+            return SimplePrintFileListSerializer
+        return SimplePrintFileSerializer
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Статистика по файлам"""
+        total_files = self.get_queryset().count()
+        total_size = sum(f.size for f in self.get_queryset())
+
+        # Группировка по типам
+        by_type = {}
+        for file in self.get_queryset():
+            file_type = file.file_type or 'unknown'
+            if file_type not in by_type:
+                by_type[file_type] = {'count': 0, 'size': 0}
+            by_type[file_type]['count'] += 1
+            by_type[file_type]['size'] += file.size
+
+        return Response({
+            'total_files': total_files,
+            'total_size': total_size,
+            'by_type': by_type
+        })
+
+
+class SimplePrintFolderViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet для просмотра папок SimplePrint
+
+    GET /api/v1/simpleprint/folders/ - список папок
+    GET /api/v1/simpleprint/folders/{id}/ - детали папки
+    GET /api/v1/simpleprint/folders/{id}/files/ - файлы в папке
+    """
+    queryset = SimplePrintFolder.objects.all()
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['parent', 'depth']
+    search_fields = ['name', 'simpleprint_id']
+    ordering_fields = ['name', 'depth', 'files_count', 'last_synced_at']
+    ordering = ['depth', 'name']
+
+    def get_serializer_class(self):
+        """Выбрать serializer в зависимости от action"""
+        if self.action == 'list':
+            return SimplePrintFolderListSerializer
+        return SimplePrintFolderSerializer
+
+    @action(detail=True, methods=['get'])
+    def files(self, request, pk=None):
+        """Получить файлы в папке"""
+        folder = self.get_object()
+        files = folder.files.all()
+        serializer = SimplePrintFileListSerializer(files, many=True)
+        return Response(serializer.data)
+
+
+class SimplePrintSyncViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet для просмотра истории синхронизаций
+
+    GET /api/v1/simpleprint/sync/ - история синхронизаций
+    GET /api/v1/simpleprint/sync/{id}/ - детали синхронизации
+    POST /api/v1/simpleprint/sync/trigger/ - запустить синхронизацию
+    GET /api/v1/simpleprint/sync/stats/ - статистика синхронизации
+    """
+    queryset = SimplePrintSync.objects.all()
+    serializer_class = SimplePrintSyncSerializer
+    permission_classes = [IsAuthenticated]
+    ordering = ['-started_at']
+
+    @action(detail=False, methods=['post'])
+    def trigger(self, request):
+        """
+        Запустить синхронизацию
+
+        Body:
+        {
+            "full_sync": false,  // полная синхронизация с удалением
+            "force": false       // принудительная синхронизация
+        }
+        """
+        serializer = TriggerSyncSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        full_sync = serializer.validated_data.get('full_sync', False)
+        force = serializer.validated_data.get('force', False)
+
+        # Проверяем последнюю синхронизацию
+        service = SimplePrintSyncService()
+        stats = service.get_sync_stats()
+
+        if stats['last_sync'] and not force:
+            time_since_last = timezone.now() - stats['last_sync']
+            if time_since_last.total_seconds() < 300:  # 5 минут
+                return Response({
+                    'status': 'rejected',
+                    'message': f'Последняя синхронизация была {int(time_since_last.total_seconds())} секунд назад. Используйте force=true для принудительной синхронизации.',
+                    'last_sync': stats['last_sync']
+                }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        try:
+            # Запускаем синхронизацию
+            sync_log = service.sync_all_files(full_sync=full_sync)
+
+            return Response({
+                'status': 'success',
+                'sync_log': SimplePrintSyncSerializer(sync_log).data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Sync failed: {e}", exc_info=True)
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Статистика синхронизации"""
+        service = SimplePrintSyncService()
+        stats = service.get_sync_stats()
+
+        serializer = SyncStatsSerializer(stats)
+        return Response(serializer.data)

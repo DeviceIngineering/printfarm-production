@@ -24,6 +24,11 @@ app.conf.beat_schedule = {
         'schedule': 60.0 * 60.0 * 24.0,  # 24 hours
         'options': {'expires': 60.0 * 60.0 * 23.0}  # expire after 23 hours
     },
+    'simpleprint-sync-30min': {
+        'task': 'simpleprint.scheduled_sync',
+        'schedule': 60.0 * 30.0,  # 30 minutes
+        'options': {'expires': 60.0 * 25.0}  # expire after 25 minutes
+    },
 }
 
 app.conf.timezone = settings.TIME_ZONE
