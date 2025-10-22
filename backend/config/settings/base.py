@@ -179,11 +179,13 @@ MOYSKLAD_CONFIG = {
     'timeout': 30,
 }
 
-# Simple Print API Configuration (заглушка)
+# SimplePrint API Configuration
 SIMPLEPRINT_CONFIG = {
-    'api_key': config('SIMPLEPRINT_API_KEY', default=''),
-    'company_id': config('SIMPLEPRINT_COMPANY_ID', default='27286'),
+    'api_token': config('SIMPLEPRINT_API_TOKEN', default=''),
     'user_id': config('SIMPLEPRINT_USER_ID', default='31471'),
+    'company_id': config('SIMPLEPRINT_COMPANY_ID', default='27286'),
+    'base_url': config('SIMPLEPRINT_BASE_URL', default='https://api.simplyprint.io/27286/'),
+    'rate_limit': config('SIMPLEPRINT_RATE_LIMIT', default=180, cast=int),  # requests per minute
 }
 
 # Logging

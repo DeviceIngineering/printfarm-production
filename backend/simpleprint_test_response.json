@@ -1,0 +1,419 @@
+{
+  "status": true,
+  "message": null,
+  "folder": null,
+  "files": [
+    {
+      "id": "403edfc2b2a1403ca83ccb939b9727ba",
+      "name": "536-53110_1k_4h31m_125g_black.gcode",
+      "ext": "3mf",
+      "type": "printable",
+      "zipPrintable": true,
+      "zipNoModel": true,
+      "size": 1341948,
+      "created": "2025-09-12T12:47:12+00:00",
+      "tags": {
+        "nozzleData": [
+          {
+            "volumeType": "standard",
+            "size": 0.4,
+            "i": 0,
+            "nozzleIndex": 0
+          }
+        ],
+        "material": [
+          {
+            "type": 38068,
+            "color": "Black",
+            "hex": "#000000",
+            "ext": 0,
+            "width": 1.75
+          }
+        ]
+      },
+      "printData": {
+        "printsDone": 0,
+        "printsCancelled": 0,
+        "printsFailed": 0,
+        "timesSliced": 0
+      },
+      "cost": {
+        "estimate": false,
+        "currency": "EUR",
+        "total_cost": 4.02,
+        "used_fallback_cost": true,
+        "lines": [
+          {
+            "id": 1,
+            "cost": 1.12,
+            "label": "Material usage (account default)",
+            "material": {
+              "gram": 124.52,
+              "extruder": 0,
+              "fromPercent": null,
+              "toPercent": null,
+              "isEstimate": false,
+              "usedFallbackCost": true
+            }
+          },
+          {
+            "id": 2,
+            "cost": 0.5,
+            "label": "Material markup"
+          },
+          {
+            "id": 3,
+            "cost": 2.26,
+            "label": "Machine run time cost"
+          },
+          {
+            "id": 4,
+            "cost": 0.14,
+            "label": "Energy cost"
+          },
+          {
+            "id": 5,
+            "cost": null,
+            "label": "Labor cost"
+          }
+        ]
+      },
+      "user_id": 31471,
+      "thumbnail": 1,
+      "gcodeAnalysis": {
+        "v": 12,
+        "printArea": {
+          "maxX": 228.54,
+          "maxY": 200.22,
+          "maxZ": 154.6,
+          "minX": 27.46,
+          "minY": 51.78,
+          "minZ": 0.2
+        },
+        "movement": {
+          "eRelative": 1,
+          "mRelative": 1
+        },
+        "temps": {
+          "bed": 70,
+          "tool": {
+            "T0": 250
+          },
+          "maxTool": 250
+        },
+        "modelSize": {
+          "x": 201.08,
+          "y": 148.44,
+          "z": 54.4
+        },
+        "materialData": [
+          {
+            "type": "PETG",
+            "color": "#FFFFFF",
+            "density": 1.27,
+            "diameter": 1.75,
+            "vendor": "Generic",
+            "filamentId": "GFG99",
+            "settingId": "Профиль PETG(Владимир А.)"
+          }
+        ],
+        "slicer": "BambuStudio",
+        "estimate": 16261,
+        "filament": [
+          40764
+        ],
+        "nozzleSize": 0.4,
+        "nozzles": [
+          {
+            "size": 0.4,
+            "type": "stainless_steel",
+            "volumeType": "Standard"
+          }
+        ],
+        "bedType": "Engineering Plate",
+        "gcodeFlavor": "Marlin",
+        "layerHeight": 0.2,
+        "firstLayerHeight": null,
+        "totalLayers": 273,
+        "slicerVersion": "02.02.01.60",
+        "minDeltaRadius": 282.3,
+        "forPrinterModel": "Bambu Lab P1S",
+        "objects": [
+          {
+            "id": 108,
+            "name": "Pokrov_luci_megane1.stl",
+            "bbox": [
+              134.23340000000002,
+              107.63333000000002,
+              219.04762,
+              192.43237
+            ],
+            "area": 5648.37548828125,
+            "layerHeight": 0.2,
+            "filamentUsage": {
+              "T0": 20366.35
+            },
+            "printsFrom": {
+              "layer": 0
+            },
+            "printsTo": {
+              "layer": 273
+            }
+          },
+          {
+            "id": 133,
+            "name": "Pokrov_luci_megane1.stl",
+            "bbox": [
+              36.95237,
+              63.56761,
+              121.76659,
+              148.36665000000002
+            ],
+            "area": 5648.37548828125,
+            "layerHeight": 0.2,
+            "filamentUsage": {
+              "T0": 20366.35
+            },
+            "printsFrom": {
+              "layer": 0
+            },
+            "printsTo": {
+              "layer": 273
+            }
+          }
+        ]
+      },
+      "forPrinters": [],
+      "forPrinterModels": [
+        431
+      ],
+      "customFields": []
+    }
+  ],
+  "folders": [
+    {
+      "id": 16787,
+      "name": "1_100",
+      "items": {
+        "files": 0,
+        "folders": 90
+      },
+      "created": "2024-11-06T11:04:50+00:00",
+      "parent_folder_id": 0,
+      "depth": 0,
+      "org": {
+        "view": true,
+        "upload": true,
+        "modify": true,
+        "download": true,
+        "id": 27286
+      }
+    },
+    {
+      "id": 16790,
+      "name": "101_200",
+      "items": {
+        "files": 0,
+        "folders": 83
+      },
+      "created": "2024-11-06T11:05:27+00:00",
+      "parent_folder_id": 0,
+      "depth": 0,
+      "org": {
+        "view": true,
+        "upload": true,
+        "modify": true,
+        "download": true,
+        "id": 27286
+      }
+    },
+    {
+      "id": 16799,
+      "name": "201_300",
+      "items": {
+        "files": 0,
+        "folders": 76
+      },
+      "created": "2024-11-06T11:14:27+00:00",
+      "parent_folder_id": 0,
+      "depth": 0,
+      "org": {
+        "view": true,
+        "upload": true,
+        "modify": true,
+        "download": true,
+        "id": 27286
+      }
+    },
+    {
+      "id": 16800,
+      "name": "301_400",
+      "items": {
+        "files": 0,
+        "folders": 63
+      },
+      "created": "2024-11-06T11:14:48+00:00",
+      "parent_folder_id": 0,
+      "depth": 0,
+      "org": {
+        "view": true,
+        "upload": true,
+        "modify": true,
+        "download": true,
+        "id": 27286
+      }
+    },
+    {
+      "id": 16801,
+      "name": "401_500",
+      "items": {
+        "files": 0,
+        "folders": 92
+      },
+      "created": "2024-11-06T11:15:10+00:00",
+      "parent_folder_id": 0,
+      "depth": 0,
+      "org": {
+        "view": true,
+        "upload": true,
+        "modify": true,
+        "download": true,
+        "id": 27286
+      }
+    },
+    {
+      "id": 16802,
+      "name": "501_600",
+      "items": {
+        "files": 0,
+        "folders": 96
+      },
+      "created": "2024-11-06T11:15:29+00:00",
+      "parent_folder_id": 0,
+      "depth": 0,
+      "org": {
+        "view": true,
+        "upload": true,
+        "modify": true,
+        "download": true,
+        "id": 27286
+      }
+    },
+    {
+      "id": 16803,
+      "name": "601_700",
+      "items": {
+        "files": 0,
+        "folders": 91
+      },
+      "created": "2024-11-06T11:15:54+00:00",
+      "parent_folder_id": 0,
+      "depth": 0,
+      "org": {
+        "view": true,
+        "upload": true,
+        "modify": true,
+        "download": true,
+        "id": 27286
+      }
+    },
+    {
+      "id": 16804,
+      "name": "701_800",
+      "items": {
+        "files": 0,
+        "folders": 38
+      },
+      "created": "2024-11-06T11:16:34+00:00",
+      "parent_folder_id": 0,
+      "depth": 0,
+      "org": {
+        "view": true,
+        "upload": true,
+        "modify": true,
+        "download": true,
+        "id": 27286
+      }
+    },
+    {
+      "id": 16805,
+      "name": "801_900",
+      "items": {
+        "files": 0,
+        "folders": 0
+      },
+      "created": "2024-11-06T11:17:04+00:00",
+      "parent_folder_id": 0,
+      "depth": 0,
+      "org": {
+        "view": true,
+        "upload": true,
+        "modify": true,
+        "download": true,
+        "id": 27286
+      }
+    },
+    {
+      "id": 16807,
+      "name": "901_1000",
+      "items": {
+        "files": 0,
+        "folders": 0
+      },
+      "created": "2024-11-06T11:17:45+00:00",
+      "parent_folder_id": 0,
+      "depth": 0,
+      "org": {
+        "view": true,
+        "upload": true,
+        "modify": true,
+        "download": true,
+        "id": 27286
+      }
+    },
+    {
+      "id": 20822,
+      "name": "PROTOTIP",
+      "items": {
+        "files": 6,
+        "folders": 0
+      },
+      "created": "2025-03-28T05:32:48+00:00",
+      "parent_folder_id": 0,
+      "depth": 0,
+      "org": {
+        "view": true,
+        "upload": true,
+        "modify": true,
+        "download": true,
+        "id": 27286
+      }
+    },
+    {
+      "id": 24140,
+      "name": "arhive",
+      "items": {
+        "files": 34,
+        "folders": 1
+      },
+      "created": "2025-07-29T14:53:27+00:00",
+      "parent_folder_id": 0,
+      "depth": 0,
+      "org": {
+        "view": true,
+        "upload": true,
+        "modify": true,
+        "download": true,
+        "id": 27286
+      }
+    }
+  ],
+  "path": [
+    [
+      "Your files",
+      0
+    ]
+  ],
+  "space": 25000000000,
+  "space_used": 7349185244
+}
