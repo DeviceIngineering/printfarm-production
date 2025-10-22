@@ -29,6 +29,7 @@ urlpatterns = [
     path('sync/', include('apps.sync.urls')),
     path('reports/', include('apps.reports.urls')),
     path('settings/', include('apps.settings.urls')),
+    path('simpleprint/', include('apps.simpleprint.urls')),
     # path('monitoring/', include('apps.monitoring.urls')),  # Temporarily disabled
     
     # Tochka API endpoints

@@ -206,3 +206,40 @@ class SimplePrintSync(models.Model):
             delta = self.finished_at - self.started_at
             return delta.total_seconds()
         return None
+
+
+class SimplePrintWebhookEvent(models.Model):
+    """
+    Модель для логирования webhook событий от SimplePrint
+    """
+    EVENT_TYPE_CHOICES = [
+        ('file_created', 'Файл создан'),
+        ('file_updated', 'Файл обновлен'),
+        ('file_deleted', 'Файл удален'),
+        ('folder_created', 'Папка создана'),
+        ('folder_deleted', 'Папка удалена'),
+        ('unknown', 'Неизвестное событие'),
+    ]
+
+    event_type = models.CharField(max_length=50, choices=EVENT_TYPE_CHOICES)
+    payload = models.JSONField(help_text="Полные данные webhook")
+
+    # Обработка события
+    processed = models.BooleanField(default=False)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    processing_error = models.TextField(blank=True)
+
+    # Метаданные
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-received_at']
+        indexes = [
+            models.Index(fields=['event_type', '-received_at']),
+            models.Index(fields=['processed', '-received_at']),
+        ]
+        verbose_name = "SimplePrint Webhook Event"
+        verbose_name_plural = "SimplePrint Webhook Events"
+
+    def __str__(self):
+        return f"{self.get_event_type_display()} - {self.received_at.strftime('%Y-%m-%d %H:%M')}"
