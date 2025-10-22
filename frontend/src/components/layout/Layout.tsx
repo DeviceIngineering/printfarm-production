@@ -1,10 +1,11 @@
 import React from 'react';
 import { Layout as AntLayout, Menu, Avatar } from 'antd';
-import { 
-  AppstoreOutlined, 
-  BarChartOutlined, 
+import {
+  AppstoreOutlined,
+  BarChartOutlined,
   SettingOutlined,
-  DatabaseOutlined
+  DatabaseOutlined,
+  CloudServerOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SyncButton } from '../sync/SyncButton';
@@ -30,6 +31,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       key: '/tochka',
       icon: <DatabaseOutlined />,
       label: 'Точка',
+    },
+    {
+      key: '/simpleprint',
+      icon: <CloudServerOutlined />,
+      label: 'SimplePrint',
     },
     {
       key: '/reports',

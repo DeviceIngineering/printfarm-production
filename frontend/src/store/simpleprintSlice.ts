@@ -1,0 +1,208 @@
+/**
+ * Redux slice для SimplePrint данных
+ */
+
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { apiClient } from '../api/client';
+
+// Types
+export interface SimplePrintFile {
+  id: number;
+  simpleprint_id: string;
+  name: string;
+  folder: number | null;
+  folder_name: string | null;
+  ext: string;
+  file_type: string;
+  size: number;
+  size_display: string;
+  created_at_sp: string;
+  last_synced_at: string;
+}
+
+export interface SimplePrintFolder {
+  id: number;
+  simpleprint_id: number;
+  name: string;
+  depth: number;
+  files_count: number;
+  folders_count: number;
+  last_synced_at: string;
+}
+
+export interface SyncStats {
+  total_folders: number;
+  total_files: number;
+  last_sync: string | null;
+  last_sync_status: string | null;
+  last_sync_duration: number | null;
+}
+
+export interface FileStats {
+  total_files: number;
+  total_size: number;
+  by_type: {
+    [key: string]: {
+      count: number;
+      size: number;
+    };
+  };
+}
+
+interface SimplePrintState {
+  files: SimplePrintFile[];
+  folders: SimplePrintFolder[];
+  syncStats: SyncStats | null;
+  fileStats: FileStats | null;
+  loading: boolean;
+  error: string | null;
+  syncing: boolean;
+  syncError: string | null;
+}
+
+const initialState: SimplePrintState = {
+  files: [],
+  folders: [],
+  syncStats: null,
+  fileStats: null,
+  loading: false,
+  error: null,
+  syncing: false,
+  syncError: null,
+};
+
+// Async thunks
+export const fetchFiles = createAsyncThunk(
+  'simpleprint/fetchFiles',
+  async (params?: { search?: string; folder?: number; file_type?: string }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.folder) queryParams.append('folder', params.folder.toString());
+    if (params?.file_type) queryParams.append('file_type', params.file_type);
+
+    const response = await apiClient.get(`/simpleprint/files/?${queryParams.toString()}`);
+    return response.data;
+  }
+);
+
+export const fetchFolders = createAsyncThunk(
+  'simpleprint/fetchFolders',
+  async () => {
+    const response = await apiClient.get('/simpleprint/folders/');
+    return response.data;
+  }
+);
+
+export const fetchSyncStats = createAsyncThunk(
+  'simpleprint/fetchSyncStats',
+  async () => {
+    const response = await apiClient.get('/simpleprint/sync/stats/');
+    return response.data;
+  }
+);
+
+export const fetchFileStats = createAsyncThunk(
+  'simpleprint/fetchFileStats',
+  async () => {
+    const response = await apiClient.get('/simpleprint/files/stats/');
+    return response.data;
+  }
+);
+
+export const triggerSync = createAsyncThunk(
+  'simpleprint/triggerSync',
+  async (params: { full_sync?: boolean; force?: boolean } = {}) => {
+    const response = await apiClient.post('/simpleprint/sync/trigger/', params);
+    return response.data;
+  }
+);
+
+// Slice
+const simpleprintSlice = createSlice({
+  name: 'simpleprint',
+  initialState,
+  reducers: {
+    clearError: (state) => {
+      state.error = null;
+      state.syncError = null;
+    },
+  },
+  extraReducers: (builder) => {
+    // Fetch files
+    builder
+      .addCase(fetchFiles.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchFiles.fulfilled, (state, action: PayloadAction<any>) => {
+        state.loading = false;
+        state.files = action.payload.results || action.payload;
+      })
+      .addCase(fetchFiles.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch files';
+      });
+
+    // Fetch folders
+    builder
+      .addCase(fetchFolders.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchFolders.fulfilled, (state, action: PayloadAction<any>) => {
+        state.loading = false;
+        state.folders = action.payload.results || action.payload;
+      })
+      .addCase(fetchFolders.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch folders';
+      });
+
+    // Fetch sync stats
+    builder
+      .addCase(fetchSyncStats.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchSyncStats.fulfilled, (state, action: PayloadAction<SyncStats>) => {
+        state.loading = false;
+        state.syncStats = action.payload;
+      })
+      .addCase(fetchSyncStats.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch sync stats';
+      });
+
+    // Fetch file stats
+    builder
+      .addCase(fetchFileStats.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchFileStats.fulfilled, (state, action: PayloadAction<FileStats>) => {
+        state.loading = false;
+        state.fileStats = action.payload;
+      })
+      .addCase(fetchFileStats.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch file stats';
+      });
+
+    // Trigger sync
+    builder
+      .addCase(triggerSync.pending, (state) => {
+        state.syncing = true;
+        state.syncError = null;
+      })
+      .addCase(triggerSync.fulfilled, (state) => {
+        state.syncing = false;
+      })
+      .addCase(triggerSync.rejected, (state, action) => {
+        state.syncing = false;
+        state.syncError = action.error.message || 'Failed to trigger sync';
+      });
+  },
+});
+
+export const { clearError } = simpleprintSlice.actions;
+export default simpleprintSlice.reducer;

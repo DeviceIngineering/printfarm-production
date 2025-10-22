@@ -6,6 +6,7 @@ import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { TochkaPage } from './pages/TochkaPage';
+import SimplePrintPage from './pages/SimplePrintPage';
 import { TestWarehousesPage } from './pages/TestWarehousesPage';
 import { TestProductGroupsPage } from './pages/TestProductGroupsPage';
 import { TestProductsPage } from './pages/TestProductsPage';
@@ -32,6 +33,7 @@ function App() {
               <Route path="/" element={<ProductsPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/tochka" element={<TochkaPage />} />
+              <Route path="/simpleprint" element={<SimplePrintPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/test-warehouses" element={<TestWarehousesPage />} />
