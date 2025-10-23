@@ -32,7 +32,7 @@ class SimplePrintFilePagination(PageNumberPagination):
     """Custom pagination с возможностью изменения page_size"""
     page_size = 100
     page_size_query_param = 'page_size'
-    max_page_size = 500
+    max_page_size = 2000  # Увеличено для загрузки всех файлов (1587 на 2025-10-23)
 
 
 class SimplePrintWebhookView(APIView):
