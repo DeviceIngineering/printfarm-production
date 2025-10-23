@@ -49,7 +49,7 @@ const { Option } = Select;
 
 const SimplePrintPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { files, folders, syncStats, fileStats, loading, syncing, syncError } = useSelector(
+  const { files, folders, syncStats, fileStats, loading, syncing, syncError, totalFiles } = useSelector(
     (state: RootState) => state.simpleprint
   );
 
@@ -61,6 +61,9 @@ const SimplePrintPage: React.FC = () => {
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const [forceSync, setForceSync] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [groupByFolder, setGroupByFolder] = useState(false);
 
   // Загрузка данных при монтировании
   useEffect(() => {
@@ -68,7 +71,7 @@ const SimplePrintPage: React.FC = () => {
   }, []);
 
   const loadData = () => {
-    dispatch(fetchFiles());
+    dispatch(fetchFiles({ page: currentPage, page_size: pageSize }));
     dispatch(fetchFolders());
     dispatch(fetchSyncStats());
     dispatch(fetchFileStats());
@@ -76,17 +79,53 @@ const SimplePrintPage: React.FC = () => {
 
   const handleSearch = (value: string) => {
     setSearchText(value);
-    dispatch(fetchFiles({ search: value, folder: selectedFolder, file_type: selectedFileType }));
+    setCurrentPage(1); // Сброс на первую страницу при поиске
+    dispatch(fetchFiles({
+      search: value,
+      folder: selectedFolder,
+      file_type: selectedFileType,
+      page: 1,
+      page_size: pageSize
+    }));
   };
 
   const handleFolderChange = (value: number | undefined) => {
     setSelectedFolder(value);
-    dispatch(fetchFiles({ search: searchText, folder: value, file_type: selectedFileType }));
+    setCurrentPage(1); // Сброс на первую страницу при фильтрации
+    dispatch(fetchFiles({
+      search: searchText,
+      folder: value,
+      file_type: selectedFileType,
+      page: 1,
+      page_size: pageSize
+    }));
   };
 
   const handleFileTypeChange = (value: string | undefined) => {
     setSelectedFileType(value);
-    dispatch(fetchFiles({ search: searchText, folder: selectedFolder, file_type: value }));
+    setCurrentPage(1); // Сброс на первую страницу при фильтрации
+    dispatch(fetchFiles({
+      search: searchText,
+      folder: selectedFolder,
+      file_type: value,
+      page: 1,
+      page_size: pageSize
+    }));
+  };
+
+  const handleTableChange = (page: number, newPageSize?: number) => {
+    const effectivePageSize = newPageSize || pageSize;
+    setCurrentPage(page);
+    if (newPageSize) {
+      setPageSize(newPageSize);
+    }
+    dispatch(fetchFiles({
+      search: searchText,
+      folder: selectedFolder,
+      file_type: selectedFileType,
+      page: page,
+      page_size: effectivePageSize
+    }));
   };
 
   const handleSync = async (fullSync: boolean = false) => {
@@ -334,84 +373,224 @@ const SimplePrintPage: React.FC = () => {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
+  // Группировка файлов по папкам
+  const getGroupedData = () => {
+    if (!groupByFolder) {
+      return files;
+    }
+
+    // Группируем файлы по folder_name
+    const grouped: { [key: string]: SimplePrintFile[] } = {};
+    files.forEach(file => {
+      const folderKey = file.folder_name || 'Корень';
+      if (!grouped[folderKey]) {
+        grouped[folderKey] = [];
+      }
+      grouped[folderKey].push(file);
+    });
+
+    // Преобразуем в древовидную структуру
+    const result: any[] = [];
+    Object.keys(grouped).sort().forEach((folderName, index) => {
+      // Добавляем родительскую папку
+      result.push({
+        id: `folder-${index}`,
+        name: folderName,
+        folder_name: null,
+        ext: '-',
+        size: 0,
+        size_display: '-',
+        created_at_sp: '',
+        isFolder: true,
+        children: grouped[folderName],
+      });
+    });
+
+    return result;
+  };
+
+  // Функция для форматирования времени печати
+  const formatPrintTime = (seconds: number | null): string => {
+    if (!seconds) return '—';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}ч ${minutes}м`;
+    }
+    return `${minutes}м`;
+  };
+
   // Колонки таблицы
-  const columns: ColumnsType<SimplePrintFile> = [
+  const columns: ColumnsType<any> = [
+    {
+      title: 'Артикул',
+      dataIndex: 'article',
+      key: 'article',
+      width: 200,
+      ellipsis: true,
+      render: (article: string | null, record: any) => {
+        if (record.isFolder) return null;
+        return article ? (
+          <Tag color="purple" style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '13px' }}>
+            {article}
+          </Tag>
+        ) : (
+          <span style={{ color: '#8c8c8c' }}>—</span>
+        );
+      },
+    },
     {
       title: 'Имя файла',
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
-      width: 300,
-      render: (text: string, record: SimplePrintFile) => (
-        <Space>
-          <FileOutlined style={{ color: '#06EAFC' }} />
-          <span style={{ fontWeight: 500 }}>{text}</span>
-        </Space>
-      ),
+      width: 350,
+      render: (text: string, record: any) => {
+        if (record.isFolder) {
+          return (
+            <Space>
+              <FolderOutlined style={{ color: '#FFB800', fontSize: '16px' }} />
+              <span style={{ fontWeight: 600, color: '#FFB800' }}>{text}</span>
+            </Space>
+          );
+        }
+        return (
+          <Space>
+            <FileOutlined style={{ color: '#06EAFC' }} />
+            <span style={{ fontWeight: 500 }}>{text}</span>
+          </Space>
+        );
+      },
+    },
+    {
+      title: 'Кол-во',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 100,
+      align: 'center' as const,
+      render: (quantity: number | null, record: any) => {
+        if (record.isFolder) return null;
+        if (!quantity) return <span style={{ color: '#8c8c8c' }}>—</span>;
+
+        // Разные цвета для разных типов количества
+        let color = 'green';
+        let displayText = '';
+
+        if (quantity === 0.5) {
+          // Части изделия (part1, part2...)
+          color = 'orange';
+          displayText = '½ шт';
+        } else if (quantity % 1 !== 0) {
+          // Дробное значение (1.5, 2.5, 3.7...)
+          color = 'cyan';
+          displayText = `${quantity} шт`;
+        } else {
+          // Целое значение
+          color = 'green';
+          displayText = `${quantity.toFixed(0)} шт`;
+        }
+
+        return (
+          <Tag color={color} style={{ fontSize: '14px', fontWeight: 600 }}>
+            {displayText}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Время печати',
+      dataIndex: 'print_time',
+      key: 'print_time',
+      width: 130,
+      align: 'center' as const,
+      render: (printTime: number | null, record: any) => {
+        if (record.isFolder) return null;
+        return (
+          <span style={{ fontFamily: 'monospace', color: printTime ? '#06EAFC' : '#8c8c8c' }}>
+            {formatPrintTime(printTime)}
+          </span>
+        );
+      },
     },
     {
       title: 'Папка',
       dataIndex: 'folder_name',
       key: 'folder_name',
-      width: 150,
-      render: (text: string | null) => (
-        text ? (
-          <Space>
-            <FolderOutlined style={{ color: '#FFB800' }} />
+      width: 220,
+      ellipsis: true,
+      render: (text: string | null, record: any) => {
+        if (record.isFolder) return null;
+        return text ? (
+          <Tag color="blue" icon={<FolderOutlined />}>
             {text}
-          </Space>
+          </Tag>
         ) : (
           <Tag color="default">Корень</Tag>
-        )
-      ),
+        );
+      },
     },
     {
-      title: 'Тип',
-      dataIndex: 'file_type',
-      key: 'file_type',
+      title: 'Вес',
+      dataIndex: 'weight',
+      key: 'weight',
+      width: 100,
+      align: 'center' as const,
+      render: (weight: number | null, record: any) => {
+        if (record.isFolder) return null;
+        return weight ? (
+          <span style={{ fontFamily: 'monospace' }}>
+            {weight.toFixed(1)} г
+          </span>
+        ) : (
+          <span style={{ color: '#8c8c8c' }}>—</span>
+        );
+      },
+    },
+    {
+      title: 'Цвет',
+      dataIndex: 'material_color',
+      key: 'material_color',
       width: 120,
-      render: (text: string) => {
-        const colors: { [key: string]: string } = {
-          printable: 'green',
-          model: 'blue',
-          unknown: 'default',
-        };
-        return <Tag color={colors[text] || 'default'}>{text || 'unknown'}</Tag>;
+      render: (color: string | null, record: any) => {
+        if (record.isFolder) return null;
+        return color ? (
+          <Tag color="cyan" style={{ fontWeight: 500 }}>
+            {color}
+          </Tag>
+        ) : (
+          <span style={{ color: '#8c8c8c' }}>—</span>
+        );
       },
     },
     {
       title: 'Расширение',
       dataIndex: 'ext',
       key: 'ext',
-      width: 100,
-      render: (text: string) => <Tag>{text || '-'}</Tag>,
+      width: 120,
+      render: (text: string, record: any) => {
+        if (record.isFolder) return null;
+        return <Tag color="cyan">{text || '-'}</Tag>;
+      },
     },
     {
       title: 'Размер',
       dataIndex: 'size',
       key: 'size',
       width: 120,
-      sorter: (a, b) => a.size - b.size,
-      render: (size: number, record: SimplePrintFile) => (
-        <span style={{ fontFamily: 'monospace' }}>{record.size_display}</span>
-      ),
+      render: (size: number, record: any) => {
+        if (record.isFolder) return null;
+        return <span style={{ fontFamily: 'monospace' }}>{record.size_display}</span>;
+      },
     },
     {
       title: 'Дата создания',
       dataIndex: 'created_at_sp',
       key: 'created_at_sp',
       width: 180,
-      sorter: (a, b) => moment(a.created_at_sp).unix() - moment(b.created_at_sp).unix(),
-      render: (date: string) => moment(date).format('DD.MM.YYYY HH:mm'),
-    },
-    {
-      title: 'Синхронизировано',
-      dataIndex: 'last_synced_at',
-      key: 'last_synced_at',
-      width: 180,
-      render: (date: string) => (
-        <span style={{ color: '#888' }}>{moment(date).format('DD.MM.YYYY HH:mm')}</span>
-      ),
+      render: (date: string, record: any) => {
+        if (record.isFolder) return null;
+        return moment(date).format('DD.MM.YYYY HH:mm');
+      },
     },
   ];
 
@@ -479,60 +658,71 @@ const SimplePrintPage: React.FC = () => {
 
       {/* Фильтры и действия */}
       <Card style={{ marginBottom: '16px' }}>
-        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-          <Space>
-            <Search
-              placeholder="Поиск файлов..."
-              allowClear
-              style={{ width: 300 }}
-              onSearch={handleSearch}
-              prefix={<SearchOutlined />}
-            />
-            <Select
-              placeholder="Выберите папку"
-              allowClear
-              style={{ width: 200 }}
-              onChange={handleFolderChange}
-              value={selectedFolder}
-            >
-              {folders.map((folder) => (
-                <Option key={folder.id} value={folder.id}>
-                  {folder.name}
-                </Option>
-              ))}
-            </Select>
-            <Select
-              placeholder="Тип файла"
-              allowClear
-              style={{ width: 150 }}
-              onChange={handleFileTypeChange}
-              value={selectedFileType}
-            >
-              <Option value="printable">Printable</Option>
-              <Option value="model">Model</Option>
-            </Select>
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Space>
+              <Search
+                placeholder="Поиск файлов..."
+                allowClear
+                style={{ width: 300 }}
+                onSearch={handleSearch}
+                prefix={<SearchOutlined />}
+              />
+              <Select
+                placeholder="Выберите папку"
+                allowClear
+                style={{ width: 200 }}
+                onChange={handleFolderChange}
+                value={selectedFolder}
+              >
+                {folders.map((folder) => (
+                  <Option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </Option>
+                ))}
+              </Select>
+              <Select
+                placeholder="Тип файла"
+                allowClear
+                style={{ width: 150 }}
+                onChange={handleFileTypeChange}
+                value={selectedFileType}
+              >
+                <Option value="printable">Printable</Option>
+                <Option value="model">Model</Option>
+              </Select>
+            </Space>
+            <Space>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={handleRefresh}
+                loading={loading}
+              >
+                Обновить
+              </Button>
+              <Button
+                type="primary"
+                icon={<SyncOutlined />}
+                onClick={() => setSyncModalVisible(true)}
+                loading={syncing}
+                style={{
+                  background: 'linear-gradient(135deg, #06EAFC 0%, #00B8D4 100%)',
+                  border: 'none',
+                }}
+              >
+                Синхронизация
+              </Button>
+            </Space>
           </Space>
-          <Space>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={handleRefresh}
-              loading={loading}
-            >
-              Обновить
-            </Button>
-            <Button
-              type="primary"
-              icon={<SyncOutlined />}
-              onClick={() => setSyncModalVisible(true)}
-              loading={syncing}
-              style={{
-                background: 'linear-gradient(135deg, #06EAFC 0%, #00B8D4 100%)',
-                border: 'none',
-              }}
-            >
-              Синхронизация
-            </Button>
-          </Space>
+          <Checkbox
+            checked={groupByFolder}
+            onChange={(e) => setGroupByFolder(e.target.checked)}
+          >
+            <span style={{ fontWeight: 500 }}>
+              <FolderOutlined style={{ marginRight: '8px', color: '#FFB800' }} />
+              Группировать по папкам
+            </span>
+          </Checkbox>
         </Space>
       </Card>
 
@@ -540,15 +730,23 @@ const SimplePrintPage: React.FC = () => {
       <Card>
         <Table
           columns={columns}
-          dataSource={files}
-          rowKey="id"
+          dataSource={getGroupedData()}
+          rowKey={(record) => record.isFolder ? record.id : `file-${record.id}`}
           loading={loading}
-          pagination={{
-            defaultPageSize: 50,
+          pagination={groupByFolder ? false : {
+            current: currentPage,
+            pageSize: pageSize,
+            total: totalFiles,
             showSizeChanger: true,
             pageSizeOptions: ['20', '50', '100', '200'],
             showTotal: (total) => `Всего ${total} файлов`,
+            onChange: handleTableChange,
+            onShowSizeChange: (current, size) => handleTableChange(current, size),
           }}
+          expandable={groupByFolder ? {
+            defaultExpandAllRows: false,
+            indentSize: 30,
+          } : undefined}
           scroll={{ x: 1200 }}
           size="middle"
         />

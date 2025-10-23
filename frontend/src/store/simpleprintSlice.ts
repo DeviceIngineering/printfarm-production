@@ -16,6 +16,14 @@ export interface SimplePrintFile {
   file_type: string;
   size: number;
   size_display: string;
+  tags: any;
+  gcode_analysis: any;
+  print_data: any;
+  material_color: string | null;
+  print_time: number | null;
+  weight: number | null;
+  quantity: number | null;
+  article: string | null;
   created_at_sp: string;
   last_synced_at: string;
 }
@@ -58,6 +66,7 @@ interface SimplePrintState {
   error: string | null;
   syncing: boolean;
   syncError: string | null;
+  totalFiles: number; // Общее количество файлов для пагинации
 }
 
 const initialState: SimplePrintState = {
@@ -69,16 +78,19 @@ const initialState: SimplePrintState = {
   error: null,
   syncing: false,
   syncError: null,
+  totalFiles: 0,
 };
 
 // Async thunks
 export const fetchFiles = createAsyncThunk(
   'simpleprint/fetchFiles',
-  async (params?: { search?: string; folder?: number; file_type?: string }) => {
+  async (params?: { search?: string; folder?: number; file_type?: string; page?: number; page_size?: number }) => {
     const queryParams = new URLSearchParams();
     if (params?.search) queryParams.append('search', params.search);
     if (params?.folder) queryParams.append('folder', params.folder.toString());
     if (params?.file_type) queryParams.append('file_type', params.file_type);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
 
     const response = await apiClient.get(`/simpleprint/files/?${queryParams.toString()}`);
     return response; // apiClient уже возвращает response.data
@@ -156,6 +168,7 @@ const simpleprintSlice = createSlice({
       .addCase(fetchFiles.fulfilled, (state, action: PayloadAction<any>) => {
         state.loading = false;
         state.files = action.payload.results || action.payload;
+        state.totalFiles = action.payload.count || (action.payload.results ? action.payload.results.length : action.payload.length);
       })
       .addCase(fetchFiles.rejected, (state, action) => {
         state.loading = false;

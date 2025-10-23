@@ -253,6 +253,7 @@ class SimplePrintFilesClient:
             files = data['files']
             for file in files:
                 file['path'] = current_path  # Добавляем путь к файлу
+                file['parent_folder_id'] = folder_id  # Добавляем ID родительской папки
                 all_files.append(file)
                 file_count += 1
                 logger.debug(f"📄 Файл: {file.get('name')} в {current_path}")

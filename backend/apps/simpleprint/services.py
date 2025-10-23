@@ -245,8 +245,12 @@ class SimplePrintSyncService:
 
         # Получаем папку (файл может быть в корне, без папки)
         folder = None
-        # SimplePrint API не всегда возвращает parent_folder_id в данных файла
-        # Это нужно будет уточнить при тестировании
+        parent_folder_id = file_data.get('parent_folder_id')
+        if parent_folder_id:
+            try:
+                folder = SimplePrintFolder.objects.get(simpleprint_id=parent_folder_id)
+            except SimplePrintFolder.DoesNotExist:
+                logger.warning(f"Parent folder {parent_folder_id} not found for file {sp_id}")
 
         # Создаем или обновляем файл
         file_obj, created = SimplePrintFile.objects.update_or_create(

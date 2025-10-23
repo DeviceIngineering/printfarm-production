@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework import filters
+from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 
@@ -25,6 +26,13 @@ from .serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class SimplePrintFilePagination(PageNumberPagination):
+    """Custom pagination с возможностью изменения page_size"""
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 500
 
 
 class SimplePrintWebhookView(APIView):
@@ -209,6 +217,7 @@ class SimplePrintFileViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = SimplePrintFile.objects.select_related('folder').all()
     authentication_classes = [TokenAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
+    pagination_class = SimplePrintFilePagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['folder', 'file_type', 'ext']
     search_fields = ['name', 'simpleprint_id']
