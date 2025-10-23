@@ -65,9 +65,9 @@ class SimplePrintSyncService:
             sync_log.synced_folders = synced_folders
             sync_log.save()
 
-            # Синхронизируем файлы
+            # Синхронизируем файлы (передаем sync_log для обновления прогресса)
             logger.info("Synchronizing files...")
-            synced_files = self._sync_files(all_files)
+            synced_files = self._sync_files(all_files, sync_log)
             sync_log.synced_files = synced_files
             sync_log.save()
 
@@ -184,28 +184,44 @@ class SimplePrintSyncService:
 
         return folder
 
-    def _sync_files(self, files_data: List[Dict]) -> int:
+    def _sync_files(self, files_data: List[Dict], sync_log: Optional[SimplePrintSync] = None) -> int:
         """
-        Синхронизировать файлы
+        Синхронизировать файлы с сохранением прогресса
 
         Args:
             files_data: Список данных файлов из API
+            sync_log: Объект SimplePrintSync для обновления прогресса
 
         Returns:
             Количество синхронизированных файлов
         """
         synced_count = 0
 
-        for file_data in files_data:
-            try:
-                self._sync_file(file_data)
-                synced_count += 1
+        try:
+            for file_data in files_data:
+                try:
+                    self._sync_file(file_data)
+                    synced_count += 1
 
-                if synced_count % 50 == 0:
-                    logger.info(f"Synced {synced_count}/{len(files_data)} files")
+                    # Сохраняем прогресс каждые 50 файлов
+                    if synced_count % 50 == 0:
+                        logger.info(f"📄 Синхронизировано: {synced_count}/{len(files_data)} файлов")
+                        if sync_log:
+                            sync_log.synced_files = synced_count
+                            sync_log.save()
 
-            except Exception as e:
-                logger.error(f"Failed to sync file {file_data.get('id')}: {e}")
+                except Exception as e:
+                    logger.error(f"Failed to sync file {file_data.get('id')}: {e}")
+
+        except KeyboardInterrupt:
+            logger.warning(f"🛑 Остановка пользователем. Синхронизировано {synced_count} файлов.")
+            if sync_log:
+                sync_log.synced_files = synced_count
+                sync_log.status = 'partial'
+                sync_log.error_details = 'Interrupted by user'
+                sync_log.finished_at = timezone.now()
+                sync_log.save()
+            raise
 
         return synced_count
 

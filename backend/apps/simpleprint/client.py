@@ -160,7 +160,7 @@ class SimplePrintFilesClient:
         """
         params = {}
         if parent_folder_id is not None:
-            params['parent'] = parent_folder_id
+            params['f'] = parent_folder_id  # SimplePrint API использует параметр 'f'
 
         # Кэшируем на 5 минут (если Redis доступен)
         cache_key = f'simpleprint_files_folders_{parent_folder_id}'
@@ -208,51 +208,82 @@ class SimplePrintFilesClient:
 
         return data.get('folder', {})
 
-    def get_all_files_recursive(self, parent_folder_id: Optional[int] = None) -> Dict[str, List]:
+    def get_all_files_recursive(
+        self,
+        parent_folder_id: Optional[int] = None,
+        max_depth: int = 50
+    ) -> Dict[str, List]:
         """
         Рекурсивно получить все файлы и папки
 
         Args:
             parent_folder_id: ID родительской папки (None = корень)
+            max_depth: Максимальная глубина рекурсии (защита от бесконечных циклов)
 
         Returns:
-            Словарь с ключами 'all_files' и 'all_folders'
+            Словарь с ключами 'all_files', 'all_folders', 'folder_count', 'file_count'
         """
         all_files = []
         all_folders = []
         visited_folders = set()  # Защита от циклических ссылок
+        folder_count = 0
+        file_count = 0
 
-        def fetch_recursive(folder_id: Optional[int]):
+        def fetch_recursive(folder_id: Optional[int], current_path: str = "", depth: int = 0):
             """Рекурсивная функция для получения всех файлов"""
+            nonlocal folder_count, file_count
+
+            # Защита от слишком глубокой рекурсии
+            if depth > max_depth:
+                logger.warning(f"⚠️ Максимальная глубина рекурсии достигнута ({max_depth}) для пути: {current_path}")
+                return
+
             # Проверяем на циклические ссылки
             folder_key = folder_id if folder_id is not None else 'root'
             if folder_key in visited_folders:
-                logger.warning(f"Skipping already visited folder: {folder_id}")
+                logger.warning(f"⚠️ Пропуск уже посещенной папки ID={folder_id} (путь: {current_path})")
                 return
 
             visited_folders.add(folder_key)
+            logger.debug(f"📂 Добавляем в visited: {folder_key} (глубина: {depth})")
 
             data = self.get_files_and_folders(folder_id)
 
             # Добавляем файлы текущей папки
-            all_files.extend(data['files'])
+            files = data['files']
+            for file in files:
+                file['path'] = current_path  # Добавляем путь к файлу
+                all_files.append(file)
+                file_count += 1
+                logger.debug(f"📄 Файл: {file.get('name')} в {current_path}")
 
             # Добавляем папки и рекурсивно обрабатываем подпапки
             folders = data['folders']
-            all_folders.extend(folders)
+            for folder in folders:
+                folder_count += 1
+                folder_name = folder.get('name', 'Без названия')
+                full_path = f"{current_path}/{folder_name}".strip("/")
+                folder['path'] = full_path  # Добавляем путь к папке
+                all_folders.append(folder)
 
-            logger.debug(f"Folder {folder_id}: {len(folders)} subfolders, {len(data['files'])} files")
+                logger.info(f"📁 Папка: {full_path} (ID: {folder.get('id')}, глубина: {depth + 1})")
+
+            logger.debug(f"Папка {folder_id}: {len(folders)} подпапок, {len(files)} файлов")
 
             # Рекурсивно обрабатываем подпапки
             for folder in folders:
-                fetch_recursive(folder['id'])
+                folder_name = folder.get('name', 'Без названия')
+                full_path = f"{current_path}/{folder_name}".strip("/")
+                fetch_recursive(folder['id'], full_path, depth + 1)
 
-        logger.info(f"Starting recursive fetch from folder_id={parent_folder_id}")
+        logger.info(f"📂 Загружаем структуру SimplePrint (начало рекурсивного обхода)...")
         fetch_recursive(parent_folder_id)
 
-        logger.info(f"Fetched {len(all_files)} files and {len(all_folders)} folders from {len(visited_folders)} unique locations")
+        logger.info(f"✅ Готово! Папок: {folder_count}, файлов: {file_count} из {len(visited_folders)} уникальных локаций")
 
         return {
             'all_files': all_files,
             'all_folders': all_folders,
+            'folder_count': folder_count,
+            'file_count': file_count,
         }

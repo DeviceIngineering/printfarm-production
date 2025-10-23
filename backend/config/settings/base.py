@@ -9,7 +9,7 @@ from decouple import config
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Application version
-APP_VERSION = '4.2.0'
+APP_VERSION = '4.2.3'
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-key')
@@ -182,7 +182,7 @@ MOYSKLAD_CONFIG = {
 
 # SimplePrint API Configuration
 SIMPLEPRINT_CONFIG = {
-    'api_token': config('SIMPLEPRINT_API_TOKEN', default=''),
+    'api_token': config('SIMPLEPRINT_API_TOKEN', default='18f82f78-f45a-46bb-aec8-3792048acccd'),
     'user_id': config('SIMPLEPRINT_USER_ID', default='31471'),
     'company_id': config('SIMPLEPRINT_COMPANY_ID', default='27286'),
     'base_url': config('SIMPLEPRINT_BASE_URL', default='https://api.simplyprint.io/27286/'),

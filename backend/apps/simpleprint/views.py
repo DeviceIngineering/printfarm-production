@@ -10,6 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework import filters
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
@@ -206,6 +207,7 @@ class SimplePrintFileViewSet(viewsets.ReadOnlyModelViewSet):
     GET /api/v1/simpleprint/files/stats/ - статистика файлов
     """
     queryset = SimplePrintFile.objects.select_related('folder').all()
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['folder', 'file_type', 'ext']
@@ -250,6 +252,7 @@ class SimplePrintFolderViewSet(viewsets.ReadOnlyModelViewSet):
     GET /api/v1/simpleprint/folders/{id}/files/ - файлы в папке
     """
     queryset = SimplePrintFolder.objects.all()
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['parent', 'depth']
@@ -283,6 +286,7 @@ class SimplePrintSyncViewSet(viewsets.ReadOnlyModelViewSet):
     """
     queryset = SimplePrintSync.objects.all()
     serializer_class = SimplePrintSyncSerializer
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
     ordering = ['-started_at']
 
@@ -317,16 +321,19 @@ class SimplePrintSyncViewSet(viewsets.ReadOnlyModelViewSet):
                 }, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
         try:
-            # Запускаем синхронизацию
-            sync_log = service.sync_all_files(full_sync=full_sync)
+            # Запускаем асинхронную задачу синхронизации
+            from .tasks import sync_simpleprint_task
+
+            task = sync_simpleprint_task.delay(full_sync=full_sync)
 
             return Response({
-                'status': 'success',
-                'sync_log': SimplePrintSyncSerializer(sync_log).data
-            }, status=status.HTTP_200_OK)
+                'status': 'started',
+                'task_id': task.id,
+                'message': 'Синхронизация запущена в фоновом режиме'
+            }, status=status.HTTP_202_ACCEPTED)
 
         except Exception as e:
-            logger.error(f"Sync failed: {e}", exc_info=True)
+            logger.error(f"Failed to start sync: {e}", exc_info=True)
             return Response({
                 'status': 'error',
                 'message': str(e)
@@ -340,3 +347,94 @@ class SimplePrintSyncViewSet(viewsets.ReadOnlyModelViewSet):
 
         serializer = SyncStatsSerializer(stats)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='status/(?P<task_id>[^/.]+)')
+    def task_status(self, request, task_id=None):
+        """
+        Получить статус задачи синхронизации
+
+        GET /api/v1/simpleprint/sync/status/{task_id}/
+        """
+        from celery.result import AsyncResult
+
+        task = AsyncResult(task_id)
+
+        response_data = {
+            'task_id': task_id,
+            'state': task.state,
+            'ready': task.ready(),
+        }
+
+        if task.ready():
+            if task.successful():
+                response_data['result'] = task.result
+                # Получаем полные данные синхронизации
+                if 'sync_id' in task.result:
+                    try:
+                        sync_log = SimplePrintSync.objects.get(id=task.result['sync_id'])
+                        response_data['sync_log'] = SimplePrintSyncSerializer(sync_log).data
+                    except SimplePrintSync.DoesNotExist:
+                        pass
+            else:
+                response_data['error'] = str(task.info)
+        else:
+            # Проверяем последнюю синхронизацию для прогресса
+            latest_sync = SimplePrintSync.objects.filter(status='pending').first()
+            if latest_sync:
+                response_data['progress'] = {
+                    'total_files': latest_sync.total_files,
+                    'synced_files': latest_sync.synced_files,
+                    'total_folders': latest_sync.total_folders,
+                    'synced_folders': latest_sync.synced_folders,
+                }
+
+        return Response(response_data)
+
+    @action(detail=False, methods=['post'], url_path='cancel')
+    def cancel_sync(self, request):
+        """
+        Отменить задачу синхронизации
+
+        POST /api/v1/simpleprint/sync/cancel/
+        Body: {"task_id": "..."}
+        """
+        from celery.result import AsyncResult
+
+        task_id = request.data.get('task_id')
+        if not task_id:
+            return Response({
+                'status': 'error',
+                'message': 'task_id is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            task = AsyncResult(task_id)
+
+            logger.info(f"Attempting to cancel task: {task_id}, state: {task.state}")
+
+            # Отменяем задачу
+            task.revoke(terminate=True, signal='SIGKILL')
+
+            # Обновляем статус синхронизации в БД
+            try:
+                latest_sync = SimplePrintSync.objects.filter(status='pending').first()
+                if latest_sync:
+                    latest_sync.status = 'cancelled'
+                    latest_sync.finished_at = timezone.now()
+                    latest_sync.save()
+                    logger.info(f"Updated sync log {latest_sync.id} status to cancelled")
+            except Exception as e:
+                logger.error(f"Failed to update sync log: {e}")
+
+            return Response({
+                'status': 'cancelled',
+                'task_id': task_id,
+                'message': 'Задача синхронизации отменена'
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Failed to cancel task {task_id}: {e}", exc_info=True)
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

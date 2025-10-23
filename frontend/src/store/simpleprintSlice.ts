@@ -81,7 +81,7 @@ export const fetchFiles = createAsyncThunk(
     if (params?.file_type) queryParams.append('file_type', params.file_type);
 
     const response = await apiClient.get(`/simpleprint/files/?${queryParams.toString()}`);
-    return response.data;
+    return response; // apiClient уже возвращает response.data
   }
 );
 
@@ -89,7 +89,7 @@ export const fetchFolders = createAsyncThunk(
   'simpleprint/fetchFolders',
   async () => {
     const response = await apiClient.get('/simpleprint/folders/');
-    return response.data;
+    return response; // apiClient уже возвращает response.data
   }
 );
 
@@ -97,7 +97,7 @@ export const fetchSyncStats = createAsyncThunk(
   'simpleprint/fetchSyncStats',
   async () => {
     const response = await apiClient.get('/simpleprint/sync/stats/');
-    return response.data;
+    return response; // apiClient уже возвращает response.data
   }
 );
 
@@ -105,7 +105,7 @@ export const fetchFileStats = createAsyncThunk(
   'simpleprint/fetchFileStats',
   async () => {
     const response = await apiClient.get('/simpleprint/files/stats/');
-    return response.data;
+    return response; // apiClient уже возвращает response.data
   }
 );
 
@@ -113,7 +113,23 @@ export const triggerSync = createAsyncThunk(
   'simpleprint/triggerSync',
   async (params: { full_sync?: boolean; force?: boolean } = {}) => {
     const response = await apiClient.post('/simpleprint/sync/trigger/', params);
-    return response.data;
+    return response; // apiClient уже возвращает response.data
+  }
+);
+
+export const checkSyncStatus = createAsyncThunk(
+  'simpleprint/checkSyncStatus',
+  async (taskId: string) => {
+    const response = await apiClient.get(`/simpleprint/sync/status/${taskId}/`);
+    return response; // apiClient уже возвращает response.data
+  }
+);
+
+export const cancelSync = createAsyncThunk(
+  'simpleprint/cancelSync',
+  async (taskId: string) => {
+    const response = await apiClient.post('/simpleprint/sync/cancel/', { task_id: taskId });
+    return response; // apiClient уже возвращает response.data
   }
 );
 
@@ -125,6 +141,9 @@ const simpleprintSlice = createSlice({
     clearError: (state) => {
       state.error = null;
       state.syncError = null;
+    },
+    setSyncing: (state, action: PayloadAction<boolean>) => {
+      state.syncing = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -164,7 +183,7 @@ const simpleprintSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchSyncStats.fulfilled, (state, action: PayloadAction<SyncStats>) => {
+      .addCase(fetchSyncStats.fulfilled, (state, action: PayloadAction<any>) => {
         state.loading = false;
         state.syncStats = action.payload;
       })
@@ -179,7 +198,7 @@ const simpleprintSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchFileStats.fulfilled, (state, action: PayloadAction<FileStats>) => {
+      .addCase(fetchFileStats.fulfilled, (state, action: PayloadAction<any>) => {
         state.loading = false;
         state.fileStats = action.payload;
       })
@@ -194,15 +213,31 @@ const simpleprintSlice = createSlice({
         state.syncing = true;
         state.syncError = null;
       })
-      .addCase(triggerSync.fulfilled, (state) => {
-        state.syncing = false;
+      .addCase(triggerSync.fulfilled, (state, action: PayloadAction<any>) => {
+        // НЕ сбрасываем syncing - задача продолжает работать
+        // syncing будет сброшен при завершении polling
+        if (action.payload.status !== 'started') {
+          state.syncing = false;
+        }
       })
       .addCase(triggerSync.rejected, (state, action) => {
         state.syncing = false;
         state.syncError = action.error.message || 'Failed to trigger sync';
       });
+
+    // Cancel sync
+    builder
+      .addCase(cancelSync.pending, (state) => {
+        // Не меняем syncing при отмене
+      })
+      .addCase(cancelSync.fulfilled, (state) => {
+        state.syncing = false;
+      })
+      .addCase(cancelSync.rejected, (state) => {
+        state.syncing = false;
+      });
   },
 });
 
-export const { clearError } = simpleprintSlice.actions;
+export const { clearError, setSyncing } = simpleprintSlice.actions;
 export default simpleprintSlice.reducer;

@@ -19,6 +19,7 @@ import {
   Spin,
   Modal,
   Select,
+  Checkbox,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -36,6 +37,9 @@ import {
   fetchSyncStats,
   fetchFileStats,
   triggerSync,
+  checkSyncStatus,
+  cancelSync,
+  setSyncing,
   SimplePrintFile,
 } from '../store/simpleprintSlice';
 import moment from 'moment';
@@ -53,6 +57,10 @@ const SimplePrintPage: React.FC = () => {
   const [selectedFolder, setSelectedFolder] = useState<number | undefined>();
   const [selectedFileType, setSelectedFileType] = useState<string | undefined>();
   const [syncModalVisible, setSyncModalVisible] = useState(false);
+  const [syncLogs, setSyncLogs] = useState<string[]>([]);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [forceSync, setForceSync] = useState(false);
 
   // Загрузка данных при монтировании
   useEffect(() => {
@@ -83,21 +91,234 @@ const SimplePrintPage: React.FC = () => {
 
   const handleSync = async (fullSync: boolean = false) => {
     try {
-      await dispatch(triggerSync({ full_sync: fullSync, force: false })).unwrap();
-      message.success('Синхронизация запущена успешно');
-      setSyncModalVisible(false);
-      // Обновляем данные после синхронизации
-      setTimeout(() => {
-        loadData();
-      }, 2000);
+      const timestamp = new Date().toLocaleTimeString();
+      setSyncLogs([
+        `🚀 Запуск синхронизации... [${timestamp}]`,
+        `📡 API Request: POST /api/v1/simpleprint/sync/trigger/`,
+        `📝 Параметры: full_sync=${fullSync}, force=${forceSync}`,
+      ]);
+
+      const result: any = await dispatch(triggerSync({ full_sync: fullSync, force: forceSync })).unwrap();
+
+      setSyncLogs(prev => [
+        ...prev,
+        `✅ API Response: ${JSON.stringify(result, null, 2)}`,
+      ]);
+
+      if (result.status === 'started' && result.task_id) {
+        setSyncLogs(prev => [
+          ...prev,
+          `📋 Задача создана: ${result.task_id}`,
+          `⏳ Ожидание начала синхронизации...`,
+          `🔄 Запуск polling (интервал: 2 сек)...`,
+        ]);
+        setCurrentTaskId(result.task_id);
+        startPolling(result.task_id);
+      }
     } catch (error: any) {
-      if (error.message?.includes('429')) {
-        message.warning('Синхронизация была недавно. Подождите 5 минут.');
+      const timestamp = new Date().toLocaleTimeString();
+      const errorDetails = error.response?.data || error.message || 'Неизвестная ошибка';
+
+      setSyncLogs(prev => [
+        ...prev,
+        `❌ Ошибка API [${timestamp}]`,
+        `📋 Статус: ${error.response?.status || 'N/A'}`,
+        `📝 Детали: ${JSON.stringify(errorDetails, null, 2)}`,
+      ]);
+
+      if (error.response?.status === 429 || error.message?.includes('429')) {
+        const errorMsg = error.response?.data?.message || 'Синхронизация была недавно. Подождите 5 минут.';
+        message.warning(errorMsg, 5);
+        setSyncLogs(prev => [
+          ...prev,
+          `💡 Подсказка: Включите "Принудительная синхронизация" чтобы запустить без ожидания`,
+        ]);
       } else {
         message.error(`Ошибка синхронизации: ${error.message || 'Неизвестная ошибка'}`);
       }
     }
   };
+
+  const handleCancelSync = async () => {
+    if (!currentTaskId) {
+      message.warning('Нет активной задачи синхронизации');
+      return;
+    }
+
+    try {
+      const timestamp = new Date().toLocaleTimeString();
+      setSyncLogs(prev => [
+        ...prev,
+        `🛑 Отмена синхронизации... [${timestamp}]`,
+        `📡 API Request: POST /api/v1/simpleprint/sync/cancel/`,
+        `📝 Body: { task_id: "${currentTaskId.substring(0, 8)}..." }`,
+      ]);
+
+      await dispatch(cancelSync(currentTaskId)).unwrap();
+
+      // Останавливаем polling
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        setPollingInterval(null);
+      }
+
+      setSyncLogs(prev => [
+        ...prev,
+        `✅ Задача синхронизации отменена [${timestamp}]`,
+        `🔄 Обновление данных в UI...`,
+      ]);
+
+      setCurrentTaskId(null);
+      dispatch(setSyncing(false)); // Сбрасываем состояние syncing
+      message.success('Синхронизация отменена');
+
+      // Обновляем данные
+      loadData();
+    } catch (error: any) {
+      const timestamp = new Date().toLocaleTimeString();
+      setSyncLogs(prev => [
+        ...prev,
+        `❌ Ошибка отмены [${timestamp}]: ${error.message || 'Неизвестная ошибка'}`,
+      ]);
+      message.error(`Не удалось отменить синхронизацию: ${error.message}`);
+    }
+  };
+
+  const startPolling = (taskId: string) => {
+    // Очищаем предыдущий интервал если есть
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+
+    let pollCount = 0;
+
+    const interval = setInterval(async () => {
+      try {
+        pollCount++;
+        const timestamp = new Date().toLocaleTimeString();
+
+        // Не удаляем предыдущие сообщения - пусть накапливаются
+
+        const statusResult: any = await dispatch(checkSyncStatus(taskId)).unwrap();
+
+        // Логируем полный ответ в консоль для отладки
+        console.log('📊 Status Response:', JSON.stringify(statusResult, null, 2));
+
+        // Больше не добавляем эти строки в основной лог
+        // т.к. они будут отображаться в отформатированном виде ниже
+
+        // Обновляем логи с прогрессом
+        if (statusResult.progress) {
+          const { total_files, synced_files, total_folders, synced_folders } = statusResult.progress;
+
+          setSyncLogs(prev => {
+            // Сохраняем начальные логи (первые 4 строки после запуска)
+            const baseLog = prev.slice(0, 4);
+
+            // Если данные еще загружаются (total = 0)
+            if (total_files === 0 && total_folders === 0) {
+              return [
+                ...baseLog,
+                ``,
+                `⏳ ФАЗА 1: Загрузка данных из SimplePrint API...`,
+                `📡 SimplePrint имеет ограничение: 180 запросов/минуту (3 req/sec)`,
+                `⏰ Обычно эта фаза занимает 4-6 минут для 649 папок`,
+                ``,
+                `📊 Проверка статуса... Polling #${pollCount} в ${timestamp}`,
+                `⏱️ Прошло времени: ${Math.floor(pollCount * 2 / 60)} мин ${(pollCount * 2) % 60} сек`,
+              ];
+            }
+
+            // Данные загружены, показываем счетчик
+            const progress = total_files > 0 ? Math.round((synced_files / total_files) * 100) : 0;
+            const progressBar = '█'.repeat(Math.floor(progress / 5)) + '░'.repeat(20 - Math.floor(progress / 5));
+
+            return [
+              ...baseLog,
+              ``,
+              `✅ ФАЗА 2: Синхронизация с базой данных`,
+              ``,
+              `📁 Папки:  ${String(synced_folders).padStart(4)} / ${total_folders}`,
+              `📄 Файлы:  ${String(synced_files).padStart(4)} / ${total_files}`,
+              ``,
+              `[${progressBar}] ${progress}%`,
+              ``,
+              `📊 Polling #${pollCount} в ${timestamp}`,
+            ];
+          });
+        } else {
+          // Если progress отсутствует - показываем предупреждение
+          setSyncLogs(prev => [
+            ...prev.slice(0, 4),
+            `⚠️ API не возвращает данные прогресса`,
+            `🔄 Polling #${pollCount} [${timestamp}]`,
+            `📊 API State: ${statusResult.state}, Ready: ${statusResult.ready}`,
+          ]);
+        }
+
+        // Если синхронизация завершена
+        if (statusResult.ready) {
+          clearInterval(interval);
+          setPollingInterval(null);
+          setCurrentTaskId(null);
+          dispatch(setSyncing(false)); // Сбрасываем состояние syncing
+
+          setSyncLogs(prev => [...prev, `🎉 Задача завершена! Получение финальных данных...`]);
+
+          if (statusResult.sync_log) {
+            const logs = [
+              `✅ Синхронизация завершена успешно [${timestamp}]`,
+              `📁 Всего папок: ${statusResult.sync_log.total_folders}`,
+              `📄 Всего файлов: ${statusResult.sync_log.total_files}`,
+              `✓ Синхронизировано папок: ${statusResult.sync_log.synced_folders}`,
+              `✓ Синхронизировано файлов: ${statusResult.sync_log.synced_files}`,
+            ];
+
+            if (statusResult.sync_log.deleted_files > 0) {
+              logs.push(`🗑️ Удалено файлов: ${statusResult.sync_log.deleted_files}`);
+            }
+
+            const duration = statusResult.sync_log.duration;
+            if (duration) {
+              logs.push(`⏱️ Длительность: ${Math.round(duration)} сек`);
+            }
+
+            logs.push(`🔄 Всего polling запросов: ${pollCount}`);
+
+            setSyncLogs(logs);
+            message.success('Синхронизация завершена успешно');
+
+            setSyncLogs(prev => [...prev, `🔄 Обновление данных в UI...`]);
+            loadData();
+          } else if (statusResult.error) {
+            setSyncLogs(prev => [
+              ...prev,
+              `❌ Ошибка выполнения: ${JSON.stringify(statusResult.error, null, 2)}`,
+            ]);
+            message.error('Синхронизация завершилась с ошибкой');
+          }
+        }
+      } catch (error: any) {
+        const timestamp = new Date().toLocaleTimeString();
+        console.error('Polling error:', error);
+        setSyncLogs(prev => [
+          ...prev,
+          `⚠️ Ошибка polling [${timestamp}]: ${error.message}`,
+        ]);
+      }
+    }, 2000); // Проверяем каждые 2 секунды
+
+    setPollingInterval(interval);
+  };
+
+  // Очистка интервала при размонтировании
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [pollingInterval]);
 
   const handleRefresh = () => {
     loadData();
@@ -337,17 +558,50 @@ const SimplePrintPage: React.FC = () => {
       <Modal
         title="Синхронизация с SimplePrint"
         open={syncModalVisible}
-        onCancel={() => setSyncModalVisible(false)}
+        closable={!syncing}
+        maskClosable={!syncing}
+        keyboard={!syncing}
+        onCancel={() => {
+          if (syncing && currentTaskId) {
+            Modal.confirm({
+              title: 'Синхронизация в процессе',
+              content: 'Синхронизация продолжается в фоновом режиме. Закрыть окно?',
+              okText: 'Да, закрыть',
+              cancelText: 'Продолжить наблюдение',
+              onOk: () => {
+                setSyncModalVisible(false);
+              },
+            });
+          } else {
+            setSyncModalVisible(false);
+          }
+        }}
+        width={700}
         footer={[
-          <Button key="cancel" onClick={() => setSyncModalVisible(false)}>
-            Отмена
+          <Button
+            key="close"
+            onClick={() => setSyncModalVisible(false)}
+            disabled={syncing}
+          >
+            Закрыть
           </Button>,
+          syncing && currentTaskId ? (
+            <Button
+              key="cancel"
+              danger
+              onClick={handleCancelSync}
+              loading={false}
+            >
+              Отменить синхронизацию
+            </Button>
+          ) : null,
           <Button
             key="sync"
             type="default"
             icon={<SyncOutlined />}
             onClick={() => handleSync(false)}
             loading={syncing}
+            disabled={syncing}
           >
             Обычная синхронизация
           </Button>,
@@ -357,6 +611,7 @@ const SimplePrintPage: React.FC = () => {
             icon={<SyncOutlined spin={syncing} />}
             onClick={() => handleSync(true)}
             loading={syncing}
+            disabled={syncing}
             danger
           >
             Полная синхронизация
@@ -374,6 +629,47 @@ const SimplePrintPage: React.FC = () => {
             <p style={{ color: '#888' }}>
               Последняя синхронизация: {moment(syncStats.last_sync).format('DD.MM.YYYY HH:mm')}
             </p>
+          )}
+
+          {/* Опция принудительной синхронизации */}
+          <Checkbox
+            checked={forceSync}
+            onChange={(e) => setForceSync(e.target.checked)}
+            disabled={syncing}
+          >
+            <span style={{ color: '#888' }}>
+              Принудительная синхронизация (игнорировать ограничение 5 минут)
+            </span>
+          </Checkbox>
+
+          {/* Область логов синхронизации */}
+          {syncLogs.length > 0 && (
+            <Card
+              title="Логи синхронизации"
+              size="small"
+              style={{ marginTop: '16px' }}
+              bodyStyle={{
+                backgroundColor: '#1E1E1E',
+                color: '#00FF88',
+                fontFamily: 'monospace',
+                fontSize: '13px',
+                maxHeight: '300px',
+                overflowY: 'auto',
+                padding: '12px',
+              }}
+            >
+              {syncLogs.map((log, index) => (
+                <div key={index} style={{ marginBottom: '4px' }}>
+                  {log}
+                </div>
+              ))}
+              {syncing && (
+                <div style={{ marginTop: '8px', color: '#06EAFC' }}>
+                  <Spin size="small" style={{ marginRight: '8px' }} />
+                  Синхронизация в процессе...
+                </div>
+              )}
+            </Card>
           )}
         </Space>
       </Modal>
