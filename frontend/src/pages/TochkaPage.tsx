@@ -1067,9 +1067,9 @@ export const TochkaPage: React.FC = () => {
           )}
         </Card>
 
-        {/* Таблица анализа производства */}
-        {mergedData.length > 0 && (
-          <Card 
+        {/* Таблица анализа производства - СКРЫТА по требованию пользователя */}
+        {false && mergedData.length > 0 && (
+          <Card
             title={createCollapsibleTitle(
               `Список на производство с анализом Точки (${mergedData.length} товаров)`,
               'mergedData',
@@ -1143,9 +1143,9 @@ export const TochkaPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Таблица дедуплицированных данных Excel */}
-        {deduplicatedExcelData.length > 0 && (
-          <Card 
+        {/* Таблица дедуплицированных данных Excel - СКРЫТА по требованию пользователя */}
+        {false && deduplicatedExcelData.length > 0 && (
+          <Card
             title={createCollapsibleTitle(
               `Данные Excel без дублей (${deduplicatedExcelData.length} уникальных артикулов)`,
               'deduplicatedData',
@@ -1157,7 +1157,7 @@ export const TochkaPage: React.FC = () => {
                 <Tag color="orange">
                   {deduplicatedExcelData.filter(item => item.has_duplicates).length} объединений
                 </Tag>
-                <Button 
+                <Button
                   type="primary"
                   size="small"
                   icon={<FileExcelOutlined />}
