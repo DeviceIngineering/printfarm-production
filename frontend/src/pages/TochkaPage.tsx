@@ -23,6 +23,7 @@ import {
   clearExcelData
 } from '../store/tochka';
 import type { AppDispatch } from '../store';
+import { apiClient } from '../api/client';
 
 const { Title, Paragraph } = Typography;
 
@@ -54,6 +55,10 @@ export const TochkaPage: React.FC = () => {
   const [excelDataPageSize, setExcelDataPageSize] = useState(20);
   const [deduplicatedPageSize, setDeduplicatedPageSize] = useState(20);
   const [filteredProductionPageSize, setFilteredProductionPageSize] = useState(20);
+
+  // State для отображения SimplePrint колонок
+  const [showSimpleprintColumns, setShowSimpleprintColumns] = useState(false);
+  const [enrichedProductionData, setEnrichedProductionData] = useState<any[]>([]);
   
   // Состояния для сворачивания таблиц
   const [tablesCollapsed, setTablesCollapsed] = useState({
@@ -270,7 +275,7 @@ export const TochkaPage: React.FC = () => {
 
     try {
       const result = await dispatch(exportProduction(filteredProductionData)).unwrap();
-      
+
       // Создаем ссылку для скачивания
       const link = document.createElement('a');
       link.href = result.download_url;
@@ -278,15 +283,84 @@ export const TochkaPage: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Освобождаем URL blob после скачивания
       setTimeout(() => {
         window.URL.revokeObjectURL(result.download_url);
       }, 100);
-      
+
       message.success('Файл успешно экспортирован');
     } catch (error: any) {
       message.error(error.message || 'Ошибка при экспорте');
+    }
+  };
+
+  // Функция для обогащения данных из SimplePrint
+  const handleEnrichFromSimplePrint = async () => {
+    try {
+      message.loading({ content: 'Загрузка данных SimplePrint...', key: 'enrichSP', duration: 0 });
+
+      // Получаем ВСЕ файлы из SimplePrint (без пагинации)
+      const response: any = await apiClient.get('/simpleprint/files/?page_size=10000');
+      const spFiles = response.results || response;
+
+      if (!spFiles || spFiles.length === 0) {
+        message.warning({ content: 'Нет данных SimplePrint для обогащения', key: 'enrichSP' });
+        return;
+      }
+
+      // Группируем файлы по артикулу и находим максимальные значения
+      const articleMaxValues: { [key: string]: { maxPrintTime: number; maxQuantity: number } } = {};
+
+      spFiles.forEach((file: any) => {
+        const article = file.article;
+        if (!article) return; // Пропускаем файлы без артикула
+
+        const printTime = file.print_time || 0;
+        const quantity = file.quantity || 0;
+
+        if (!articleMaxValues[article]) {
+          articleMaxValues[article] = {
+            maxPrintTime: printTime,
+            maxQuantity: quantity
+          };
+        } else {
+          // Обновляем максимальные значения
+          if (printTime > articleMaxValues[article].maxPrintTime) {
+            articleMaxValues[article].maxPrintTime = printTime;
+          }
+          if (quantity > articleMaxValues[article].maxQuantity) {
+            articleMaxValues[article].maxQuantity = quantity;
+          }
+        }
+      });
+
+      // Обогащаем filteredProductionData данными из SimplePrint
+      const enriched = filteredProductionData.map((item: any) => {
+        const article = item.article;
+        const spData = articleMaxValues[article];
+
+        return {
+          ...item,
+          sp_max_print_time: spData?.maxPrintTime || null,
+          sp_max_quantity: spData?.maxQuantity || null,
+          has_sp_data: !!spData
+        };
+      });
+
+      setEnrichedProductionData(enriched);
+      setShowSimpleprintColumns(true);
+
+      const foundCount = enriched.filter((item: any) => item.has_sp_data).length;
+      message.success({
+        content: `Данные обогащены! Найдено SimplePrint данных: ${foundCount}/${enriched.length}`,
+        key: 'enrichSP',
+        duration: 5
+      });
+
+    } catch (error: any) {
+      console.error('Ошибка при обогащении данных:', error);
+      message.error({ content: error.message || 'Ошибка при загрузке данных SimplePrint', key: 'enrichSP' });
     }
   };
 
@@ -945,20 +1019,81 @@ export const TochkaPage: React.FC = () => {
       ...getColumnFilterProps('color', filteredProductionData),
       render: (value: string) => (
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <div 
-            style={{ 
-              width: 16, 
-              height: 16, 
+          <div
+            style={{
+              width: 16,
+              height: 16,
               backgroundColor: value || '#cccccc',
               border: '1px solid #ddd',
               borderRadius: 2,
-              marginRight: 8 
+              marginRight: 8
             }}
           />
           {value || 'Не указан'}
         </div>
       ),
     },
+    // SimplePrint колонки - показываются только при нажатии "Дополнить из SP"
+    ...(showSimpleprintColumns ? [
+      {
+        title: 'Время макс',
+        dataIndex: 'sp_max_print_time',
+        key: 'sp_max_print_time',
+        width: 110,
+        sorter: (a: any, b: any) => (a.sp_max_print_time || 0) - (b.sp_max_print_time || 0),
+        render: (value: number | null, record: any) => {
+          if (!value || value === 0) {
+            return <span style={{ color: '#999', fontStyle: 'italic' }}>—</span>;
+          }
+
+          // Форматируем время печати (секунды -> часы:минуты)
+          const formatPrintTime = (seconds: number): string => {
+            if (!seconds || seconds === 0) return '—';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            if (hours > 0) {
+              return `${hours}ч ${minutes}м`;
+            }
+            return `${minutes}м`;
+          };
+
+          return (
+            <span
+              style={{
+                color: record.has_sp_data ? '#722ed1' : '#999',
+                fontWeight: record.has_sp_data ? 'bold' : 'normal'
+              }}
+              title={`${value} секунд`}
+            >
+              {formatPrintTime(value)}
+            </span>
+          );
+        },
+      },
+      {
+        title: 'Кол. макс',
+        dataIndex: 'sp_max_quantity',
+        key: 'sp_max_quantity',
+        width: 100,
+        sorter: (a: any, b: any) => (a.sp_max_quantity || 0) - (b.sp_max_quantity || 0),
+        render: (value: number | null, record: any) => {
+          if (!value || value === 0) {
+            return <span style={{ color: '#999', fontStyle: 'italic' }}>—</span>;
+          }
+
+          return (
+            <span
+              style={{
+                color: record.has_sp_data ? '#722ed1' : '#999',
+                fontWeight: record.has_sp_data ? 'bold' : 'normal'
+              }}
+            >
+              {value} шт
+            </span>
+          );
+        },
+      },
+    ] : []),
   ];
 
   return (
@@ -1195,7 +1330,7 @@ export const TochkaPage: React.FC = () => {
 
         {/* Таблица отфильтрованного списка производства */}
         {filteredProductionData.length > 0 && (
-          <Card 
+          <Card
             title={createCollapsibleTitle(
               `Список к производству (${filteredProductionData.length} товаров)`,
               'filteredProduction',
@@ -1207,7 +1342,19 @@ export const TochkaPage: React.FC = () => {
                     return sum + value;
                   }, 0).toFixed(0)} шт всего
                 </Tag>
-                <Button 
+                {showSimpleprintColumns && (
+                  <Tag color="purple">📊 Данные SimplePrint загружены</Tag>
+                )}
+                <Button
+                  type="default"
+                  size="small"
+                  onClick={handleEnrichFromSimplePrint}
+                  disabled={showSimpleprintColumns}
+                  style={{ borderColor: '#722ed1', color: '#722ed1' }}
+                >
+                  {showSimpleprintColumns ? '✓ Дополнено из SP' : 'Дополнить из SP'}
+                </Button>
+                <Button
                   type="primary"
                   size="small"
                   icon={<FileExcelOutlined />}
@@ -1223,7 +1370,7 @@ export const TochkaPage: React.FC = () => {
           >
             {!tablesCollapsed.filteredProduction && (
               <Table
-                dataSource={filteredProductionData}
+                dataSource={showSimpleprintColumns ? enrichedProductionData : filteredProductionData}
                 columns={filteredProductionColumns}
                 rowKey={(record, index) => `filtered-${index}`}
                 pagination={{
@@ -1236,7 +1383,7 @@ export const TochkaPage: React.FC = () => {
                     `${range[0]}-${range[1]} из ${total} записей`,
                   onShowSizeChange: (_current, size) => setFilteredProductionPageSize(size),
                 }}
-                scroll={{ x: 1000 }}
+                scroll={{ x: showSimpleprintColumns ? 1300 : 1000 }}
                 size="small"
               />
             )}
