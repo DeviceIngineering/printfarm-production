@@ -506,7 +506,7 @@ const SimplePrintPage: React.FC = () => {
       render: (printTime: number | null, record: any) => {
         if (record.isFolder) return null;
         return (
-          <span style={{ fontFamily: 'monospace', color: printTime ? '#06EAFC' : '#8c8c8c' }}>
+          <span style={{ fontFamily: 'monospace', color: printTime ? '#000000' : '#8c8c8c' }}>
             {formatPrintTime(printTime)}
           </span>
         );
