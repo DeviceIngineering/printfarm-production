@@ -309,28 +309,31 @@ export const TochkaPage: React.FC = () => {
         return;
       }
 
-      // Группируем файлы по артикулу и находим максимальные значения
+      // Группируем файлы по артикулу (РЕГИСТРОНЕЗАВИСИМО) и находим максимальные значения
       const articleMaxValues: { [key: string]: { maxPrintTime: number; maxQuantity: number } } = {};
 
       spFiles.forEach((file: any) => {
         const article = file.article;
         if (!article) return; // Пропускаем файлы без артикула
 
+        // Приводим к нижнему регистру для регистронезависимого сопоставления
+        const articleLower = article.toLowerCase();
+
         const printTime = file.print_time || 0;
         const quantity = file.quantity || 0;
 
-        if (!articleMaxValues[article]) {
-          articleMaxValues[article] = {
+        if (!articleMaxValues[articleLower]) {
+          articleMaxValues[articleLower] = {
             maxPrintTime: printTime,
             maxQuantity: quantity
           };
         } else {
           // Обновляем максимальные значения
-          if (printTime > articleMaxValues[article].maxPrintTime) {
-            articleMaxValues[article].maxPrintTime = printTime;
+          if (printTime > articleMaxValues[articleLower].maxPrintTime) {
+            articleMaxValues[articleLower].maxPrintTime = printTime;
           }
-          if (quantity > articleMaxValues[article].maxQuantity) {
-            articleMaxValues[article].maxQuantity = quantity;
+          if (quantity > articleMaxValues[articleLower].maxQuantity) {
+            articleMaxValues[articleLower].maxQuantity = quantity;
           }
         }
       });
@@ -338,7 +341,9 @@ export const TochkaPage: React.FC = () => {
       // Обогащаем filteredProductionData данными из SimplePrint
       const enriched = filteredProductionData.map((item: any) => {
         const article = item.article;
-        const spData = articleMaxValues[article];
+        // Приводим к нижнему регистру для регистронезависимого сопоставления
+        const articleLower = article ? article.toLowerCase() : '';
+        const spData = articleMaxValues[articleLower];
 
         return {
           ...item,
