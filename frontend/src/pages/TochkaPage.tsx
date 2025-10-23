@@ -1116,96 +1116,81 @@ export const TochkaPage: React.FC = () => {
       {/* Кнопки управления */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col>
-          <Button 
-            type="primary" 
-            icon={<AppstoreOutlined />}
-            onClick={loadProducts}
-            loading={loading.products}
-          >
-            Загрузить товары
-          </Button>
-        </Col>
-        <Col>
-          <Button 
-            icon={<UnorderedListOutlined />}
-            onClick={loadProductionList}
-            loading={loading.production}
-          >
-            Загрузить список на производство
-          </Button>
-        </Col>
-        <Col>
-          <Button 
-            type="default"
+          <Button
+            type="primary"
             icon={<FileExcelOutlined />}
             onClick={() => setUploadModalVisible(true)}
-            style={{ borderColor: '#52c41a', color: '#52c41a' }}
+            style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
           >
-            Загрузить Excel
+            Загрузить аналитику из Точки
           </Button>
         </Col>
       </Row>
 
       <Spin spinning={loading.products || loading.production || loading.autoProcess || loading.export}>
-        {/* Таблица товаров */}
-        <Card 
-          title={createCollapsibleTitle(
-            `Товары (${productsData.length})`, 
-            'products',
-            <Tag color="blue">Все товары</Tag>
-          )}
-          style={{ marginBottom: 24 }}
-        >
-          {!tablesCollapsed.products && (
-            <Table
-              dataSource={productsData}
-              columns={productColumns}
-              rowKey="id"
-              pagination={{
-                defaultPageSize: 20,
-                pageSize: productsPageSize,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                pageSizeOptions: ['20', '50', '100', '200'],
-                showTotal: (total, range) =>
-                  `${range[0]}-${range[1]} из ${total} записей`,
-                onShowSizeChange: (_current, size) => setProductsPageSize(size),
-              }}
-              scroll={{ x: 800 }}
-              size="small"
-            />
-          )}
-        </Card>
+        {/* Таблица товаров - СКРЫТА по требованию пользователя */}
+        {false && (
+          <Card
+            title={createCollapsibleTitle(
+              `Товары (${productsData.length})`,
+              'products',
+              <Tag color="blue">Все товары</Tag>
+            )}
+            style={{ marginBottom: 24 }}
+          >
+            {!tablesCollapsed.products && (
+              <Table
+                dataSource={productsData}
+                columns={productColumns}
+                rowKey="id"
+                pagination={{
+                  defaultPageSize: 20,
+                  pageSize: productsPageSize,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  pageSizeOptions: ['20', '50', '100', '200'],
+                  showTotal: (total, range) =>
+                    `${range[0]}-${range[1]} из ${total} записей`,
+                  onShowSizeChange: (_current, size) => setProductsPageSize(size),
+                }}
+                scroll={{ x: 800 }}
+                size="small"
+              />
+            )}
+          </Card>
+        )}
 
-        {/* Таблица производства */}
-        <Card 
-          title={createCollapsibleTitle(
-            `Список на производство (${productionData.length})`,
-            'production',
-            <Tag color="red">Требуют производства</Tag>
-          )}
-          style={{ marginBottom: 24 }}
-        >
-          {!tablesCollapsed.production && (
-            <Table
-              dataSource={productionData}
-              columns={productionColumns}
-              rowKey="id"
-              pagination={{
-                defaultPageSize: 20,
-                pageSize: productionPageSize,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                pageSizeOptions: ['20', '50', '100', '200'],
-                showTotal: (total, range) =>
-                  `${range[0]}-${range[1]} из ${total} записей`,
-                onShowSizeChange: (_current, size) => setProductionPageSize(size),
-              }}
-              scroll={{ x: 800 }}
-              size="small"
-            />
-          )}
-        </Card>
+        {/* Таблица производства - СКРЫТА по требованию пользователя */}
+        {false && (
+          <Card
+            title={createCollapsibleTitle(
+              `Список на производство (${productionData.length})`,
+              'production',
+              <Tag color="red">Требуют производства</Tag>
+            )}
+            style={{ marginBottom: 24 }}
+          >
+            {!tablesCollapsed.production && (
+              <Table
+                dataSource={productionData}
+                columns={productionColumns}
+                rowKey="id"
+                pagination={{
+                  defaultPageSize: 20,
+                  pageSize: productionPageSize,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  pageSizeOptions: ['20', '50', '100', '200'],
+                  showTotal: (total, range) =>
+                    `${range[0]}-${range[1]} из ${total} записей`,
+                  onShowSizeChange: (_current, size) => setProductionPageSize(size),
+                }}
+                scroll={{ x: 800 }}
+                size="small"
+              />
+            )}
+          </Card>
+        )}
 
         {/* Таблица анализа производства - СКРЫТА по требованию пользователя */}
         {false && mergedData.length > 0 && (
