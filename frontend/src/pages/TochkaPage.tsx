@@ -300,8 +300,8 @@ export const TochkaPage: React.FC = () => {
     try {
       message.loading({ content: 'Загрузка данных SimplePrint...', key: 'enrichSP', duration: 0 });
 
-      // Получаем ВСЕ файлы из SimplePrint (без пагинации)
-      const response: any = await apiClient.get('/simpleprint/files/?page_size=10000');
+      // Получаем ВСЕ файлы из SimplePrint (page_size=2000 для 1587 файлов)
+      const response: any = await apiClient.get('/simpleprint/files/?page_size=2000');
       const spFiles = response.results || response;
 
       if (!spFiles || spFiles.length === 0) {
