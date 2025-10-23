@@ -14,6 +14,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.2.6",
+    date: "2025-10-23",
+    title: "UI Simplification & Changelog Feature",
+    features: [
+      "Добавлена разворачивающаяся история изменений проекта в настройках",
+      "Timeline визуализация всех релизов с версии 3.3.4",
+      "Цветовая индикация: зеленый для текущей версии, синий для предыдущих",
+      "Категоризация изменений: Features, Fixes, Commits",
+      "Статистика релизов в конце списка"
+    ],
+    fixes: [
+      "Упрощен интерфейс вкладки 'Точка'",
+      "Скрыты неиспользуемые таблицы 'Товары' и 'Список на производство'",
+      "Удалены неиспользуемые кнопки загрузки",
+      "Кнопка 'Загрузить Excel' переименована в 'Загрузить аналитику из Точки'",
+      "Интерфейс сфокусирован на основном workflow"
+    ],
+    commits: [
+      "c5e4e40 - UI: Упрощение интерфейса вкладки Точка",
+      "84b2bda - Docs: Add comprehensive CHANGELOG feature",
+      "47165b1 - Release v4.2.5"
+    ]
+  },
+  {
     version: "4.2.5",
     date: "2025-10-23",
     title: "SimplePrint Enrichment Improvements",
