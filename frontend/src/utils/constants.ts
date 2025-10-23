@@ -1,5 +1,5 @@
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000/api/v1';
-export const MEDIA_BASE_URL = process.env.REACT_APP_MEDIA_URL || 'http://127.0.0.1:8000/media/';
+export const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
+export const MEDIA_BASE_URL = process.env.REACT_APP_MEDIA_URL || '/media/';
 
 export const APP_VERSION = '4.1.8';
 
