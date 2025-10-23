@@ -46,6 +46,14 @@ export const TochkaPage: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
   const searchInput = useRef<any>(null);
+
+  // Pagination state для каждой таблицы
+  const [productsPageSize, setProductsPageSize] = useState(20);
+  const [productionPageSize, setProductionPageSize] = useState(20);
+  const [mergedDataPageSize, setMergedDataPageSize] = useState(20);
+  const [excelDataPageSize, setExcelDataPageSize] = useState(20);
+  const [deduplicatedPageSize, setDeduplicatedPageSize] = useState(20);
+  const [filteredProductionPageSize, setFilteredProductionPageSize] = useState(20);
   
   // Состояния для сворачивания таблиц
   const [tablesCollapsed, setTablesCollapsed] = useState({
@@ -1014,11 +1022,14 @@ export const TochkaPage: React.FC = () => {
               columns={productColumns}
               rowKey="id"
               pagination={{
-                pageSize: 20,
+                defaultPageSize: 20,
+                pageSize: productsPageSize,
                 showSizeChanger: true,
                 showQuickJumper: true,
-                showTotal: (total, range) => 
+                pageSizeOptions: ['20', '50', '100', '200'],
+                showTotal: (total, range) =>
                   `${range[0]}-${range[1]} из ${total} записей`,
+                onShowSizeChange: (_current, size) => setProductsPageSize(size),
               }}
               scroll={{ x: 800 }}
               size="small"
@@ -1041,11 +1052,14 @@ export const TochkaPage: React.FC = () => {
               columns={productionColumns}
               rowKey="id"
               pagination={{
-                pageSize: 20,
+                defaultPageSize: 20,
+                pageSize: productionPageSize,
                 showSizeChanger: true,
                 showQuickJumper: true,
-                showTotal: (total, range) => 
+                pageSizeOptions: ['20', '50', '100', '200'],
+                showTotal: (total, range) =>
                   `${range[0]}-${range[1]} из ${total} записей`,
+                onShowSizeChange: (_current, size) => setProductionPageSize(size),
               }}
               scroll={{ x: 800 }}
               size="small"
@@ -1077,11 +1091,14 @@ export const TochkaPage: React.FC = () => {
                 columns={mergedColumns}
                 rowKey={(record, index) => `merged-${index}`}
                 pagination={{
-                  pageSize: 20,
+                  defaultPageSize: 20,
+                  pageSize: mergedDataPageSize,
                   showSizeChanger: true,
                   showQuickJumper: true,
-                  showTotal: (total, range) => 
+                  pageSizeOptions: ['20', '50', '100', '200'],
+                  showTotal: (total, range) =>
                     `${range[0]}-${range[1]} из ${total} записей`,
+                  onShowSizeChange: (_current, size) => setMergedDataPageSize(size),
                 }}
                 scroll={{ x: 1000 }}
                 size="small"
@@ -1110,11 +1127,14 @@ export const TochkaPage: React.FC = () => {
                 columns={excelColumns}
                 rowKey={(record, index) => `excel-${index}`}
                 pagination={{
-                  pageSize: 20,
+                  defaultPageSize: 20,
+                  pageSize: excelDataPageSize,
                   showSizeChanger: true,
                   showQuickJumper: true,
-                  showTotal: (total, range) => 
+                  pageSizeOptions: ['20', '50', '100', '200'],
+                  showTotal: (total, range) =>
                     `${range[0]}-${range[1]} из ${total} записей`,
+                  onShowSizeChange: (_current, size) => setExcelDataPageSize(size),
                 }}
                 scroll={{ x: 400 }}
                 size="small"
@@ -1157,11 +1177,14 @@ export const TochkaPage: React.FC = () => {
                 columns={deduplicatedExcelColumns}
                 rowKey={(record, index) => `deduplicated-${index}`}
                 pagination={{
-                  pageSize: 20,
+                  defaultPageSize: 20,
+                  pageSize: deduplicatedPageSize,
                   showSizeChanger: true,
                   showQuickJumper: true,
-                  showTotal: (total, range) => 
+                  pageSizeOptions: ['20', '50', '100', '200'],
+                  showTotal: (total, range) =>
                     `${range[0]}-${range[1]} из ${total} записей`,
+                  onShowSizeChange: (_current, size) => setDeduplicatedPageSize(size),
                 }}
                 scroll={{ x: 450 }}
                 size="small"
@@ -1204,11 +1227,14 @@ export const TochkaPage: React.FC = () => {
                 columns={filteredProductionColumns}
                 rowKey={(record, index) => `filtered-${index}`}
                 pagination={{
-                  pageSize: 20,
+                  defaultPageSize: 20,
+                  pageSize: filteredProductionPageSize,
                   showSizeChanger: true,
                   showQuickJumper: true,
-                  showTotal: (total, range) => 
+                  pageSizeOptions: ['20', '50', '100', '200'],
+                  showTotal: (total, range) =>
                     `${range[0]}-${range[1]} из ${total} записей`,
+                  onShowSizeChange: (_current, size) => setFilteredProductionPageSize(size),
                 }}
                 scroll={{ x: 1000 }}
                 size="small"
