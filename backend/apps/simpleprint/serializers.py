@@ -171,6 +171,10 @@ class SimplePrintFileListSerializer(serializers.ModelSerializer):
         # Паттерн: 1-3 цифры + подчеркивание в начале строки
         article = re.sub(r'^(\d{1,3})_', '', article)
 
+        # Удаляем распространенные суффиксы (NEW, OLD, V1, V2, V3, UPDATED, FINAL и т.д.)
+        # Паттерн: underscore + любые буквы/цифры в конце артикула
+        article = re.sub(r'_(NEW|OLD|V\d+|UPDATED|FINAL|TEST|DRAFT)$', '', article, flags=re.IGNORECASE)
+
         # Если артикул не пустой и содержит хотя бы одну цифру или букву
         if article and re.search(r'[A-Za-z0-9]', article):
             return article
