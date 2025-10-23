@@ -32,11 +32,10 @@ class SystemInfo(models.Model):
             from django.conf import settings
             if hasattr(settings, 'APP_VERSION') and settings.APP_VERSION:
                 return f"v{settings.APP_VERSION}"
-            
-            # Потом пытаемся прочитать из файла VERSION
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-            version_file = os.path.join(project_root, 'VERSION')
-            
+
+            # Потом пытаемся прочитать из файла VERSION из BASE_DIR
+            version_file = os.path.join(settings.BASE_DIR, 'VERSION')
+
             if os.path.exists(version_file):
                 with open(version_file, 'r', encoding='utf-8') as f:
                     version = f.read().strip()
@@ -48,17 +47,17 @@ class SystemInfo(models.Model):
                 ['git', 'describe', '--tags', '--exact-match', 'HEAD'],
                 capture_output=True,
                 text=True,
-                cwd=project_root
+                cwd=settings.BASE_DIR
             )
             if result.returncode == 0:
                 return result.stdout.strip()
-            
+
             # Если нет тега, получаем короткий хеш коммита
             result = subprocess.run(
                 ['git', 'rev-parse', '--short', 'HEAD'],
                 capture_output=True,
                 text=True,
-                cwd=project_root
+                cwd=settings.BASE_DIR
             )
             if result.returncode == 0:
                 return f"commit-{result.stdout.strip()}"
@@ -73,12 +72,12 @@ class SystemInfo(models.Model):
         """Получить дату сборки/последнего коммита"""
         try:
             # Сначала пытаемся получить дату из git
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+            from django.conf import settings
             result = subprocess.run(
                 ['git', 'log', '-1', '--format=%cd', '--date=format:%Y-%m-%d %H:%M:%S'],
                 capture_output=True,
                 text=True,
-                cwd=project_root
+                cwd=settings.BASE_DIR
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
