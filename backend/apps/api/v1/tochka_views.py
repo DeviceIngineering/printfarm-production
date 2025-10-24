@@ -6,39 +6,13 @@ from django.db.models import Q
 from apps.products.models import Product
 from apps.products.serializers import ProductListSerializer
 from apps.products.services.reserve_calculator import ReserveCalculatorService
+from apps.core.utils.article_normalizer import normalize_article
 import pandas as pd
 import io
-import re
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from django.http import HttpResponse
 from datetime import datetime
-
-def normalize_article(article):
-    """
-    Нормализация артикула для корректного сравнения
-    - Удаляет лишние пробелы в начале и конце
-    - Заменяет все виды тире на обычное тире
-    - Удаляет невидимые символы
-    - Приводит к стандартному виду
-    """
-    if not article:
-        return ''
-    
-    # Конвертируем в строку и убираем пробелы
-    article = str(article).strip()
-    
-    # Заменяем различные виды тире и дефисов на обычный дефис
-    # Включает: en dash (–), em dash (—), minus (−), hyphen-minus (-)
-    article = re.sub(r'[–—−‒]', '-', article)
-    
-    # Удаляем невидимые символы (кроме обычного пробела)
-    article = re.sub(r'[\x00-\x1f\x7f-\x9f\xa0\u2000-\u200f\u2028-\u202f\u205f-\u206f]', '', article)
-    
-    # Удаляем лишние пробелы внутри строки
-    article = re.sub(r'\s+', ' ', article).strip()
-    
-    return article
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
