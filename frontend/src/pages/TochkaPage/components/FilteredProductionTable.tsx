@@ -98,7 +98,7 @@ export const FilteredProductionTable: React.FC<FilteredProductionTableProps> = (
       extra={extra}
       dataSource={displayData}
       columns={columns}
-      rowKey={(record, index) => `filtered-${index}`}
+      rowKey={(_record: any, index?: number) => `filtered-${index}`}
       pageSize={pageSize}
       onPageSizeChange={onPageSizeChange}
       scrollX={showSimpleprintColumns ? 1300 : 1000}
