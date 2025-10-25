@@ -14,6 +14,41 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.2.9",
+    date: "2025-10-26",
+    title: "SimplePrint API Integration & Interceptor Fix",
+    features: [
+      "Интеграция SimplePrint API для реального времени",
+      "Получение данных о 27 3D принтерах с API SimplePrint",
+      "Отображение реальных данных на странице 'Планирование V2'",
+      "Автообновление данных каждые 30 секунд",
+      "Данные принтеров: имя, статус, файл задания, прогресс, температуры",
+      "Время начала и окончания печати с расчетами",
+      "Время простоя для idle принтеров",
+      "Модальное окно 'Отладка API' с полной информацией",
+      "Таблица с 12 колонками данных о принтерах",
+      "Пагинация по 10 принтеров на страницу",
+      "Redux integration с simpleprintPrintersSlice",
+      "Mapper для преобразования SimplePrint → Planning V2 формат"
+    ],
+    fixes: [
+      "Исправление API client interceptor конфликта",
+      "Проблема: изменение interceptor сломало другие API клиенты",
+      "Ошибка: TypeError: n.map is not a function в SyncButton",
+      "Решение: вернул interceptor к стандартному return response.data",
+      "Исправлен SimplePrint API клиент - убрано двойное обращение к .data",
+      "Приведен к единому стилю как в products.ts",
+      "Сборка frontend без TypeScript ошибок",
+      "Совместимость всех API клиентов с единым interceptor"
+    ],
+    commits: [
+      "63f486d - Fix: Исправление interceptor и SimplePrint API совместимости",
+      "c0e7a79 - Feature: SimplePrint API integration for Planning V2 page",
+      "42e9e12 - Docs: Обновление CHANGELOG для v4.2.9",
+      "[migration] - Add PrinterSnapshot model and endpoints"
+    ]
+  },
+  {
     version: "4.2.8",
     date: "2025-10-25",
     title: "Planning V2 Page - Prototype",
