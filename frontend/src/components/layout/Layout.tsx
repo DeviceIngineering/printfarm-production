@@ -5,7 +5,8 @@ import {
   BarChartOutlined,
   SettingOutlined,
   DatabaseOutlined,
-  CloudServerOutlined
+  CloudServerOutlined,
+  ProjectOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SyncButton } from '../sync/SyncButton';
@@ -31,6 +32,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       key: '/tochka',
       icon: <DatabaseOutlined />,
       label: 'Точка',
+    },
+    {
+      key: '/planning',
+      icon: <ProjectOutlined />,
+      label: 'Планирование',
     },
     {
       key: '/simpleprint',
