@@ -43,7 +43,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => {
     console.log('API Response:', response.config.url, response.data);
-    return response; // Возвращаем весь response object
+    return response.data; // Возвращаем только data для обратной совместимости
   },
   (error) => {
     console.error('API Error:', error.response?.status, error.response?.data || error.message);

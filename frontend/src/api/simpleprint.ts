@@ -11,24 +11,18 @@ export const simplePrintApi = {
   /**
    * Получить последние снимки всех принтеров
    */
-  getPrinters: async (): Promise<PrinterSnapshot[]> => {
-    const response = await apiClient.get<PrinterSnapshot[]>('/simpleprint/printers/');
-    return response.data;
-  },
+  getPrinters: (): Promise<PrinterSnapshot[]> =>
+    apiClient.get('/simpleprint/printers/'),
 
   /**
    * Запустить ручную синхронизацию принтеров
    */
-  syncPrinters: async (): Promise<PrinterSyncResult> => {
-    const response = await apiClient.post<PrinterSyncResult>('/simpleprint/printers/sync/');
-    return response.data;
-  },
+  syncPrinters: (): Promise<PrinterSyncResult> =>
+    apiClient.post('/simpleprint/printers/sync/'),
 
   /**
    * Получить статистику принтеров
    */
-  getStats: async (): Promise<PrinterStats> => {
-    const response = await apiClient.get<PrinterStats>('/simpleprint/printers/stats/');
-    return response.data;
-  },
+  getStats: (): Promise<PrinterStats> =>
+    apiClient.get('/simpleprint/printers/stats/'),
 };
