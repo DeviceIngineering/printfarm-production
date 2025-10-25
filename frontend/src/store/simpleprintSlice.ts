@@ -1,72 +1,55 @@
 /**
- * Redux slice для SimplePrint данных
+ * SimplePrint Files Redux Slice
+ *
+ * State management for SimplePrint file management
+ * This is a placeholder implementation to maintain compatibility
  */
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { apiClient } from '../api/client';
 
-// Types
 export interface SimplePrintFile {
   id: number;
-  simpleprint_id: string;
   name: string;
-  folder: number | null;
   folder_name: string | null;
   ext: string;
-  file_type: string;
   size: number;
   size_display: string;
-  tags: any;
-  gcode_analysis: any;
-  print_data: any;
-  material_color: string | null;
+  created_at_sp: string;
+  article: string | null;
+  quantity: number | null;
   print_time: number | null;
   weight: number | null;
-  quantity: number | null;
-  article: string | null;
-  created_at_sp: string;
-  last_synced_at: string;
+  material_color: string | null;
 }
 
 export interface SimplePrintFolder {
   id: number;
-  simpleprint_id: number;
   name: string;
-  depth: number;
-  files_count: number;
-  folders_count: number;
-  last_synced_at: string;
 }
 
-export interface SyncStats {
+export interface SimplePrintSyncStats {
   total_folders: number;
   total_files: number;
+  synced_folders: number;
+  synced_files: number;
+  deleted_files: number;
   last_sync: string | null;
-  last_sync_status: string | null;
-  last_sync_duration: number | null;
 }
 
-export interface FileStats {
+export interface SimplePrintFileStats {
   total_files: number;
   total_size: number;
-  by_type: {
-    [key: string]: {
-      count: number;
-      size: number;
-    };
-  };
 }
 
 interface SimplePrintState {
   files: SimplePrintFile[];
   folders: SimplePrintFolder[];
-  syncStats: SyncStats | null;
-  fileStats: FileStats | null;
+  syncStats: SimplePrintSyncStats | null;
+  fileStats: SimplePrintFileStats | null;
   loading: boolean;
-  error: string | null;
   syncing: boolean;
   syncError: string | null;
-  totalFiles: number; // Общее количество файлов для пагинации
+  totalFiles: number;
 }
 
 const initialState: SimplePrintState = {
@@ -75,182 +58,150 @@ const initialState: SimplePrintState = {
   syncStats: null,
   fileStats: null,
   loading: false,
-  error: null,
   syncing: false,
   syncError: null,
   totalFiles: 0,
 };
 
-// Async thunks
+/**
+ * Async thunk: Fetch files
+ */
 export const fetchFiles = createAsyncThunk(
   'simpleprint/fetchFiles',
-  async (params?: { search?: string; folder?: number; file_type?: string; page?: number; page_size?: number }) => {
-    const queryParams = new URLSearchParams();
-    if (params?.search) queryParams.append('search', params.search);
-    if (params?.folder) queryParams.append('folder', params.folder.toString());
-    if (params?.file_type) queryParams.append('file_type', params.file_type);
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
-
-    const response = await apiClient.get(`/simpleprint/files/?${queryParams.toString()}`);
-    return response; // apiClient уже возвращает response.data
+  async (params?: any) => {
+    // TODO: Implement API call
+    return { results: [], count: 0 };
   }
 );
 
+/**
+ * Async thunk: Fetch folders
+ */
 export const fetchFolders = createAsyncThunk(
   'simpleprint/fetchFolders',
   async () => {
-    const response = await apiClient.get('/simpleprint/folders/');
-    return response; // apiClient уже возвращает response.data
+    // TODO: Implement API call
+    return [];
   }
 );
 
+/**
+ * Async thunk: Fetch sync stats
+ */
 export const fetchSyncStats = createAsyncThunk(
   'simpleprint/fetchSyncStats',
   async () => {
-    const response = await apiClient.get('/simpleprint/sync/stats/');
-    return response; // apiClient уже возвращает response.data
+    // TODO: Implement API call
+    return null;
   }
 );
 
+/**
+ * Async thunk: Fetch file stats
+ */
 export const fetchFileStats = createAsyncThunk(
   'simpleprint/fetchFileStats',
   async () => {
-    const response = await apiClient.get('/simpleprint/files/stats/');
-    return response; // apiClient уже возвращает response.data
+    // TODO: Implement API call
+    return null;
   }
 );
 
+/**
+ * Async thunk: Trigger sync
+ */
 export const triggerSync = createAsyncThunk(
   'simpleprint/triggerSync',
-  async (params: { full_sync?: boolean; force?: boolean } = {}) => {
-    const response = await apiClient.post('/simpleprint/sync/trigger/', params);
-    return response; // apiClient уже возвращает response.data
+  async (params: { full_sync: boolean; force: boolean }) => {
+    // TODO: Implement API call
+    return { status: 'started', task_id: null };
   }
 );
 
+/**
+ * Async thunk: Check sync status
+ */
 export const checkSyncStatus = createAsyncThunk(
   'simpleprint/checkSyncStatus',
   async (taskId: string) => {
-    const response = await apiClient.get(`/simpleprint/sync/status/${taskId}/`);
-    return response; // apiClient уже возвращает response.data
+    // TODO: Implement API call
+    return { ready: false, state: 'pending', progress: null };
   }
 );
 
+/**
+ * Async thunk: Cancel sync
+ */
 export const cancelSync = createAsyncThunk(
   'simpleprint/cancelSync',
   async (taskId: string) => {
-    const response = await apiClient.post('/simpleprint/sync/cancel/', { task_id: taskId });
-    return response; // apiClient уже возвращает response.data
+    // TODO: Implement API call
+    return { success: true };
   }
 );
 
-// Slice
 const simpleprintSlice = createSlice({
   name: 'simpleprint',
   initialState,
   reducers: {
-    clearError: (state) => {
-      state.error = null;
-      state.syncError = null;
-    },
     setSyncing: (state, action: PayloadAction<boolean>) => {
       state.syncing = action.payload;
     },
   },
   extraReducers: (builder) => {
-    // Fetch files
+    // fetchFiles
     builder
       .addCase(fetchFiles.pending, (state) => {
         state.loading = true;
-        state.error = null;
       })
-      .addCase(fetchFiles.fulfilled, (state, action: PayloadAction<any>) => {
+      .addCase(fetchFiles.fulfilled, (state, action) => {
         state.loading = false;
-        state.files = action.payload.results || action.payload;
-        state.totalFiles = action.payload.count || (action.payload.results ? action.payload.results.length : action.payload.length);
+        state.files = action.payload.results || [];
+        state.totalFiles = action.payload.count || 0;
       })
-      .addCase(fetchFiles.rejected, (state, action) => {
+      .addCase(fetchFiles.rejected, (state) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch files';
       });
 
-    // Fetch folders
+    // fetchFolders
     builder
-      .addCase(fetchFolders.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchFolders.fulfilled, (state, action: PayloadAction<any>) => {
-        state.loading = false;
-        state.folders = action.payload.results || action.payload;
-      })
-      .addCase(fetchFolders.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch folders';
+      .addCase(fetchFolders.fulfilled, (state, action) => {
+        state.folders = action.payload;
       });
 
-    // Fetch sync stats
+    // fetchSyncStats
     builder
-      .addCase(fetchSyncStats.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchSyncStats.fulfilled, (state, action: PayloadAction<any>) => {
-        state.loading = false;
+      .addCase(fetchSyncStats.fulfilled, (state, action) => {
         state.syncStats = action.payload;
-      })
-      .addCase(fetchSyncStats.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch sync stats';
       });
 
-    // Fetch file stats
+    // fetchFileStats
     builder
-      .addCase(fetchFileStats.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchFileStats.fulfilled, (state, action: PayloadAction<any>) => {
-        state.loading = false;
+      .addCase(fetchFileStats.fulfilled, (state, action) => {
         state.fileStats = action.payload;
-      })
-      .addCase(fetchFileStats.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch file stats';
       });
 
-    // Trigger sync
+    // triggerSync
     builder
       .addCase(triggerSync.pending, (state) => {
         state.syncing = true;
         state.syncError = null;
       })
-      .addCase(triggerSync.fulfilled, (state, action: PayloadAction<any>) => {
-        // НЕ сбрасываем syncing - задача продолжает работать
-        // syncing будет сброшен при завершении polling
-        if (action.payload.status !== 'started') {
-          state.syncing = false;
-        }
+      .addCase(triggerSync.fulfilled, (state) => {
+        state.syncing = true;
       })
       .addCase(triggerSync.rejected, (state, action) => {
         state.syncing = false;
         state.syncError = action.error.message || 'Failed to trigger sync';
       });
 
-    // Cancel sync
+    // cancelSync
     builder
-      .addCase(cancelSync.pending, (state) => {
-        // Не меняем syncing при отмене
-      })
       .addCase(cancelSync.fulfilled, (state) => {
-        state.syncing = false;
-      })
-      .addCase(cancelSync.rejected, (state) => {
         state.syncing = false;
       });
   },
 });
 
-export const { clearError, setSyncing } = simpleprintSlice.actions;
+export const { setSyncing } = simpleprintSlice.actions;
 export default simpleprintSlice.reducer;

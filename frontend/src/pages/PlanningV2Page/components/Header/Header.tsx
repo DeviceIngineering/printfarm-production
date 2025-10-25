@@ -1,6 +1,6 @@
-import React from 'react';
-import { Space, Tag, Button } from 'antd';
-import { ReloadOutlined, SaveOutlined, SettingOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import React, { useState } from 'react';
+import { Space, Tag, Button, Modal, Table } from 'antd';
+import { ReloadOutlined, BugOutlined, SettingOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { formatTimeForTimeline, formatDateHeader, getCurrentTimeGMT3 } from '../../utils/timeUtils';
 import { Printer } from '../../types/printer.types';
@@ -14,6 +14,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ currentTime, printers }) => {
   const navigate = useNavigate();
   const gmt3Time = getCurrentTimeGMT3();
+  const [debugModalVisible, setDebugModalVisible] = useState(false);
 
   // Подсчет готовых/ожидающих принтеров
   const readyPrinters = printers.filter(p => p.status === 'idle').length;
@@ -60,9 +61,9 @@ export const Header: React.FC<HeaderProps> = ({ currentTime, printers }) => {
     // TODO: Обновление данных с сервера
   };
 
-  const handleSave = () => {
-    console.log('Saving plan...');
-    // TODO: Сохранение плана в localStorage или на сервер
+  const handleDebug = () => {
+    console.log('Opening API debug modal...');
+    setDebugModalVisible(true);
   };
 
   const handleSettings = () => {
@@ -73,6 +74,38 @@ export const Header: React.FC<HeaderProps> = ({ currentTime, printers }) => {
   const handleBack = () => {
     navigate('/tochka');
   };
+
+  // Подготовка данных для таблицы отладки
+  const debugColumns = [
+    { title: 'ID', dataIndex: 'id', key: 'id', width: 100 },
+    { title: 'Имя', dataIndex: 'name', key: 'name', width: 120 },
+    { title: 'Статус', dataIndex: 'status', key: 'status', width: 100 },
+    { title: 'Артикул', dataIndex: 'article', key: 'article', width: 150 },
+    { title: 'Прогресс', dataIndex: 'progress', key: 'progress', width: 100 },
+    { title: 'Осталось', dataIndex: 'timeRemaining', key: 'timeRemaining', width: 120 },
+    { title: 'Начало', dataIndex: 'startTime', key: 'startTime', width: 180 },
+    { title: 'Конец', dataIndex: 'endTime', key: 'endTime', width: 180 },
+    { title: 'Темп. сопло', dataIndex: 'tempHotend', key: 'tempHotend', width: 120 },
+    { title: 'Темп. стол', dataIndex: 'tempBed', key: 'tempBed', width: 120 },
+    { title: 'Цвет', dataIndex: 'materialColor', key: 'materialColor', width: 100 },
+    { title: 'Очередь', dataIndex: 'queuedTasks', key: 'queuedTasks', width: 100 },
+  ];
+
+  const debugData = printers.map(printer => ({
+    key: printer.id,
+    id: printer.id,
+    name: printer.name,
+    status: printer.status,
+    article: printer.currentTask?.article || '—',
+    progress: printer.currentTask ? `${printer.currentTask.progress}%` : '—',
+    timeRemaining: printer.currentTask?.timeRemaining || '—',
+    startTime: printer.currentTask ? printer.currentTask.startTime.toLocaleString('ru-RU') : '—',
+    endTime: printer.currentTask ? printer.currentTask.endTime.toLocaleString('ru-RU') : '—',
+    tempHotend: printer.temperature ? `${printer.temperature.hotend}°C` : '—',
+    tempBed: printer.temperature ? `${printer.temperature.bed}°C` : '—',
+    materialColor: printer.materialColor,
+    queuedTasks: printer.queuedTasks.length,
+  }));
 
   return (
     <div className="planning-v2-header">
@@ -157,10 +190,10 @@ export const Header: React.FC<HeaderProps> = ({ currentTime, printers }) => {
           </Button>
           <Button
             type="primary"
-            icon={<SaveOutlined />}
-            onClick={handleSave}
+            icon={<BugOutlined />}
+            onClick={handleDebug}
           >
-            Сохранить план
+            Отладка API
           </Button>
           <Button
             type="text"
@@ -169,6 +202,35 @@ export const Header: React.FC<HeaderProps> = ({ currentTime, printers }) => {
           />
         </Space>
       </div>
+
+      {/* Модальное окно отладки */}
+      <Modal
+        title="Отладка API - Информация о принтерах"
+        open={debugModalVisible}
+        onCancel={() => setDebugModalVisible(false)}
+        width={1400}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setDebugModalVisible(false)}>
+            Закрыть
+          </Button>
+        ]}
+      >
+        <Table
+          columns={debugColumns}
+          dataSource={debugData}
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: 1200, y: 400 }}
+          size="small"
+          bordered
+        />
+        <div style={{ marginTop: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
+          <strong>Сводка:</strong>
+          <div>Всего принтеров: {printers.length}</div>
+          <div>Печатают: {printers.filter(p => p.status === 'printing').length}</div>
+          <div>Простаивают: {printers.filter(p => p.status === 'idle').length}</div>
+          <div>Офлайн/Ошибка: {printers.filter(p => p.status === 'error').length}</div>
+        </div>
+      </Modal>
     </div>
   );
 };
