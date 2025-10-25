@@ -890,131 +890,55 @@ export const PlanningPage: React.FC = () => {
   ];
 
   // Колонки для отфильтрованного списка производства (только товары в Точке)
+  // КОМПАКТНАЯ ВЕРСИЯ: только Артикул, Резерв, Заказов в Точке, Остаток, Цвет
   const filteredProductionColumns = [
     {
       title: 'Артикул',
       dataIndex: 'article',
       key: 'article',
-      width: 120,
+      width: 100,
       sorter: (a: any, b: any) => a.article.localeCompare(b.article),
       ...getColumnSearchProps('article'),
       render: (text: string) => <Tag color="green">{text}</Tag>,
     },
     {
-      title: 'Название товара',
-      dataIndex: 'product_name',
-      key: 'product_name',
-      width: 250,
-      ellipsis: true,
-      sorter: (a: any, b: any) => {
-        const nameA = a.product_name || a.name || '';
-        const nameB = b.product_name || b.name || '';
-        return nameA.localeCompare(nameB);
-      },
-      render: (name: string, record: any) => {
-        const displayName = name || record.name || '-';
-        return <span style={{ color: '#1890ff' }}>{displayName}</span>;
-      },
-    },
-    {
-      title: 'К производству',
-      dataIndex: 'production_needed',
-      key: 'production_needed',
-      width: 120,
-      sorter: (a: any, b: any) => a.production_needed - b.production_needed,
+      title: 'Резерв',
+      dataIndex: 'reserved_stock',
+      key: 'reserved_stock',
+      width: 80,
+      sorter: (a: any, b: any) => (a.reserved_stock || 0) - (b.reserved_stock || 0),
       render: (value: number, record: any) => (
-        <span style={{ 
-          color: '#f5222d', 
-          fontWeight: 'bold',
-          backgroundColor: record.has_reserve ? '#fff7e6' : 'transparent',
-          padding: record.has_reserve ? '2px 6px' : '0',
-          borderRadius: record.has_reserve ? '4px' : '0',
-          border: record.has_reserve ? '1px dashed #fa8c16' : 'none'
+        <span style={{
+          color: value > 0 ? '#1890ff' : '#999',
+          fontWeight: value > 0 ? 'bold' : 'normal',
+          fontSize: '12px'
         }}>
-          {value} шт
+          {value || 0}
         </span>
       ),
     },
     {
-      title: 'Резерв',
-      dataIndex: 'reserved_stock',
-      key: 'reserved_stock',
-      width: 100,
-      sorter: (a: any, b: any) => (a.reserved_stock || 0) - (b.reserved_stock || 0),
-      render: (value: number, record: any) => (
-        <div>
-          <span style={{ 
-            color: value > 0 ? '#1890ff' : '#999',
-            fontWeight: value > 0 ? 'bold' : 'normal' 
-          }}>
-            {value || 0} шт
+      title: 'Заказов',
+      dataIndex: 'orders_in_tochka',
+      key: 'orders_in_tochka',
+      width: 80,
+      sorter: (a: any, b: any) => (a.orders_in_tochka || 0) - (b.orders_in_tochka || 0),
+      render: (value: number, record: any) => {
+        const displayValue = value || record.orders || 0;
+        return (
+          <span style={{ color: '#52c41a', fontWeight: 'bold', fontSize: '12px' }}>
+            {displayValue}
           </span>
-          {record.reserve_minus_stock !== null && record.reserve_minus_stock !== undefined && (
-            <div style={{ fontSize: '10px', color: '#666' }}>
-              Резерв-Остаток: {record.reserve_minus_stock > 0 ? '+' : ''}{record.reserve_minus_stock}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: 'Заказов в Точке',
-      dataIndex: 'orders_in_planning',
-      key: 'orders_in_planning',
-      width: 130,
-      sorter: (a: any, b: any) => a.orders_in_planning - b.orders_in_planning,
-      render: (value: number, record: any) => (
-        <div>
-          <span style={{ color: '#52c41a', fontWeight: 'bold' }}>
-            {value} шт
-          </span>
-          {record.has_duplicates && (
-            <div style={{ fontSize: '10px', color: '#999' }}>
-              Сумма дубликатов
-            </div>
-          )}
-        </div>
-      ),
+        );
+      },
     },
     {
       title: 'Остаток',
       dataIndex: 'current_stock',
       key: 'current_stock',
-      width: 100,
+      width: 80,
       sorter: (a: any, b: any) => a.current_stock - b.current_stock,
-      render: (value: number) => `${value} шт`,
-    },
-    {
-      title: 'Тип',
-      dataIndex: 'product_type',
-      key: 'product_type',
-      width: 90,
-      sorter: (a: any, b: any) => a.product_type.localeCompare(b.product_type),
-      render: (type: string) => {
-        const colors: any = {
-          'new': 'green',
-          'old': 'blue',
-          'critical': 'red'
-        };
-        const labels: any = {
-          'new': 'Новый',
-          'old': 'Старый',
-          'critical': 'Критич.'
-        };
-        return <Tag color={colors[type] || 'default'}>{labels[type] || type}</Tag>;
-      },
-    },
-    {
-      title: 'Приоритет',
-      dataIndex: 'production_priority',
-      key: 'production_priority',
-      width: 100,
-      sorter: (a: any, b: any) => a.production_priority - b.production_priority,
-      render: (value: number) => (
-        <Tag color={value >= 80 ? 'red' : value >= 60 ? 'orange' : 'blue'}>
-          {value}
-        </Tag>
-      ),
+      render: (value: number) => <span style={{ fontSize: '12px' }}>{value}</span>,
     },
     {
       title: 'Цвет',
@@ -1026,15 +950,15 @@ export const PlanningPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <div
             style={{
-              width: 16,
-              height: 16,
+              width: 12,
+              height: 12,
               backgroundColor: value || '#cccccc',
               border: '1px solid #ddd',
               borderRadius: 2,
-              marginRight: 8
+              marginRight: 6
             }}
           />
-          {value || 'Не указан'}
+          <span style={{ fontSize: '11px' }}>{value || 'Н/У'}</span>
         </div>
       ),
     },
@@ -1318,66 +1242,87 @@ export const PlanningPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Таблица отфильтрованного списка производства */}
+        {/* Таблица отфильтрованного списка производства - Layout 40%/60% */}
         {filteredProductionData.length > 0 && (
-          <Card
-            title={createCollapsibleTitle(
-              `Список к производству (${filteredProductionData.length} товаров)`,
-              'filteredProduction',
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Tag color="green">✅ Только товары в Точке</Tag>
-                <Tag color="blue">
-                  {filteredProductionData.reduce((sum: number, item: any) => {
-                    const value = parseFloat(item.production_needed) || 0;
-                    return sum + value;
-                  }, 0).toFixed(0)} шт всего
-                </Tag>
-                {showSimpleprintColumns && (
-                  <Tag color="purple">📊 Данные SimplePrint загружены</Tag>
+          <div style={{ display: 'flex', gap: '24px', marginBottom: 24 }}>
+            {/* Левая часть - Таблица 40% */}
+            <div style={{ width: '40%', minWidth: '400px' }}>
+              <Card
+                title={createCollapsibleTitle(
+                  `Список к производству (${filteredProductionData.length})`,
+                  'filteredProduction',
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                    <Tag color="green" style={{ fontSize: '10px', padding: '0 4px' }}>
+                      {filteredProductionData.reduce((sum: number, item: any) => {
+                        const value = parseFloat(item.production_needed) || 0;
+                        return sum + value;
+                      }, 0).toFixed(0)} шт
+                    </Tag>
+                    <Button
+                      type="primary"
+                      size="small"
+                      icon={<FileExcelOutlined />}
+                      onClick={handleExportProductionList}
+                      loading={loading.export}
+                      style={{
+                        backgroundColor: '#52c41a',
+                        borderColor: '#52c41a',
+                        fontSize: '11px',
+                        padding: '0 8px',
+                        height: '24px'
+                      }}
+                    >
+                      Excel
+                    </Button>
+                  </div>
                 )}
-                <Button
-                  type="default"
-                  size="small"
-                  onClick={handleEnrichFromSimplePrint}
-                  disabled={showSimpleprintColumns}
-                  style={{ borderColor: '#722ed1', color: '#722ed1' }}
-                >
-                  {showSimpleprintColumns ? '✓ Дополнено из SP' : 'Дополнить из SP'}
-                </Button>
-                <Button
-                  type="primary"
-                  size="small"
-                  icon={<FileExcelOutlined />}
-                  onClick={handleExportProductionList}
-                  loading={loading.export}
-                  style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
-                >
-                  Экспорт в Excel
-                </Button>
+                style={{ height: '100%' }}
+                bodyStyle={{ padding: '12px' }}
+              >
+                {!tablesCollapsed.filteredProduction && (
+                  <Table
+                    dataSource={showSimpleprintColumns ? enrichedProductionData : filteredProductionData}
+                    columns={filteredProductionColumns}
+                    rowKey={(record, index) => `filtered-${index}`}
+                    pagination={{
+                      defaultPageSize: 20,
+                      pageSize: filteredProductionPageSize,
+                      showSizeChanger: true,
+                      showQuickJumper: true,
+                      pageSizeOptions: ['20', '50', '100', '200'],
+                      showTotal: (total, range) =>
+                        `${range[0]}-${range[1]} из ${total}`,
+                      onShowSizeChange: (_current, size) => setFilteredProductionPageSize(size),
+                    }}
+                    scroll={{ x: 450 }}
+                    size="small"
+                  />
+                )}
+              </Card>
+            </div>
+
+            {/* Правая часть - Пустое пространство 60% для будущей информации */}
+            <div style={{
+              width: '60%',
+              minHeight: '600px',
+              border: '2px dashed #d9d9d9',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#fafafa'
+            }}>
+              <div style={{ textAlign: 'center', color: '#999' }}>
+                <ProjectOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
+                <div style={{ fontSize: '16px' }}>
+                  Блок информации планирования
+                </div>
+                <div style={{ fontSize: '12px', marginTop: '8px' }}>
+                  Здесь будет отображаться дополнительная информация
+                </div>
               </div>
-            )}
-            style={{ marginBottom: 24 }}
-          >
-            {!tablesCollapsed.filteredProduction && (
-              <Table
-                dataSource={showSimpleprintColumns ? enrichedProductionData : filteredProductionData}
-                columns={filteredProductionColumns}
-                rowKey={(record, index) => `filtered-${index}`}
-                pagination={{
-                  defaultPageSize: 20,
-                  pageSize: filteredProductionPageSize,
-                  showSizeChanger: true,
-                  showQuickJumper: true,
-                  pageSizeOptions: ['20', '50', '100', '200'],
-                  showTotal: (total, range) =>
-                    `${range[0]}-${range[1]} из ${total} записей`,
-                  onShowSizeChange: (_current, size) => setFilteredProductionPageSize(size),
-                }}
-                scroll={{ x: showSimpleprintColumns ? 1300 : 1000 }}
-                size="small"
-              />
-            )}
-          </Card>
+            </div>
+          </div>
         )}
       </Spin>
 

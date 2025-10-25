@@ -1,0 +1,134 @@
+.planning-v2-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background: #1f1f1f;
+  border-bottom: 1px solid #333;
+}
+
+.planning-v2-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.back-button {
+  color: #06EAFC !important;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 12px;
+  transition: all 0.2s;
+}
+
+.back-button:hover {
+  color: #05d0e0 !important;
+  background: rgba(6, 234, 252, 0.1) !important;
+}
+
+.back-button .anticon {
+  font-size: 16px;
+}
+
+.planning-v2-title {
+  margin: 0;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.planning-v2-date-tag,
+.planning-v2-time-tag {
+  font-size: 13px;
+  padding: 4px 10px;
+}
+
+.planning-v2-header-center {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  justify-content: center;
+}
+
+.planning-v2-header-right {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+/* Виджеты */
+.header-widget {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #262626;
+  border: 1px solid #3a3a3a;
+  border-radius: 6px;
+  padding: 8px 12px;
+  min-width: 120px;
+}
+
+.widget-label {
+  font-size: 9px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.widget-value {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+
+.widget-number {
+  font-size: 24px;
+}
+
+.widget-number.ready {
+  color: #52c41a;
+}
+
+.widget-number.total {
+  color: #1890ff;
+}
+
+.widget-number.offline {
+  color: #ff4d4f;
+}
+
+.widget-number.online {
+  color: #52c41a;
+}
+
+.widget-separator {
+  font-size: 20px;
+  color: #666;
+  margin: 0 2px;
+}
+
+.widget-time {
+  color: #06EAFC;
+  font-size: 24px;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+}
+
+.widget-time.no-tasks {
+  color: #666;
+}
+
+.widget-sublabel {
+  font-size: 9px;
+  color: #06EAFC;
+  margin-top: 3px;
+  text-align: center;
+  font-weight: 600;
+}

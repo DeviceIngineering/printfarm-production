@@ -6,7 +6,8 @@ import {
   SettingOutlined,
   DatabaseOutlined,
   CloudServerOutlined,
-  ProjectOutlined
+  ProjectOutlined,
+  ScheduleOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SyncButton } from '../sync/SyncButton';
@@ -37,6 +38,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       key: '/planning',
       icon: <ProjectOutlined />,
       label: 'Планирование',
+    },
+    {
+      key: '/planningv2',
+      icon: <ScheduleOutlined />,
+      label: 'Планирование в2',
     },
     {
       key: '/simpleprint',

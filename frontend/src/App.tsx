@@ -7,6 +7,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { TochkaPage } from './pages/TochkaPage';
 import { PlanningPage } from './pages/PlanningPage';
+import { PlanningV2Page } from './pages/PlanningV2Page/PlanningV2Page';
 import SimplePrintPage from './pages/SimplePrintPage';
 import { TestWarehousesPage } from './pages/TestWarehousesPage';
 import { TestProductGroupsPage } from './pages/TestProductGroupsPage';
@@ -28,6 +29,7 @@ function App() {
     <ErrorBoundary>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/planningv2" element={<PlanningV2Page />} />
         <Route path="/*" element={
           <Layout>
             <Routes>
