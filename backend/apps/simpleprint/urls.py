@@ -8,7 +8,10 @@ from .views import (
     SimplePrintWebhookView,
     SimplePrintFileViewSet,
     SimplePrintFolderViewSet,
-    SimplePrintSyncViewSet
+    SimplePrintSyncViewSet,
+    PrinterSyncView,
+    PrinterSnapshotsView,
+    PrinterStatsView
 )
 
 app_name = 'simpleprint'
@@ -22,6 +25,11 @@ router.register(r'sync', SimplePrintSyncViewSet, basename='sync')
 urlpatterns = [
     # Webhook endpoint (без аутентификации)
     path('webhook/', SimplePrintWebhookView.as_view(), name='webhook'),
+
+    # Printer endpoints
+    path('printers/sync/', PrinterSyncView.as_view(), name='printer-sync'),
+    path('printers/', PrinterSnapshotsView.as_view(), name='printer-snapshots'),
+    path('printers/stats/', PrinterStatsView.as_view(), name='printer-stats'),
 
     # REST API endpoints (с аутентификацией)
     path('', include(router.urls)),

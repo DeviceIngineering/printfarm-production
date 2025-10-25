@@ -16,13 +16,14 @@ from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 
-from .models import SimplePrintWebhookEvent, SimplePrintFile, SimplePrintFolder, SimplePrintSync
-from .services import SimplePrintSyncService
+from .models import SimplePrintWebhookEvent, SimplePrintFile, SimplePrintFolder, SimplePrintSync, PrinterSnapshot
+from .services import SimplePrintSyncService, PrinterSyncService
 from .serializers import (
     SimplePrintFileSerializer, SimplePrintFileListSerializer,
     SimplePrintFolderSerializer, SimplePrintFolderListSerializer,
     SimplePrintSyncSerializer, SimplePrintWebhookEventSerializer,
-    SyncStatsSerializer, TriggerSyncSerializer
+    SyncStatsSerializer, TriggerSyncSerializer,
+    PrinterSnapshotSerializer, PrinterSyncResultSerializer, PrinterStatsSerializer
 )
 
 logger = logging.getLogger(__name__)
@@ -447,3 +448,72 @@ class SimplePrintSyncViewSet(viewsets.ReadOnlyModelViewSet):
                 'status': 'error',
                 'message': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PrinterSyncView(APIView):
+    """
+    API для синхронизации принтеров из SimplePrint
+    """
+    permission_classes = [AllowAny]  # TODO: Add authentication
+
+    def post(self, request):
+        """Запустить синхронизацию принтеров"""
+        try:
+            service = PrinterSyncService()
+            results = service.sync_printers()
+
+            serializer = PrinterSyncResultSerializer(results)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Printer sync failed: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PrinterSnapshotsView(APIView):
+    """
+    API для получения снимков принтеров
+    """
+    permission_classes = [AllowAny]  # TODO: Add authentication
+
+    def get(self, request):
+        """Получить последние снимки всех принтеров"""
+        try:
+            service = PrinterSyncService()
+            snapshots = service.get_latest_snapshots()
+
+            serializer = PrinterSnapshotSerializer(snapshots, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Failed to fetch printer snapshots: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PrinterStatsView(APIView):
+    """
+    API для получения статистики принтеров
+    """
+    permission_classes = [AllowAny]  # TODO: Add authentication
+
+    def get(self, request):
+        """Получить статистику принтеров"""
+        try:
+            service = PrinterSyncService()
+            stats = service.get_printer_stats()
+
+            serializer = PrinterStatsSerializer(stats)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Failed to fetch printer stats: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

@@ -11,8 +11,8 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from .client import SimplePrintFilesClient, SimplePrintAPIError
-from .models import SimplePrintFolder, SimplePrintFile, SimplePrintSync
+from .client import SimplePrintFilesClient, SimplePrintPrintersClient, SimplePrintAPIError
+from .models import SimplePrintFolder, SimplePrintFile, SimplePrintSync, PrinterSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -320,3 +320,208 @@ class SimplePrintSyncService:
             'last_sync_status': last_sync.status if last_sync else None,
             'last_sync_duration': last_sync.get_duration() if last_sync else None,
         }
+
+
+class PrinterSyncService:
+    """
+    Сервис для синхронизации данных принтеров из SimplePrint
+    """
+
+    def __init__(self):
+        """Инициализация сервиса"""
+        self.client = SimplePrintPrintersClient()
+
+    def sync_printers(self) -> Dict:
+        """
+        Синхронизировать все принтеры из SimplePrint
+
+        Returns:
+            Словарь с результатами синхронизации
+        """
+        results = {
+            'synced': 0,
+            'failed': 0,
+            'printers': []
+        }
+
+        try:
+            # Получаем данные принтеров
+            printers_data = self.client.get_printers()
+            logger.info(f"Fetched {len(printers_data)} printers from SimplePrint")
+
+            # Обрабатываем каждый принтер
+            for printer_data in printers_data:
+                try:
+                    snapshot = self._create_snapshot(printer_data)
+                    results['printers'].append({
+                        'printer_id': snapshot.printer_id,
+                        'printer_name': snapshot.printer_name,
+                        'state': snapshot.state,
+                        'percentage': snapshot.percentage,
+                    })
+                    results['synced'] += 1
+                except Exception as e:
+                    logger.error(f"Failed to sync printer {printer_data.get('id')}: {e}")
+                    results['failed'] += 1
+
+            logger.info(f"Printer sync completed: {results['synced']} synced, {results['failed']} failed")
+            return results
+
+        except Exception as e:
+            logger.error(f"Printer synchronization failed: {e}", exc_info=True)
+            raise SimplePrintAPIError(f"Printer synchronization failed: {e}")
+
+    def _create_snapshot(self, printer_data: Dict) -> PrinterSnapshot:
+        """
+        Создать снимок принтера с расчетом времен
+
+        Args:
+            printer_data: Данные принтера из SimplePrint API
+
+        Returns:
+            Объект PrinterSnapshot
+        """
+        from datetime import timedelta
+
+        printer = printer_data['printer']
+        job = printer_data.get('job', {})
+
+        # Извлекаем данные принтера
+        printer_id = str(printer_data['id'])
+        printer_name = printer['name']
+        state = self._map_state(printer['state'])
+        online = printer.get('online', False)
+
+        # Температуры
+        temps = printer.get('temps', {})
+        current_temps = temps.get('current', {})
+        temperature_nozzle = current_temps.get('tool', [None])[0] if current_temps.get('tool') else None
+        temperature_bed = current_temps.get('bed')
+        temperature_ambient = temps.get('ambient')
+
+        # Данные задания
+        job_id = str(job.get('id')) if job else None
+        job_file = job.get('file')
+        percentage = job.get('percentage', 0) if job else 0
+        current_layer = job.get('layer', 0) if job else 0
+        max_layer = job.get('maxLayer', 0) if job else 0
+        elapsed_time = job.get('time', 0) if job else 0
+
+        # Расчет времен
+        now = timezone.now()
+        job_start_time = None
+        job_end_time_estimate = None
+        idle_since = None
+
+        if state == 'printing' and elapsed_time > 0:
+            # Расчет времени начала: текущее_время - прошедшее_время
+            job_start_time = now - timedelta(seconds=elapsed_time)
+
+            # Расчет времени окончания: если есть процент выполнения
+            if percentage > 0:
+                total_time_estimate = (elapsed_time / percentage) * 100
+                job_end_time_estimate = job_start_time + timedelta(seconds=total_time_estimate)
+
+        elif state == 'idle':
+            # Проверяем предыдущий снимок для определения когда стал idle
+            previous = PrinterSnapshot.objects.filter(
+                printer_id=printer_id
+            ).exclude(state='idle').first()
+
+            if previous:
+                idle_since = previous.updated_at
+            else:
+                idle_since = now
+
+        # Создаем снимок
+        snapshot = PrinterSnapshot.objects.create(
+            printer_id=printer_id,
+            printer_name=printer_name,
+            state=state,
+            online=online,
+            job_id=job_id,
+            job_file=job_file,
+            percentage=percentage,
+            current_layer=current_layer,
+            max_layer=max_layer,
+            elapsed_time=elapsed_time,
+            temperature_nozzle=temperature_nozzle,
+            temperature_bed=temperature_bed,
+            temperature_ambient=temperature_ambient,
+            job_start_time=job_start_time,
+            job_end_time_estimate=job_end_time_estimate,
+            idle_since=idle_since,
+            raw_data=printer_data  # Сохраняем полные данные для отладки
+        )
+
+        logger.debug(f"Created snapshot for {printer_name}: {state} ({percentage}%)")
+        return snapshot
+
+    def _map_state(self, sp_state: str) -> str:
+        """
+        Преобразовать состояние SimplePrint в наше состояние
+
+        Args:
+            sp_state: Состояние из SimplePrint ('printing', 'idle', 'offline', etc.)
+
+        Returns:
+            Наше состояние ('printing', 'idle', 'offline', 'paused', 'error')
+        """
+        state_mapping = {
+            'printing': 'printing',
+            'idle': 'idle',
+            'offline': 'offline',
+            'paused': 'paused',
+            'error': 'error',
+            'operational': 'idle',
+            'complete': 'idle',
+        }
+        return state_mapping.get(sp_state.lower(), 'error')
+
+    def get_latest_snapshots(self) -> List[PrinterSnapshot]:
+        """
+        Получить последние снимки для каждого принтера
+
+        Returns:
+            Список последних PrinterSnapshot для каждого принтера
+        """
+        from django.db.models import Max
+
+        # Получаем максимальную дату для каждого принтера
+        latest_ids = PrinterSnapshot.objects.values('printer_id').annotate(
+            max_created=Max('created_at')
+        )
+
+        snapshots = []
+        for item in latest_ids:
+            snapshot = PrinterSnapshot.objects.filter(
+                printer_id=item['printer_id'],
+                created_at=item['max_created']
+            ).first()
+            if snapshot:
+                snapshots.append(snapshot)
+
+        # Сортируем по имени принтера
+        snapshots.sort(key=lambda x: x.printer_name)
+
+        return snapshots
+
+    def get_printer_stats(self) -> Dict:
+        """
+        Получить статистику по принтерам
+
+        Returns:
+            Словарь со статистикой
+        """
+        latest_snapshots = self.get_latest_snapshots()
+
+        stats = {
+            'total': len(latest_snapshots),
+            'printing': sum(1 for s in latest_snapshots if s.state == 'printing'),
+            'idle': sum(1 for s in latest_snapshots if s.state == 'idle'),
+            'offline': sum(1 for s in latest_snapshots if s.state == 'offline'),
+            'error': sum(1 for s in latest_snapshots if s.state == 'error'),
+            'online': sum(1 for s in latest_snapshots if s.online),
+        }
+
+        return stats

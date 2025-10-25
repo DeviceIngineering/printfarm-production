@@ -288,3 +288,139 @@ class SimplePrintFilesClient:
             'folder_count': folder_count,
             'file_count': file_count,
         }
+
+
+class SimplePrintPrintersClient:
+    """
+    Клиент для работы с принтерами в SimplePrint API
+    """
+
+    def __init__(self):
+        """Инициализация клиента"""
+        config = settings.SIMPLEPRINT_CONFIG
+
+        self.base_url = config['base_url'].rstrip('/')
+        self.api_token = config['api_token']
+        self.rate_limit = config['rate_limit']  # requests per minute
+
+        # Вычисляем задержку между запросами
+        self.request_delay = 60.0 / self.rate_limit  # секунды между запросами
+
+        self.retry_attempts = 3
+        self.timeout = 30
+
+        # Последнее время запроса для rate limiting
+        self._last_request_time = 0
+
+    def _get_headers(self) -> Dict[str, str]:
+        """Получить заголовки для запроса"""
+        return {
+            'X-API-KEY': self.api_token,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        }
+
+    def _rate_limit(self):
+        """Применить rate limiting"""
+        current_time = time.time()
+        time_since_last_request = current_time - self._last_request_time
+
+        if time_since_last_request < self.request_delay:
+            sleep_time = self.request_delay - time_since_last_request
+            logger.debug(f"Rate limiting: sleeping for {sleep_time:.2f} seconds")
+            time.sleep(sleep_time)
+
+        self._last_request_time = time.time()
+
+    def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        params: Optional[Dict] = None,
+        data: Optional[Dict] = None,
+        retry_count: int = 0
+    ) -> Dict:
+        """
+        Выполнить HTTP запрос с retry логикой
+
+        Args:
+            method: HTTP метод (GET, POST)
+            endpoint: API endpoint
+            params: Query параметры
+            data: Данные для POST запроса
+            retry_count: Текущая попытка (для рекурсии)
+
+        Returns:
+            Ответ от API в виде словаря
+
+        Raises:
+            SimplePrintAPIError: При ошибке API
+        """
+        # Применяем rate limiting
+        self._rate_limit()
+
+        url = f"{self.base_url}/{endpoint}"
+        headers = self._get_headers()
+
+        try:
+            logger.debug(f"{method} {url} (попытка {retry_count + 1}/{self.retry_attempts})")
+
+            if method == 'GET':
+                response = requests.get(url, headers=headers, params=params, timeout=self.timeout)
+            elif method == 'POST':
+                response = requests.post(url, headers=headers, json=data, timeout=self.timeout)
+            else:
+                raise SimplePrintAPIError(f"Unsupported HTTP method: {method}")
+
+            response.raise_for_status()
+
+            data = response.json()
+
+            # Проверяем статус ответа SimplePrint
+            if not data.get('status', False):
+                error_message = data.get('message', 'Unknown error')
+                logger.error(f"SimplePrint API error: {error_message}")
+                raise SimplePrintAPIError(f"API returned error: {error_message}")
+
+            return data
+
+        except requests.exceptions.Timeout:
+            logger.warning(f"Request timeout for {url}")
+            if retry_count < self.retry_attempts - 1:
+                return self._make_request(method, endpoint, params, data, retry_count + 1)
+            raise SimplePrintAPIError(f"Request timeout after {self.retry_attempts} attempts")
+
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
+            if retry_count < self.retry_attempts - 1 and e.response.status_code >= 500:
+                # Retry только для серверных ошибок
+                time.sleep(2 ** retry_count)  # Exponential backoff
+                return self._make_request(method, endpoint, params, data, retry_count + 1)
+            raise SimplePrintAPIError(f"HTTP error {e.response.status_code}: {e.response.text}")
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error: {e}")
+            if retry_count < self.retry_attempts - 1:
+                time.sleep(2 ** retry_count)  # Exponential backoff
+                return self._make_request(method, endpoint, params, data, retry_count + 1)
+            raise SimplePrintAPIError(f"Request failed: {e}")
+
+    def get_printers(self) -> List[Dict]:
+        """
+        Получить список всех принтеров с их состоянием
+
+        Returns:
+            Список принтеров с подробной информацией
+        """
+        logger.info("Fetching all printers from SimplePrint API")
+
+        try:
+            response = self._make_request('POST', 'printers/Get')
+            printers_data = response.get('data', [])
+
+            logger.info(f"Successfully fetched {len(printers_data)} printers")
+            return printers_data
+
+        except Exception as e:
+            logger.error(f"Failed to fetch printers: {e}")
+            raise SimplePrintAPIError(f"Failed to fetch printers: {e}")

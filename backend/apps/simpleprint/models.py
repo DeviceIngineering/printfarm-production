@@ -243,3 +243,77 @@ class SimplePrintWebhookEvent(models.Model):
 
     def __str__(self):
         return f"{self.get_event_type_display()} - {self.received_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class PrinterSnapshot(models.Model):
+    """
+    Снимок состояния принтера из SimplePrint API
+    Сохраняется каждый раз при синхронизации для отслеживания изменений
+    """
+    # Идентификация принтера
+    printer_id = models.CharField(max_length=50, db_index=True, help_text="SimplePrint ID принтера")
+    printer_name = models.CharField(max_length=100, help_text="Имя принтера (P1S-2, P1S-3, etc.)")
+
+    # Состояние принтера
+    STATE_CHOICES = [
+        ('printing', 'Печатает'),
+        ('idle', 'Ожидание'),
+        ('offline', 'Оффлайн'),
+        ('paused', 'Пауза'),
+        ('error', 'Ошибка'),
+    ]
+    state = models.CharField(max_length=20, choices=STATE_CHOICES, help_text="Состояние принтера")
+    online = models.BooleanField(default=True, help_text="Принтер онлайн")
+
+    # Текущее задание
+    job_id = models.CharField(max_length=50, null=True, blank=True, help_text="ID задания")
+    job_file = models.CharField(max_length=500, null=True, blank=True, help_text="Имя файла задания")
+
+    # Прогресс задания
+    percentage = models.IntegerField(default=0, help_text="Процент выполнения (0-100)")
+    current_layer = models.IntegerField(default=0, help_text="Текущий слой")
+    max_layer = models.IntegerField(default=0, help_text="Максимальный слой")
+    elapsed_time = models.IntegerField(default=0, help_text="Прошло времени (секунды)")
+
+    # Температура
+    temperature_nozzle = models.IntegerField(null=True, blank=True, help_text="Температура сопла (°C)")
+    temperature_bed = models.IntegerField(null=True, blank=True, help_text="Температура стола (°C)")
+    temperature_ambient = models.IntegerField(null=True, blank=True, help_text="Температура окружающей среды (°C)")
+
+    # Расчетные поля
+    job_start_time = models.DateTimeField(null=True, blank=True, help_text="Расчетное время начала задания")
+    job_end_time_estimate = models.DateTimeField(null=True, blank=True, help_text="Расчетное время окончания")
+    idle_since = models.DateTimeField(null=True, blank=True, help_text="В состоянии ожидания с")
+
+    # Метаданные
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Время создания снимка")
+    updated_at = models.DateTimeField(auto_now=True, help_text="Время обновления снимка")
+
+    # Дополнительные данные (для будущего использования)
+    raw_data = models.JSONField(default=dict, blank=True, help_text="Полные данные от API")
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['printer_id', '-created_at']),
+            models.Index(fields=['state', '-created_at']),
+            models.Index(fields=['printer_name']),
+        ]
+        verbose_name = "SimplePrint Printer Snapshot"
+        verbose_name_plural = "SimplePrint Printer Snapshots"
+
+    def __str__(self):
+        return f"{self.printer_name} - {self.get_state_display()} ({self.created_at.strftime('%H:%M:%S')})"
+
+    def get_idle_duration_seconds(self):
+        """Получить длительность простоя в секундах"""
+        if self.idle_since:
+            return int((timezone.now() - self.idle_since).total_seconds())
+        return 0
+
+    def get_time_remaining_seconds(self):
+        """Получить оставшееся время до окончания задания в секундах"""
+        if self.job_end_time_estimate and self.state == 'printing':
+            remaining = (self.job_end_time_estimate - timezone.now()).total_seconds()
+            return max(0, int(remaining))
+        return 0

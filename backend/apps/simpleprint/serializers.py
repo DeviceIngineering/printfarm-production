@@ -5,7 +5,7 @@ DRF serializers для SimplePrint моделей.
 """
 
 from rest_framework import serializers
-from .models import SimplePrintFolder, SimplePrintFile, SimplePrintSync, SimplePrintWebhookEvent
+from .models import SimplePrintFolder, SimplePrintFile, SimplePrintSync, SimplePrintWebhookEvent, PrinterSnapshot
 
 
 class SimplePrintFolderSerializer(serializers.ModelSerializer):
@@ -317,3 +317,57 @@ class TriggerSyncSerializer(serializers.Serializer):
     """
     full_sync = serializers.BooleanField(default=False, help_text="Полная синхронизация с удалением отсутствующих файлов")
     force = serializers.BooleanField(default=False, help_text="Принудительная синхронизация")
+
+
+class PrinterSnapshotSerializer(serializers.ModelSerializer):
+    """
+    Serializer для PrinterSnapshot
+    """
+    state_display = serializers.CharField(source='get_state_display', read_only=True)
+    idle_duration_seconds = serializers.SerializerMethodField()
+    time_remaining_seconds = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PrinterSnapshot
+        fields = [
+            'id', 'printer_id', 'printer_name',
+            'state', 'state_display', 'online',
+            'job_id', 'job_file',
+            'percentage', 'current_layer', 'max_layer', 'elapsed_time',
+            'temperature_nozzle', 'temperature_bed', 'temperature_ambient',
+            'job_start_time', 'job_end_time_estimate', 'idle_since',
+            'idle_duration_seconds', 'time_remaining_seconds',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_idle_duration_seconds(self, obj):
+        """Продолжительность простоя в секундах"""
+        return obj.get_idle_duration_seconds()
+
+    def get_time_remaining_seconds(self, obj):
+        """Оставшееся время до окончания в секундах"""
+        return obj.get_time_remaining_seconds()
+
+
+class PrinterSyncResultSerializer(serializers.Serializer):
+    """
+    Serializer для результата синхронизации принтеров
+    """
+    synced = serializers.IntegerField()
+    failed = serializers.IntegerField()
+    printers = serializers.ListField(
+        child=serializers.DictField()
+    )
+
+
+class PrinterStatsSerializer(serializers.Serializer):
+    """
+    Serializer для статистики принтеров
+    """
+    total = serializers.IntegerField()
+    printing = serializers.IntegerField()
+    idle = serializers.IntegerField()
+    offline = serializers.IntegerField()
+    error = serializers.IntegerField()
+    online = serializers.IntegerField()
