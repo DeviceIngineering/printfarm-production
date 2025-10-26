@@ -50,9 +50,9 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: #06EAFC;
-  box-shadow: 0 0 8px rgba(6, 234, 252, 0.6);
-  z-index: 5;
+  background: #ff4d4f;
+  box-shadow: 0 0 8px rgba(255, 77, 79, 0.6);
+  z-index: 100;
   pointer-events: none;
 }
 
@@ -63,7 +63,7 @@
 .timeline-row {
   display: flex;
   border-bottom: 1px solid #2a2a2a;
-  min-height: 80px;
+  min-height: 90px;
 }
 
 .timeline-printer-info {
@@ -109,13 +109,13 @@
     #141414 100px,
     #141414 200px
   );
-  min-height: 80px;
+  min-height: 90px;
 }
 
 .timeline-task {
   position: absolute;
-  top: 16px;
-  height: 48px;
+  top: 24px;
+  height: 50px;
   border-radius: 6px;
   border: 1px solid #3a3a3a;
   overflow: hidden;

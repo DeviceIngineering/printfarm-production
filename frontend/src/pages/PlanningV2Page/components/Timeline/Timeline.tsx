@@ -48,10 +48,10 @@ export const Timeline: React.FC<TimelineProps> = ({ printers, currentTime }) => 
 
   const getMaterialColorBg = (color: string) => {
     switch (color) {
-      case 'black': return '#2a2a2a';
-      case 'white': return '#f0f0f0';
-      case 'other': return '#7b68ee';
-      default: return '#666';
+      case 'black': return '#4a4a4a'; // Более светлый черный для лучшей видимости
+      case 'white': return '#8a8a8a'; // Темно-серый вместо светлого
+      case 'other': return '#5b4aae'; // Более темный фиолетовый
+      default: return '#5a5a5a'; // Более светлый серый
     }
   };
 
@@ -78,16 +78,15 @@ export const Timeline: React.FC<TimelineProps> = ({ printers, currentTime }) => 
         </div>
       </div>
 
-      {/* Линия текущего времени */}
-      <div
-        className="timeline-current-line"
-        style={{
-          left: `${240 + calculateTimelinePosition(getCurrentTimeGMT3()) * 10}px`,
-        }}
-      />
-
       {/* Строки принтеров */}
       <div className="timeline-body">
+        {/* Линия текущего времени - перемещена внутрь body */}
+        <div
+          className="timeline-current-line"
+          style={{
+            left: `${240 + calculateTimelinePosition(getCurrentTimeGMT3()) * 10}px`,
+          }}
+        />
         {printers.map(printer => (
           <div key={printer.id} className="timeline-row">
             {/* Информация о принтере */}
