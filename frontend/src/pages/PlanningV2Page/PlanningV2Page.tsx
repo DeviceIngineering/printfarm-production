@@ -25,8 +25,13 @@ export const PlanningV2Page: React.FC = () => {
 
   const { printers: simpleprintPrinters, loading, error } = useSelector((state: RootState) => state.simpleprintPrinters);
 
-  // Преобразуем SimplePrint данные в формат Printer
-  const printers = mapSimplePrintsToPrinters(simpleprintPrinters);
+  // Преобразуем SimplePrint данные в формат Printer и сортируем по имени
+  const printers = mapSimplePrintsToPrinters(simpleprintPrinters).sort((a, b) => {
+    // Извлекаем номер из имени принтера (например "P1S-10" -> 10)
+    const numA = parseInt(a.name.split('-')[1] || '0');
+    const numB = parseInt(b.name.split('-')[1] || '0');
+    return numA - numB;
+  });
 
   // Отладка
   useEffect(() => {

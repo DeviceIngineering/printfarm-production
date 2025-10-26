@@ -104,12 +104,15 @@ export const Timeline: React.FC<TimelineProps> = ({ printers, currentTime }) => 
             left: `${240 + currentTimePosition * 10}px`,
           }}
         />
-        {printers.map(printer => (
+        {printers.map((printer, index) => (
           <div key={printer.id} className="timeline-row">
             {/* Информация о принтере */}
             <div className="timeline-printer-info">
               <div className="printer-name-row">
-                <span className="printer-name">{printer.name}</span>
+                <span className="printer-name">
+                  <span style={{ color: '#888', marginRight: '8px' }}>#{index + 1}</span>
+                  {printer.name}
+                </span>
                 <Badge
                   status={printer.status === 'printing' ? 'processing' : printer.status === 'error' ? 'error' : 'default'}
                   text={<span style={{ color: getStatusColor(printer.status), fontSize: '11px' }}>
