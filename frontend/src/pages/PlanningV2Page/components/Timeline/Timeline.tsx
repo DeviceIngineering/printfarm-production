@@ -142,64 +142,84 @@ export const Timeline: React.FC<TimelineProps> = ({ printers, currentTime }) => 
               onDragOver={(e) => e.preventDefault()}
             >
               {/* Текущая задача */}
-              {printer.currentTask && (
-                <Tooltip
-                  title={
-                    <div>
-                      <div><strong>{printer.currentTask.article}</strong></div>
-                      <div>Количество: {printer.currentTask.quantity} шт</div>
-                      <div>Прогресс: {printer.currentTask.progress}%</div>
-                      <div>Осталось: {printer.currentTask.timeRemaining}</div>
-                    </div>
-                  }
-                >
-                  <div
-                    className="timeline-task current-task"
-                    style={{
-                      left: `${calculateTimelinePosition(printer.currentTask.startTime) * 52}px`,
-                      width: `${calculateTimelineWidth(printer.currentTask.startTime, printer.currentTask.endTime) * 52}px`,
-                      backgroundColor: getMaterialColorBg(printer.materialColor),
-                    }}
+              {printer.currentTask && (() => {
+                const startPos = Math.max(0, calculateTimelinePosition(printer.currentTask.startTime));
+                const endPos = Math.min(100, calculateTimelinePosition(printer.currentTask.endTime));
+                const leftPx = startPos * 52;
+                const widthPx = (endPos - startPos) * 52;
+
+                // Показываем только если задача видна на таймлайне
+                if (endPos <= 0 || startPos >= 100) return null;
+
+                return (
+                  <Tooltip
+                    title={
+                      <div>
+                        <div><strong>{printer.currentTask.article}</strong></div>
+                        <div>Количество: {printer.currentTask.quantity} шт</div>
+                        <div>Прогресс: {printer.currentTask.progress}%</div>
+                        <div>Осталось: {printer.currentTask.timeRemaining}</div>
+                      </div>
+                    }
+                  >
+                    <div
+                      className="timeline-task current-task"
+                      style={{
+                        left: `${leftPx}px`,
+                        width: `${widthPx}px`,
+                        backgroundColor: getMaterialColorBg(printer.materialColor),
+                      }}
                   >
                     <div className="task-content">
                       <span className="task-article">{printer.currentTask.article}</span>
                       <span className="task-progress">{printer.currentTask.progress}%</span>
                     </div>
-                    <div
-                      className="task-progress-bar"
-                      style={{ width: `${printer.currentTask.progress}%` }}
-                    />
-                  </div>
-                </Tooltip>
-              )}
+                      <div
+                        className="task-progress-bar"
+                        style={{ width: `${printer.currentTask.progress}%` }}
+                      />
+                    </div>
+                  </Tooltip>
+                );
+              })()}
 
               {/* Задачи в очереди */}
-              {printer.queuedTasks.map((task, index) => (
-                <Tooltip
-                  key={index}
-                  title={
-                    <div>
-                      <div><strong>{task.article}</strong></div>
-                      <div>Количество: {task.quantity} шт</div>
-                      <div>Время: {task.timeRemaining}</div>
-                    </div>
-                  }
-                >
-                  <div
-                    className="timeline-task queued-task"
-                    style={{
-                      left: `${calculateTimelinePosition(task.startTime) * 52}px`,
-                      width: `${calculateTimelineWidth(task.startTime, task.endTime) * 52}px`,
-                      backgroundColor: getMaterialColorBg(printer.materialColor),
-                    }}
+              {printer.queuedTasks.map((task, index) => {
+                const startPos = Math.max(0, calculateTimelinePosition(task.startTime));
+                const endPos = Math.min(100, calculateTimelinePosition(task.endTime));
+                const leftPx = startPos * 52;
+                const widthPx = (endPos - startPos) * 52;
+
+                // Показываем только если задача видна на таймлайне
+                if (endPos <= 0 || startPos >= 100) return null;
+
+                return (
+                  <Tooltip
+                    key={index}
+                    title={
+                      <div>
+                        <div><strong>{task.article}</strong></div>
+                        <div>Количество: {task.quantity} шт</div>
+                        <div>Время: {task.timeRemaining}</div>
+                      </div>
+                    }
                   >
-                    <div className="task-content">
-                      <span className="task-article">{task.article}</span>
-                      <span className="task-quantity">{task.quantity} шт</span>
+                    <div
+                      className="timeline-task queued-task"
+                      style={{
+                        left: `${leftPx}px`,
+                        width: `${widthPx}px`,
+                        backgroundColor: getMaterialColorBg(printer.materialColor),
+                      }}
+                    >
+                      <div className="task-content">
+                        <span className="task-article">{task.article}</span>
+                        <span className="task-quantity">{task.quantity} шт</span>
+                      </div>
                     </div>
-                  </div>
-                </Tooltip>
-              ))}
+                  </Tooltip>
+                );
+              })}
             </div>
           </div>
         ))}
