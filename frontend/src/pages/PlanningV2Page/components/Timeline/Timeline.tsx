@@ -17,7 +17,24 @@ interface TimelineProps {
 
 export const Timeline: React.FC<TimelineProps> = ({ printers, currentTime }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
+  const [currentTimePosition, setCurrentTimePosition] = React.useState(0);
   const hours = getTimelineHours();
+
+  // Обновление позиции линии времени каждую секунду
+  useEffect(() => {
+    const updateTimelinePosition = () => {
+      const position = calculateTimelinePosition(getCurrentTimeGMT3());
+      setCurrentTimePosition(position);
+    };
+
+    // Начальная установка
+    updateTimelinePosition();
+
+    // Обновление каждую секунду
+    const interval = setInterval(updateTimelinePosition, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Автоскролл к текущему времени при монтировании
   useEffect(() => {
@@ -80,11 +97,11 @@ export const Timeline: React.FC<TimelineProps> = ({ printers, currentTime }) => 
 
       {/* Строки принтеров */}
       <div className="timeline-body">
-        {/* Линия текущего времени - перемещена внутрь body */}
+        {/* Линия текущего времени - обновляется каждую секунду */}
         <div
           className="timeline-current-line"
           style={{
-            left: `${240 + calculateTimelinePosition(getCurrentTimeGMT3()) * 10}px`,
+            left: `${240 + currentTimePosition * 10}px`,
           }}
         />
         {printers.map(printer => (
