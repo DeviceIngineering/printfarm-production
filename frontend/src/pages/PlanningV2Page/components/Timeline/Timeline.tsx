@@ -156,8 +156,8 @@ export const Timeline: React.FC<TimelineProps> = ({ printers, currentTime }) => 
                   <div
                     className="timeline-task current-task"
                     style={{
-                      left: `${(calculateTimelinePosition(printer.currentTask.startTime) / 100) * 5200}px`,
-                      width: `${(calculateTimelineWidth(printer.currentTask.startTime, printer.currentTask.endTime) / 100) * 5200}px`,
+                      left: `${calculateTimelinePosition(printer.currentTask.startTime) * 52}px`,
+                      width: `${calculateTimelineWidth(printer.currentTask.startTime, printer.currentTask.endTime) * 52}px`,
                       backgroundColor: getMaterialColorBg(printer.materialColor),
                     }}
                   >
@@ -188,8 +188,8 @@ export const Timeline: React.FC<TimelineProps> = ({ printers, currentTime }) => 
                   <div
                     className="timeline-task queued-task"
                     style={{
-                      left: `${(calculateTimelinePosition(task.startTime) / 100) * 5200}px`,
-                      width: `${(calculateTimelineWidth(task.startTime, task.endTime) / 100) * 5200}px`,
+                      left: `${calculateTimelinePosition(task.startTime) * 52}px`,
+                      width: `${calculateTimelineWidth(task.startTime, task.endTime) * 52}px`,
                       backgroundColor: getMaterialColorBg(printer.materialColor),
                     }}
                   >
