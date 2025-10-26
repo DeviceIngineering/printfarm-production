@@ -15,6 +15,8 @@ export const Header: React.FC<HeaderProps> = ({ currentTime, printers }) => {
   const navigate = useNavigate();
   const gmt3Time = getCurrentTimeGMT3();
   const [debugModalVisible, setDebugModalVisible] = useState(false);
+  const [apiDebugData, setApiDebugData] = useState<any>(null);
+  const [apiLoading, setApiLoading] = useState(false);
 
   // Подсчет готовых/ожидающих принтеров
   const readyPrinters = printers.filter(p => p.status === 'idle').length;
@@ -61,9 +63,23 @@ export const Header: React.FC<HeaderProps> = ({ currentTime, printers }) => {
     // TODO: Обновление данных с сервера
   };
 
-  const handleDebug = () => {
+  const handleDebug = async () => {
     console.log('Opening API debug modal...');
     setDebugModalVisible(true);
+    setApiLoading(true);
+
+    try {
+      // Вызываем backend API для получения сырых данных
+      const response = await fetch('/api/v1/simpleprint/printers/');
+      const data = await response.json();
+      setApiDebugData(data);
+      console.log('API Response:', data);
+    } catch (error) {
+      console.error('Failed to fetch API debug data:', error);
+      setApiDebugData({ error: String(error) });
+    } finally {
+      setApiLoading(false);
+    }
   };
 
   const handleSettings = () => {
@@ -224,11 +240,44 @@ export const Header: React.FC<HeaderProps> = ({ currentTime, printers }) => {
           bordered
         />
         <div style={{ marginTop: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
-          <strong>Сводка:</strong>
+          <strong>Сводка (Frontend данные):</strong>
           <div>Всего принтеров: {printers.length}</div>
           <div>Печатают: {printers.filter(p => p.status === 'printing').length}</div>
           <div>Простаивают: {printers.filter(p => p.status === 'idle').length}</div>
           <div>Офлайн/Ошибка: {printers.filter(p => p.status === 'error').length}</div>
+        </div>
+
+        <div style={{ marginTop: '16px', padding: '12px', background: '#fff3cd', borderRadius: '4px' }}>
+          <strong>Отладка Backend API:</strong>
+          {apiLoading ? (
+            <div>Загрузка данных из API...</div>
+          ) : apiDebugData ? (
+            <>
+              <div>Всего принтеров в API ответе: {Array.isArray(apiDebugData) ? apiDebugData.length : 'N/A'}</div>
+              {Array.isArray(apiDebugData) && (
+                <>
+                  <div style={{ marginTop: '8px' }}>
+                    <strong>Список принтеров из API:</strong>
+                    <div style={{ maxHeight: '200px', overflow: 'auto', marginTop: '4px', padding: '8px', background: '#fff', border: '1px solid #ddd' }}>
+                      {apiDebugData.map((p: any, idx: number) => (
+                        <div key={idx} style={{ padding: '2px 0', fontSize: '12px' }}>
+                          {idx + 1}. {p.printer_name} (ID: {p.printer_id}, State: {p.state}, Online: {p.online ? 'Yes' : 'No'})
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+              <details style={{ marginTop: '8px' }}>
+                <summary style={{ cursor: 'pointer', color: '#1890ff' }}>Показать полный JSON ответ</summary>
+                <pre style={{ maxHeight: '300px', overflow: 'auto', background: '#f0f0f0', padding: '8px', fontSize: '11px', marginTop: '8px' }}>
+                  {JSON.stringify(apiDebugData, null, 2)}
+                </pre>
+              </details>
+            </>
+          ) : (
+            <div>Нажмите "Отладка API" для загрузки данных</div>
+          )}
         </div>
       </Modal>
     </div>
