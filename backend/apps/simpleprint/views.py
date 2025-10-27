@@ -480,23 +480,30 @@ class PrinterSnapshotsView(APIView):
     permission_classes = [AllowAny]  # TODO: Add authentication
 
     def get(self, request):
-        """Получить последние снимки всех принтеров"""
+        """Получить последние снимки всех принтеров (с кэшированием)"""
         try:
-            # WORKAROUND: SimplePrint API hangs for 2+ minutes, blocking gunicorn worker
-            # Temporarily return empty array immediately to prevent Planning V2 page freeze
-            # TODO: Investigate SimplePrint API connectivity issue and add proper timeout
-            logger.warning("SimplePrint /printers/ endpoint temporarily disabled (API hangs)")
-            logger.info("Returning empty printer array to prevent worker blocking")
-            return Response([], status=status.HTTP_200_OK)
+            service = PrinterSyncService()
 
-            # COMMENTED OUT until SimplePrint API issue is resolved:
-            # service = PrinterSyncService()
-            # snapshots = service.get_latest_snapshots()
-            # serializer = PrinterSnapshotSerializer(snapshots, many=True)
-            # return Response(serializer.data, status=status.HTTP_200_OK)
+            # Пытаемся получить из кэша или БД
+            snapshots = service.get_latest_snapshots()
+
+            if not snapshots:
+                # Если нет данных, пробуем синхронизировать
+                logger.info("No snapshots found, attempting sync...")
+                try:
+                    service.sync_printers()
+                    snapshots = service.get_latest_snapshots()
+                except Exception as sync_error:
+                    logger.warning(f"Sync failed: {sync_error}")
+                    # Возвращаем пустой массив если синхронизация не удалась
+                    return Response([], status=status.HTTP_200_OK)
+
+            serializer = PrinterSnapshotSerializer(snapshots, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.error(f"Failed to fetch printer snapshots: {e}", exc_info=True)
+            # В случае ошибки возвращаем пустой массив
             return Response([], status=status.HTTP_200_OK)
 
 

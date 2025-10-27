@@ -3,11 +3,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Header } from './components/Header/Header';
 import { LeftPanel } from './components/LeftPanel/LeftPanel';
 import { Timeline } from './components/Timeline/Timeline';
-import { BottomPanel } from './components/BottomPanel/BottomPanel';
-import { mockArticles, mockQueues } from './utils/mockData';
+import { mockArticles } from './utils/mockData';
 import { Printer } from './types/printer.types';
 import { Article } from './types/article.types';
-import { Queue } from './types/queue.types';
 import { fetchPrinters } from '../../store/simpleprintPrintersSlice';
 import { RootState, AppDispatch } from '../../store';
 import { mapSimplePrintsToPrinters } from './utils/printerMapper';
@@ -42,7 +40,6 @@ export const PlanningV2Page: React.FC = () => {
   }, [simpleprintPrinters, printers, loading, error]);
 
   const [articles, setArticles] = useState<Article[]>(mockArticles);
-  const [queues, setQueues] = useState<Queue[]>(mockQueues);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
   // Загрузка данных при монтировании компонента
@@ -109,8 +106,8 @@ export const PlanningV2Page: React.FC = () => {
           />
         </div>
 
-        {/* Нижняя панель с очередями */}
-        <BottomPanel queues={queues} />
+        {/* Нижняя панель с очередями - ОТКЛЮЧЕНО, будет реализовано позже */}
+        {/* <BottomPanel queues={queues} /> */}
       </div>
     </div>
   );

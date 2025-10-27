@@ -36,8 +36,8 @@ class SimplePrintFilesClient:
         # Вычисляем задержку между запросами
         self.request_delay = 60.0 / self.rate_limit  # секунды между запросами
 
-        self.retry_attempts = 3
-        self.timeout = 30
+        self.retry_attempts = 2  # Уменьшили количество попыток
+        self.timeout = 10  # Уменьшили timeout до 10 секунд (было 30)
 
         # Последнее время запроса для rate limiting
         self._last_request_time = 0
@@ -306,8 +306,8 @@ class SimplePrintPrintersClient:
         # Вычисляем задержку между запросами
         self.request_delay = 60.0 / self.rate_limit  # секунды между запросами
 
-        self.retry_attempts = 3
-        self.timeout = 30
+        self.retry_attempts = 2  # Уменьшили количество попыток
+        self.timeout = 10  # Уменьшили timeout до 10 секунд (было 30)
 
         # Последнее время запроса для rate limiting
         self._last_request_time = 0

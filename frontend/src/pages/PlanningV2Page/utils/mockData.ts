@@ -4,7 +4,6 @@
 
 import { Printer, PrintTask } from '../types/printer.types';
 import { Article } from '../types/article.types';
-import { Queue, QueueTask } from '../types/queue.types';
 
 /**
  * Генерация 27 принтеров P1S (3 ряда по 9 принтеров)
@@ -147,58 +146,5 @@ export const mockArticles: Article[] = [
   }),
 ];
 
-/**
- * Очереди печати (2 общие очереди)
- */
-export const mockQueues: Queue[] = [
-  {
-    id: 'queue-1',
-    name: 'Очередь критичных',
-    tasks: [
-      {
-        id: 'task-1',
-        article: 'N421-11-45K',
-        articleName: 'Адаптер номерной рамки',
-        quantity: 50,
-        estimatedTime: '10ч 0м',
-        priority: 'critical',
-        materialColor: 'black',
-      },
-      {
-        id: 'task-2',
-        article: '375-42108',
-        articleName: 'Заглушка круглая D42',
-        quantity: 100,
-        estimatedTime: '11ч 40м',
-        priority: 'critical',
-        materialColor: 'black',
-      },
-    ],
-    totalTime: '21ч 40м',
-  },
-  {
-    id: 'queue-2',
-    name: 'Очередь стандартных',
-    tasks: [
-      {
-        id: 'task-3',
-        article: '381-40801',
-        articleName: 'Крепеж для кабеля',
-        quantity: 60,
-        estimatedTime: '6ч 0м',
-        priority: 'medium',
-        materialColor: 'white',
-      },
-      {
-        id: 'task-4',
-        article: 'N421-22-50W',
-        articleName: 'Корпус датчика (белый)',
-        quantity: 30,
-        estimatedTime: '7ч 0м',
-        priority: 'medium',
-        materialColor: 'white',
-      },
-    ],
-    totalTime: '13ч 0м',
-  },
-];
+// Очереди печати - ОТКЛЮЧЕНО, будет реализовано позже
+// export const mockQueues: Queue[] = [...];

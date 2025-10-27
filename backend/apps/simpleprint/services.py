@@ -480,12 +480,23 @@ class PrinterSyncService:
 
     def get_latest_snapshots(self) -> List[PrinterSnapshot]:
         """
-        Получить последние снимки для каждого принтера
+        Получить последние снимки для каждого принтера с кэшированием
 
         Returns:
             Список последних PrinterSnapshot для каждого принтера
         """
         from django.db.models import Max
+        from django.core.cache import cache
+
+        # Пытаемся получить из кэша
+        cache_key = 'simpleprint_printer_snapshots'
+        try:
+            cached_snapshots = cache.get(cache_key)
+            if cached_snapshots:
+                logger.debug("Returning cached printer snapshots")
+                return cached_snapshots
+        except Exception as e:
+            logger.debug(f"Cache unavailable: {e}")
 
         # Получаем максимальную дату для каждого принтера
         latest_ids = PrinterSnapshot.objects.values('printer_id').annotate(
@@ -503,6 +514,13 @@ class PrinterSyncService:
 
         # Сортируем по имени принтера
         snapshots.sort(key=lambda x: x.printer_name)
+
+        # Кэшируем на 30 секунд
+        try:
+            cache.set(cache_key, snapshots, 30)
+            logger.debug(f"Cached {len(snapshots)} printer snapshots for 30 seconds")
+        except Exception as e:
+            logger.debug(f"Could not cache snapshots: {e}")
 
         return snapshots
 
