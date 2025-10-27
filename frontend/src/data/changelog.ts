@@ -14,6 +14,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.2.10.4",
+    date: "2025-10-28",
+    title: "Fix PrinterSnapshot NULL Constraint Error",
+    features: [],
+    fixes: [
+      "PrinterSnapshot model - добавлено null=True, blank=True для current_layer и max_layer",
+      "Исправлена ошибка 'NOT NULL constraint failed' для P1S-4 и P1S-18",
+      "SimplePrint API иногда не предоставляет значения слоев для некоторых принтеров",
+      "Все 25 принтеров теперь синхронизируются успешно (ранее 23/25)",
+      "P1S-4 (28177) и P1S-18 (28196) теперь работают корректно",
+      "Принтеры без данных о слоях больше не вызывают падение синхронизации"
+    ],
+    commits: [
+      "dc2e11a - Fix: Allow NULL values for PrinterSnapshot layer fields - v4.2.10.4"
+    ]
+  },
+  {
     version: "4.2.10.3",
     date: "2025-10-28",
     title: "Enhanced API Debug Modal with Full Details",
