@@ -271,8 +271,8 @@ class PrinterSnapshot(models.Model):
 
     # Прогресс задания
     percentage = models.IntegerField(default=0, help_text="Процент выполнения (0-100)")
-    current_layer = models.IntegerField(default=0, help_text="Текущий слой")
-    max_layer = models.IntegerField(default=0, help_text="Максимальный слой")
+    current_layer = models.IntegerField(null=True, blank=True, default=0, help_text="Текущий слой")
+    max_layer = models.IntegerField(null=True, blank=True, default=0, help_text="Максимальный слой")
     elapsed_time = models.IntegerField(default=0, help_text="Прошло времени (секунды)")
 
     # Температура
@@ -317,3 +317,155 @@ class PrinterSnapshot(models.Model):
             remaining = (self.job_end_time_estimate - timezone.now()).total_seconds()
             return max(0, int(remaining))
         return 0
+
+
+class PrintJob(models.Model):
+    """
+    История печатных заданий
+    Сохраняет полную информацию о каждом задании для аналитики и отслеживания
+    """
+    # Идентификация
+    job_id = models.CharField(max_length=50, unique=True, db_index=True, help_text="ID задания в SimplePrint")
+    printer_id = models.CharField(max_length=50, db_index=True, help_text="ID принтера")
+    printer_name = models.CharField(max_length=100, help_text="Имя принтера")
+
+    # Файл задания
+    file_id = models.CharField(max_length=255, null=True, blank=True, help_text="ID файла в SimplePrint")
+    file_name = models.CharField(max_length=500, help_text="Имя файла")
+    article = models.CharField(max_length=100, null=True, blank=True, db_index=True, help_text="Артикул (парсинг из имени)")
+
+    # Состояние
+    STATUS_CHOICES = [
+        ('queued', 'В очереди'),
+        ('printing', 'Печатается'),
+        ('completed', 'Завершено'),
+        ('cancelled', 'Отменено'),
+        ('failed', 'Ошибка'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, db_index=True, help_text="Статус задания")
+
+    # Прогресс
+    percentage = models.IntegerField(default=0, help_text="Процент выполнения (0-100)")
+    current_layer = models.IntegerField(default=0, help_text="Текущий слой")
+    max_layer = models.IntegerField(default=0, help_text="Максимальный слой")
+
+    # Время
+    queued_at = models.DateTimeField(null=True, blank=True, help_text="Время добавления в очередь")
+    started_at = models.DateTimeField(null=True, blank=True, db_index=True, help_text="Время начала печати")
+    completed_at = models.DateTimeField(null=True, blank=True, help_text="Время завершения")
+    estimated_time = models.IntegerField(default=0, help_text="Оценочное время (секунды)")
+    elapsed_time = models.IntegerField(default=0, help_text="Затраченное время (секунды)")
+
+    # Результат
+    success = models.BooleanField(default=False, help_text="Задание успешно завершено")
+    error_message = models.TextField(blank=True, help_text="Сообщение об ошибке")
+
+    # Метаданные
+    raw_data = models.JSONField(default=dict, blank=True, help_text="Полные данные от API")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Время создания записи")
+    updated_at = models.DateTimeField(auto_now=True, help_text="Время обновления записи")
+
+    class Meta:
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['printer_id', '-started_at']),
+            models.Index(fields=['status', '-started_at']),
+            models.Index(fields=['article', '-started_at']),
+            models.Index(fields=['-completed_at']),
+        ]
+        verbose_name = "Print Job"
+        verbose_name_plural = "Print Jobs"
+
+    def __str__(self):
+        return f"{self.job_id} - {self.printer_name} - {self.get_status_display()}"
+
+    def get_duration_seconds(self):
+        """Получить длительность выполнения задания в секундах"""
+        if self.completed_at and self.started_at:
+            return int((self.completed_at - self.started_at).total_seconds())
+        return self.elapsed_time
+
+
+class PrintQueue(models.Model):
+    """
+    Очередь заданий принтера
+    Отслеживает задания, ожидающие печати
+    """
+    # Идентификация
+    queue_id = models.CharField(max_length=50, unique=True, db_index=True, help_text="ID очереди в SimplePrint")
+    printer_id = models.CharField(max_length=50, db_index=True, help_text="ID принтера")
+    printer_name = models.CharField(max_length=100, help_text="Имя принтера")
+
+    # Задание
+    file_id = models.CharField(max_length=255, help_text="ID файла в SimplePrint")
+    file_name = models.CharField(max_length=500, help_text="Имя файла")
+    article = models.CharField(max_length=100, null=True, blank=True, db_index=True, help_text="Артикул")
+
+    # Позиция в очереди
+    position = models.IntegerField(default=0, db_index=True, help_text="Позиция в очереди (0 = первое)")
+
+    # Оценки
+    estimated_time = models.IntegerField(default=0, help_text="Оценочное время печати (секунды)")
+    estimated_start = models.DateTimeField(null=True, blank=True, help_text="Расчетное время начала")
+
+    # Метаданные
+    added_at = models.DateTimeField(auto_now_add=True, help_text="Время добавления в очередь")
+    updated_at = models.DateTimeField(auto_now=True, help_text="Время обновления")
+    raw_data = models.JSONField(default=dict, blank=True, help_text="Полные данные от API")
+
+    class Meta:
+        ordering = ['printer_id', 'position']
+        indexes = [
+            models.Index(fields=['printer_id', 'position']),
+            models.Index(fields=['article']),
+        ]
+        verbose_name = "Print Queue Item"
+        verbose_name_plural = "Print Queue Items"
+
+    def __str__(self):
+        return f"{self.printer_name} - Позиция {self.position} - {self.file_name}"
+
+
+class PrinterWebhookEvent(models.Model):
+    """
+    События webhook для принтеров (отдельно от файловых событий)
+    Логирует все события от SimplePrint webhooks для отладки и мониторинга
+    """
+    EVENT_TYPE_CHOICES = [
+        ('printer_online', 'Принтер онлайн'),
+        ('printer_offline', 'Принтер оффлайн'),
+        ('job_started', 'Задание начато'),
+        ('job_completed', 'Задание завершено'),
+        ('job_cancelled', 'Задание отменено'),
+        ('job_failed', 'Задание провалено'),
+        ('job_progress', 'Прогресс задания'),
+        ('queue_changed', 'Очередь изменена'),
+        ('error_occurred', 'Произошла ошибка'),
+        ('unknown', 'Неизвестное событие'),
+    ]
+
+    event_type = models.CharField(max_length=50, choices=EVENT_TYPE_CHOICES, db_index=True, help_text="Тип события")
+    printer_id = models.CharField(max_length=50, null=True, blank=True, db_index=True, help_text="ID принтера")
+    job_id = models.CharField(max_length=50, null=True, blank=True, help_text="ID задания")
+    payload = models.JSONField(help_text="Полные данные webhook payload")
+
+    # Обработка
+    processed = models.BooleanField(default=False, db_index=True, help_text="Событие обработано")
+    processed_at = models.DateTimeField(null=True, blank=True, help_text="Время обработки")
+    processing_error = models.TextField(blank=True, help_text="Ошибка при обработке")
+
+    # Метаданные
+    received_at = models.DateTimeField(auto_now_add=True, db_index=True, help_text="Время получения webhook")
+
+    class Meta:
+        ordering = ['-received_at']
+        indexes = [
+            models.Index(fields=['printer_id', '-received_at']),
+            models.Index(fields=['event_type', '-received_at']),
+            models.Index(fields=['processed', '-received_at']),
+        ]
+        verbose_name = "Printer Webhook Event"
+        verbose_name_plural = "Printer Webhook Events"
+
+    def __str__(self):
+        return f"{self.get_event_type_display()} - {self.received_at.strftime('%Y-%m-%d %H:%M:%S')}"
