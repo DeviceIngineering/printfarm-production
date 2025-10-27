@@ -14,6 +14,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.2.10",
+    date: "2025-10-27",
+    title: "SimplePrint Article Parsing Priority Fix",
+    features: [],
+    fixes: [
+      "Исправлен приоритет парсинга артикулов и количества",
+      "Проблема: 45_N421-11-45K_part2_10pcs → Артикул: N421-11, Количество: 45.0",
+      "Исправлено: 45_N421-11-45K_part2_10pcs → Артикул: N421-11-45K, Количество: 10.0",
+      "45K теперь правильно распознается как часть артикула, а не количество",
+      "Приоритет парсинга: 1) pcs/psc (явное указание), 2) part (части изделия = 0.5), 3) k/K (только после underscore)",
+      "Обновлен get_quantity() в backend/apps/simpleprint/serializers.py",
+      "Обновлен get_article() с разделением паттернов pcs/psc от k",
+      "Загружен на production: factory_v3-backend-1 перезапущен"
+    ],
+    commits: [
+      "[to_be_added] - Fix: SimplePrint article parsing priority (pcs > k)"
+    ]
+  },
+  {
     version: "4.2.9",
     date: "2025-10-26",
     title: "SimplePrint API Integration & Interceptor Fix",

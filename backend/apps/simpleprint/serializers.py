@@ -142,14 +142,17 @@ class SimplePrintFileListSerializer(serializers.ModelSerializer):
         name_without_ext = filename.rsplit('.', 1)[0] if '.' in filename else filename
 
         # Паттерны для поиска границы артикула:
+        # ПРИОРИТЕТ: pcs/psc имеет приоритет над k
         # - part\d (part1, part2)
-        # - \d+[,.]?\d*(pcs|k) (25pcs, 3k, 1.5k, 1,5k)
-        # - \d+h (временные метки типа 12h)
+        # - \d+pcs, \d+psc (явное указание количества)
+        # - \d+k (количество ТОЛЬКО если идет отдельно после underscore)
+        # - \d+h\d*m (временные метки типа 12h51m)
 
         # Находим первое вхождение этих паттернов
         patterns = [
             r'_part\d+',              # _part1, _part2
-            r'_\d+[,.]?\d*(pcs|psc|k)', # _25pcs, _42psc (опечатка), _3k, _1.5k
+            r'_\d+[,.]?\d*(pcs|psc)', # _25pcs, _42psc (опечатка), _1.5pcs (ПРИОРИТЕТ)
+            r'_\d+k(?=[_\s\d]|$)',   # _3k (количество, только если отдельно)
             r'_\d+h\d*m',             # _12h51m, _2h (время печати с часами и минутами)
             r'_\d+m_',                # _30m_ (только минуты, за которыми идет что-то еще)
             r'_\d+g_',                # _370g_ (вес, за которым идет что-то еще)
@@ -185,33 +188,53 @@ class SimplePrintFileListSerializer(serializers.ModelSerializer):
         """
         Извлечь количество деталей из имени файла
 
-        Поддерживаемые паттерны:
-        - 25pcs, 42psc (опечатка) = 25 единиц
-        - 3k, 3K = 3 единицы
-        - 1,5k, 1.5k = 1.5 единицы (дробное значение)
-        - part1, part2, part3... = 0.5 (половина изделия, когда печатается по частям)
+        ПРИОРИТЕТ (от высокого к низкому):
+        1. pcs/psc (явное указание штук) - ВСЕГДА имеет приоритет
+        2. part (части изделия) = 0.5
+        3. k/K (только если идет ОТДЕЛЬНО после underscore, не в артикуле)
+
+        Примеры:
+        - 45_N421-11-45K_part2_10pcs_... → 10.0 (pcs приоритетнее, 45K - часть артикула)
+        - 102-43032_42psc_... → 42.0 (psc)
+        - N406-12-138_3K_... → 3.0 (отдельное k после underscore)
+        - 673-50930_part1_... → 0.5 (part)
         """
         import re
         filename = obj.name.lower()
 
-        # 1. Проверяем дробные значения типа "1,5k" или "1.5k" или "1.5pcs"
-        match = re.search(r'(\d+)[,.](\d+)(pcs|psc|k)(?=[_\s\d]|$)', filename)
+        # ПРИОРИТЕТ 1: Проверяем наличие pcs/psc (явное указание количества)
+
+        # 1a. Дробные значения с pcs/psc: "1,5pcs" или "1.5pcs"
+        match = re.search(r'(\d+)[,.](\d+)(pcs|psc)(?=[_\s\d]|$)', filename)
         if match:
             integer_part = int(match.group(1))
             decimal_part = int(match.group(2))
-            # Создаем дробное число: 1,5 -> 1.5
             return float(f"{integer_part}.{decimal_part}")
 
-        # 2. Проверяем целые значения типа "25pcs", "42psc" или "3k"
-        match = re.search(r'(\d+)(pcs|psc|k)(?=[_\s\d]|$)', filename)
+        # 1b. Целые значения с pcs/psc: "25pcs", "42psc"
+        match = re.search(r'(\d+)(pcs|psc)(?=[_\s\d]|$)', filename)
         if match:
             return float(match.group(1))
 
-        # 3. Проверяем паттерн "part" (part1, part2, part3 и т.д.)
+        # ПРИОРИТЕТ 2: Проверяем паттерн "part" (part1, part2, part3 и т.д.)
         # Если изделие печатается по частям, каждая часть = 0.5
         match = re.search(r'part\d+', filename)
         if match:
             return 0.5
+
+        # ПРИОРИТЕТ 3: Проверяем k ТОЛЬКО если нет pcs/psc
+        # ВАЖНО: k должен идти ПОСЛЕ underscore (не в начале имени, не в артикуле)
+        # Паттерн: _\d+k с lookahead для конца или разделителя
+        match = re.search(r'_(\d+)k(?=[_\s\d]|$)', filename)
+        if match:
+            return float(match.group(1))
+
+        # Дробные значения с k (только если после underscore)
+        match = re.search(r'_(\d+)[,.](\d+)k(?=[_\s\d]|$)', filename)
+        if match:
+            integer_part = int(match.group(1))
+            decimal_part = int(match.group(2))
+            return float(f"{integer_part}.{decimal_part}")
 
         return None
 
