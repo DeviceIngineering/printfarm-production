@@ -39,7 +39,7 @@ export const TestProductsPage: React.FC = () => {
     setError(null);
     try {
       console.log('Fetching products...');
-      console.log('API Base URL:', process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1');
+      console.log('API Base URL:', process.env.REACT_APP_API_URL || '/api/v1');
       console.log('Auth token:', localStorage.getItem('auth_token') ? 'Present' : 'Missing');
       
       const response = await apiClient.get('/products/');
@@ -222,7 +222,7 @@ export const TestProductsPage: React.FC = () => {
       {/* Debug Info */}
       <Card title="Отладочная информация" style={{ marginTop: 24 }}>
         <Space direction="vertical" style={{ width: '100%' }}>
-          <Text>API Base URL: {process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1'}</Text>
+          <Text>API Base URL: {process.env.REACT_APP_API_URL || '/api/v1'}</Text>
           <Text>Auth Token: {localStorage.getItem('auth_token') ? `Установлен (${localStorage.getItem('auth_token')?.substring(0, 10)}...)` : 'Не установлен'}</Text>
           <Text>Количество загруженных товаров: {products.length}</Text>
           <Text>Время последнего обновления: {new Date().toLocaleString('ru-RU')}</Text>
@@ -232,7 +232,7 @@ export const TestProductsPage: React.FC = () => {
             type="default" 
             onClick={() => {
               console.log('Manual API test started');
-              fetch('http://localhost:8000/api/v1/products/', {
+              fetch('/api/v1/products/', {
                 headers: {
                   'Authorization': `Token ${localStorage.getItem('auth_token')}`,
                   'Accept': 'application/json',
