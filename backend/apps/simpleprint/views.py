@@ -482,18 +482,22 @@ class PrinterSnapshotsView(APIView):
     def get(self, request):
         """Получить последние снимки всех принтеров"""
         try:
-            service = PrinterSyncService()
-            snapshots = service.get_latest_snapshots()
+            # WORKAROUND: SimplePrint API hangs for 2+ minutes, blocking gunicorn worker
+            # Temporarily return empty array immediately to prevent Planning V2 page freeze
+            # TODO: Investigate SimplePrint API connectivity issue and add proper timeout
+            logger.warning("SimplePrint /printers/ endpoint temporarily disabled (API hangs)")
+            logger.info("Returning empty printer array to prevent worker blocking")
+            return Response([], status=status.HTTP_200_OK)
 
-            serializer = PrinterSnapshotSerializer(snapshots, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            # COMMENTED OUT until SimplePrint API issue is resolved:
+            # service = PrinterSyncService()
+            # snapshots = service.get_latest_snapshots()
+            # serializer = PrinterSnapshotSerializer(snapshots, many=True)
+            # return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.error(f"Failed to fetch printer snapshots: {e}", exc_info=True)
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response([], status=status.HTTP_200_OK)
 
 
 class PrinterStatsView(APIView):
