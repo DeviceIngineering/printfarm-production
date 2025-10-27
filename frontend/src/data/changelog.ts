@@ -14,6 +14,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.2.10.3",
+    date: "2025-10-28",
+    title: "Enhanced API Debug Modal with Full Details",
+    features: [
+      "Расширенное модальное окно 'Отладка API' с ручной загрузкой данных",
+      "Детальная таблица Backend (15+ колонок): ID, Имя, Online, State, Job File, Артикул, Прогресс, Слои, Прошло, Осталось, Начало, Конец, Температуры, Idle",
+      "Три вкладки: Frontend данные, Backend данные (детально), Сравнение Frontend vs Backend",
+      "Фильтры и поиск: статус (printing/idle/error), online/offline, поиск по имени (real-time)",
+      "Expandable rows с Descriptions и полным Raw JSON от Backend API",
+      "Export CSV - экспорт всех данных в CSV файл",
+      "Copy JSON - копирование JSON в буфер обмена",
+      "Сводная статистика по Frontend и Backend данным",
+      "Отображение времени последнего обновления",
+      "Toast уведомления при успехе/ошибке"
+    ],
+    fixes: [],
+    commits: [
+      "d7323c9 - Feature: Enhanced API Debug Modal - v4.2.10.2",
+      "28a6fe3 - Docs: Update version to v4.2.10.3 and CHANGELOG",
+      "82cebb9 - Config: Update APP_VERSION to 4.2.10.3 in base.py"
+    ]
+  },
+  {
     version: "4.2.10",
     date: "2025-10-27",
     title: "SimplePrint Article Parsing Priority Fix",
