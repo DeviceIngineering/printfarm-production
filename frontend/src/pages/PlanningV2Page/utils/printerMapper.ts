@@ -60,8 +60,12 @@ export function mapSimplePrintToPrinter(snapshot: PrinterSnapshot): Printer {
   // Создаем задачу если принтер печатает
   let currentTask: PrintTask | null = null;
   if (snapshot.state === 'printing' && snapshot.job_start_time && snapshot.job_end_time_estimate) {
+    // Пытаемся извлечь артикул, если не получается - используем имя файла
+    const article = extractArticleFromFilename(snapshot.job_file);
+    const displayName = article || snapshot.job_file || 'Неизвестное задание';
+
     currentTask = {
-      article: extractArticleFromFilename(snapshot.job_file),
+      article: displayName,
       quantity: 1,  // Не доступно в API
       progress: snapshot.percentage,
       timeRemaining: formatTimeRemaining(snapshot.time_remaining_seconds),
