@@ -4,6 +4,60 @@
 
 ---
 
+## 🔧 v4.2.11 (2025-10-28) - Critical Frontend Recovery
+
+**🚨 Критическое исправление:**
+- 🐛 **Frontend Crash Recovery** - полное восстановление работоспособности интерфейса
+  - Исправлена проблема с localhost URL в production bundle
+  - Frontend делал запросы к `http://localhost:8000/api/v1/` вместо `/api/v1/`
+  - Все страницы показывали "Нет данных" из-за failed API requests
+
+**🔍 Root Cause Analysis:**
+- Webpack не подставлял переменную окружения `REACT_APP_API_URL` из `.env.production`
+- Fallback значения в исходных файлах содержали hardcoded localhost URL
+- Файлы с проблемой:
+  - `frontend/src/store/webhookSlice.ts:14` - fallback `http://localhost:8000`
+  - `frontend/src/utils/analytics.ts:53` - fallback `http://localhost:8001/api/v1`
+
+**✅ Решение:**
+- Исправлены fallback значения на относительные URL `/api/v1`
+- Полная очистка webpack cache: `node_modules/.cache`, `build/`, `.eslintcache`
+- Пересборка с явным указанием переменной: `REACT_APP_API_URL=/api/v1 npm run build`
+- Верификация bundle: `main.e174116f.js` - 0 вхождений localhost (было 4)
+
+**🎯 Изменённые файлы:**
+- `frontend/src/store/webhookSlice.ts` - исправлен API_BASE_URL fallback
+- `frontend/src/utils/analytics.ts` - исправлен apiUrl fallback
+- `RECOVERY_PLAN.md` - добавлена документация восстановления
+- `VERSION` - обновлена до 4.2.11
+- `backend/config/settings/base.py` - обновлена APP_VERSION
+
+**📦 Bundle информация:**
+- Старый: `main.b5ea7d21.js` (broken, 4 localhost refs)
+- Новый: `main.e174116f.js` (working, 0 localhost refs)
+- Размер: 456.91 kB gzipped
+
+**🧪 Проверка после восстановления:**
+- ✅ `/api/v1/products/stats/` - 692 товара
+- ✅ `/api/v1/settings/system-info/` - версия v4.2.11
+- ✅ `/api/v1/sync/status/` - работает нормально
+- ✅ Все страницы отображают данные корректно
+
+**📝 Рекомендации для будущего:**
+1. Обновить `package.json` scripts: `"build": "REACT_APP_API_URL=/api/v1 react-scripts build"`
+2. Добавить pre-deploy проверку bundle на localhost references
+3. Документировать правильную команду сборки в README.md
+
+**💾 Backup:**
+- `factory_v3_recovery_fixed_20251028_222839.tar.gz` (64MB)
+
+**Commits:**
+- 🔧 Fix: Frontend API URL - remove localhost fallbacks
+- 📝 Docs: Update RECOVERY_PLAN.md with solution details
+- 🔖 Version: Update to v4.2.11
+
+---
+
 ## 🎯 v4.4.0 (2025-10-28) - Webhook Testing & Real-time Printer Monitoring
 
 **✨ Основные возможности:**

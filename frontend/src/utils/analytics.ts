@@ -50,7 +50,7 @@ class AnalyticsManager {
     this.userId = this.getUserId();
     this.sessionId = this.generateSessionId();
     this.isEnabled = process.env.REACT_APP_ANALYTICS_ENABLED === 'true';
-    this.apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8001/api/v1';
+    this.apiUrl = process.env.REACT_APP_API_URL || '/api/v1';
     this.authToken = localStorage.getItem('auth_token') || '';
     
     this.initializeTracking();
