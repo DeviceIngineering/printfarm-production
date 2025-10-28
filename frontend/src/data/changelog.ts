@@ -14,6 +14,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.3.0",
+    date: "2025-10-28",
+    title: "SimplePrint Sync Cooldown Critical Fix",
+    features: [],
+    fixes: [
+      "КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Cooldown механизм теперь работает корректно",
+      "Исправлено: cooldown игнорировал pending синхронизации и можно было запускать параллельные синхронизации",
+      "Исправлено: галочка 'Принудительная синхронизация' (force) теперь работает корректно",
+      "Исправлено: при повторном запросе < 5 минут возвращается HTTP 429 вместо 401",
+      "backend/apps/simpleprint/services.py:316 - get_sync_stats() теперь проверяет ВСЕ синхронизации, не только успешные",
+      "backend/apps/simpleprint/views.py:393-422 - добавлено детальное логирование с emoji индикаторами",
+      "Cooldown корректно блокирует повторные запросы менее 5 минут (HTTP 429)",
+      "Force параметр обходит cooldown и запускает синхронизацию (HTTP 202)",
+      "Защита от параллельных синхронизаций теперь работает",
+      "Созданы диагностические инструменты: test_sync_cooldown.py, diagnose_sync_flow.py",
+      "Добавлена полная документация исправления в CHANGELOG.md"
+    ],
+    commits: [
+      "f465c40 - Docs: Update version to v4.3.0 and CHANGELOG",
+      "2923c1c - Fix: SimplePrint sync cooldown mechanism - critical bug fix"
+    ]
+  },
+  {
     version: "4.2.10.4",
     date: "2025-10-28",
     title: "Fix PrinterSnapshot NULL Constraint Error",
