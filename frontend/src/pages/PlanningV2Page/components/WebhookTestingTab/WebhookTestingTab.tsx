@@ -128,6 +128,14 @@ export const WebhookTestingTab: React.FC = () => {
 
   // Цвет для типа события
   const getEventColor = (eventType: string): string => {
+    // AI события (v4.4.2)
+    if (eventType === 'ai_failure_detected') return 'red';
+    if (eventType === 'ai_false_positive') return 'gold';
+    // Филамент события (v4.4.2)
+    if (eventType === 'filament_deleted') return 'orange';
+    // Очередь события (v4.4.2)
+    if (eventType === 'queue_item_deleted') return 'volcano';
+    // Существующие правила
     if (eventType.includes('started')) return 'blue';
     if (eventType.includes('completed')) return 'green';
     if (eventType.includes('failed')) return 'red';

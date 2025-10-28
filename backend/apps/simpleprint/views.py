@@ -114,14 +114,19 @@ class SimplePrintWebhookView(APIView):
                 'queue.item_added': 'queue_changed',
                 'queue.item_deleted': 'queue_changed',
                 'queue.item_moved': 'queue_changed',
+                'queue.delete_item': 'queue_item_deleted',  # v4.4.2: Удаление элемента из очереди
                 # События принтера
                 'printer.online': 'printer_online',
                 'printer.offline': 'printer_offline',
                 'printer.state_changed': 'printer_state_changed',
                 'printer.material_changed': 'printer_state_changed',  # Изменение материала
+                'printer.ai_failure_detected': 'ai_failure_detected',  # v4.4.2: AI обнаружил проблему
+                'printer.ai_failure_false_positive': 'ai_false_positive',  # v4.4.2: AI ложное срабатывание
                 # События файлов
                 'file.created': 'file_created',
                 'file.deleted': 'file_deleted',
+                # События филаментов (v4.4.2)
+                'filament.delete': 'filament_deleted',  # Удаление филамента
             }
 
             our_event_type = event_mapping.get(event, 'unknown')

@@ -14,6 +14,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.4.2",
+    date: "2025-10-28",
+    title: "Webhook Events Expansion",
+    features: [
+      "🔍 Идентифицированы все 77 unknown webhook событий от SimplePrint",
+      "📊 Добавлено 4 новых типа событий: filament_deleted, ai_failure_detected, ai_false_positive, queue_item_deleted",
+      "🎨 Цветовые индикаторы для новых типов в Webhook Testing UI",
+      "📈 100% покрытие реальных SimplePrint событий",
+      "Backend: расширен EVENT_TYPE_CHOICES (19 → 23 типа)",
+      "Backend: обновлен event_mapping с 4 новыми маппингами",
+      "Backend: миграция 0007_alter_printerwebhookevent_event_type.py",
+      "Frontend: цветовые индикаторы (ai_failure_detected: red, ai_false_positive: gold, filament_deleted: orange, queue_item_deleted: volcano)",
+      "Документация: обновлены SIMPLEPRINT_WEBHOOK_SETUP.md и WEBHOOK_INVESTIGATION_REPORT.md",
+      "✅ Unknown события: 77 → 0 (-100%)",
+      "✅ AI мониторинг качества печати включен",
+      "✅ Отслеживание расхода материалов (filament)",
+      "✅ Полный аудит действий с очередью"
+    ],
+    fixes: [],
+    commits: [
+      "🆕 Feature: Add 4 new webhook event types - v4.4.2"
+    ]
+  },
+  {
     version: "4.4.1",
     date: "2025-10-28",
     title: "Critical Frontend Recovery",

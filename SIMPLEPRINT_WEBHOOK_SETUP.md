@@ -245,8 +245,14 @@ SimplePrint отправляет следующий формат:
 | `queue.item_added` | `queue_changed` | Добавление в очередь |
 | `queue.item_deleted` | `queue_changed` | Удаление из очереди |
 | `queue.item_moved` | `queue_changed` | Перемещение в очереди |
+| `queue.delete_item` | `queue_item_deleted` | 🆕 Элемент очереди удален (v4.4.2) |
 | `file.created` | `file_created` | Файл создан |
 | `file.deleted` | `file_deleted` | Файл удален |
+| `filament.delete` | `filament_deleted` | 🆕 Филамент удален из инвентаря (v4.4.2) |
+| `printer.ai_failure_detected` | `ai_failure_detected` | 🆕 AI обнаружил проблему печати (v4.4.2) |
+| `printer.ai_failure_false_positive` | `ai_false_positive` | 🆕 AI ложное срабатывание (v4.4.2) |
+
+**Итого поддерживается:** 23 типа событий SimplePrint (обновлено в v4.4.2)
 
 ---
 

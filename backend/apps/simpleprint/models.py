@@ -444,8 +444,12 @@ class PrinterWebhookEvent(models.Model):
         ('job_resumed', 'Задание возобновлено'),
         ('job_progress', 'Прогресс задания'),
         ('queue_changed', 'Очередь изменена'),
+        ('queue_item_deleted', 'Элемент очереди удален'),
         ('file_created', 'Файл создан'),
         ('file_deleted', 'Файл удален'),
+        ('filament_deleted', 'Филамент удален'),
+        ('ai_failure_detected', 'AI обнаружил проблему'),
+        ('ai_false_positive', 'AI ложное срабатывание'),
         ('error_occurred', 'Произошла ошибка'),
         ('unknown', 'Неизвестное событие'),
     ]

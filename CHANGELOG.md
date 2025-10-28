@@ -4,6 +4,51 @@
 
 ---
 
+## 🆕 v4.4.2 (2025-10-28) - Webhook Events Expansion
+
+**✨ Новые возможности:**
+- 🔍 **Идентифицированы все 77 unknown webhook событий** от SimplePrint
+- 📊 **Добавлено 4 новых типа событий:**
+  - `filament.delete` → `filament_deleted` (19 событий в production)
+  - `printer.ai_failure_detected` → `ai_failure_detected` (AI мониторинг)
+  - `printer.ai_failure_false_positive` → `ai_false_positive` (feedback loop)
+  - `queue.delete_item` → `queue_item_deleted` (аудит очереди)
+- 🎨 **Цветовые индикаторы** для новых типов в UI
+- 📈 **100% покрытие** реальных SimplePrint событий
+
+**🏗️ Backend изменения:**
+- `backend/apps/simpleprint/models.py`: расширен EVENT_TYPE_CHOICES (19 → 23 типа)
+- `backend/apps/simpleprint/views.py`: обновлен event_mapping с 4 новыми маппингами
+- Миграция `0007_alter_printerwebhookevent_event_type.py`
+
+**🎨 Frontend изменения:**
+- `WebhookTestingTab.tsx`: добавлены цветовые индикаторы:
+  - `ai_failure_detected`: red (критичный мониторинг!)
+  - `ai_false_positive`: gold
+  - `filament_deleted`: orange
+  - `queue_item_deleted`: volcano
+
+**📚 Документация:**
+- `SIMPLEPRINT_WEBHOOK_SETUP.md`: обновлена таблица событий (23 типа)
+- `WEBHOOK_INVESTIGATION_REPORT.md`: добавлена секция v4.4.2 с анализом
+
+**📊 Результаты:**
+- ✅ Unknown события: 77 → 0 (-100%)
+- ✅ Поддерживаемых типов: 19 → 23 (+21%)
+- ✅ AI мониторинг качества печати включен
+- ✅ Отслеживание расхода материалов (filament)
+- ✅ Полный аудит действий с очередью
+
+**🔬 Анализ payload:**
+- Filament events: type, brand, color, weight tracking
+- AI events: timeline, scores, images, action taken
+- Queue events: full analysis, cost estimates, user tracking
+
+**Коммиты:**
+- 🆕 Feature: Add 4 new webhook event types - v4.4.2
+
+---
+
 ## 🔧 v4.4.1 (2025-10-28) - Critical Frontend Recovery
 
 **🚨 Критическое исправление:**
