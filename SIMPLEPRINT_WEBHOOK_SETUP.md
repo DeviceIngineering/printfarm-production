@@ -228,14 +228,19 @@ SimplePrint отправляет следующий формат:
 
 | SimplePrint Event | Наш Event Type | Описание |
 |-------------------|----------------|-----------|
+| `test` | `test` | Тестовое событие SimplePrint ✅ |
 | `job.started` | `job_started` | Печать началась |
 | `job.finished` | `job_completed` | Печать завершена |
 | `job.failed` | `job_failed` | Печать провалена |
-| `job.paused` | `job_progress` | Печать на паузе |
-| `job.resumed` | `job_progress` | Печать возобновлена |
+| `job.paused` | `job_paused` | Печать на паузе |
+| `job.resumed` | `job_resumed` | Печать возобновлена |
+| `job.bed_cleared` | `job_completed` | Стол очищен (задание завершено) |
 | `printer.online` | `printer_online` | Принтер онлайн |
 | `printer.offline` | `printer_offline` | Принтер оффлайн |
+| `printer.state_changed` | `printer_state_changed` | Изменение состояния принтера |
 | `queue.*` | `queue_changed` | Изменения в очереди |
+| `file.created` | `file_created` | Файл создан |
+| `file.deleted` | `file_deleted` | Файл удален |
 
 ---
 

@@ -432,14 +432,20 @@ class PrinterWebhookEvent(models.Model):
     Логирует все события от SimplePrint webhooks для отладки и мониторинга
     """
     EVENT_TYPE_CHOICES = [
+        ('test', 'Тестовое событие'),
         ('printer_online', 'Принтер онлайн'),
         ('printer_offline', 'Принтер оффлайн'),
+        ('printer_state_changed', 'Изменение состояния принтера'),
         ('job_started', 'Задание начато'),
         ('job_completed', 'Задание завершено'),
         ('job_cancelled', 'Задание отменено'),
         ('job_failed', 'Задание провалено'),
+        ('job_paused', 'Задание приостановлено'),
+        ('job_resumed', 'Задание возобновлено'),
         ('job_progress', 'Прогресс задания'),
         ('queue_changed', 'Очередь изменена'),
+        ('file_created', 'Файл создан'),
+        ('file_deleted', 'Файл удален'),
         ('error_occurred', 'Произошла ошибка'),
         ('unknown', 'Неизвестное событие'),
     ]

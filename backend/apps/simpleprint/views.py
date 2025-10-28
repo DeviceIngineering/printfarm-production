@@ -98,19 +98,25 @@ class SimplePrintWebhookView(APIView):
 
             # Маппинг событий SimplePrint к нашим типам
             event_mapping = {
+                # Тестовое событие
+                'test': 'test',
+                # События заданий печати
                 'job.started': 'job_started',
                 'job.finished': 'job_completed',
                 'job.paused': 'job_paused',
                 'job.resumed': 'job_resumed',
                 'job.failed': 'job_failed',
+                'job.bed_cleared': 'job_completed',  # Стол очищен = задание завершено
+                # События очереди
                 'queue.changed': 'queue_changed',
                 'queue.item_added': 'queue_changed',
                 'queue.item_deleted': 'queue_changed',
                 'queue.item_moved': 'queue_changed',
+                # События принтера
                 'printer.online': 'printer_online',
                 'printer.offline': 'printer_offline',
                 'printer.state_changed': 'printer_state_changed',
-                # Старый формат (файлы)
+                # События файлов
                 'file.created': 'file_created',
                 'file.deleted': 'file_deleted',
             }
@@ -171,6 +177,11 @@ class SimplePrintWebhookView(APIView):
             event: тип события от SimplePrint (job.started, и т.д.)
             data: данные события
         """
+        # Тестовое событие от SimplePrint
+        if event == 'test':
+            logger.info(f"✅ Test webhook received successfully")
+            return
+
         # Обработка событий печати
         if event.startswith('job.'):
             self._handle_job_event(event, data)
