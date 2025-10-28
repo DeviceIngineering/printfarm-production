@@ -103,12 +103,14 @@ class SimplePrintWebhookView(APIView):
                 # События заданий печати
                 'job.started': 'job_started',
                 'job.finished': 'job_completed',
+                'job.done': 'job_completed',  # Альтернативное название для job.finished
                 'job.paused': 'job_paused',
                 'job.resumed': 'job_resumed',
                 'job.failed': 'job_failed',
                 'job.bed_cleared': 'job_completed',  # Стол очищен = задание завершено
                 # События очереди
                 'queue.changed': 'queue_changed',
+                'queue.add_item': 'queue_changed',  # Альтернативное название
                 'queue.item_added': 'queue_changed',
                 'queue.item_deleted': 'queue_changed',
                 'queue.item_moved': 'queue_changed',
@@ -116,6 +118,7 @@ class SimplePrintWebhookView(APIView):
                 'printer.online': 'printer_online',
                 'printer.offline': 'printer_offline',
                 'printer.state_changed': 'printer_state_changed',
+                'printer.material_changed': 'printer_state_changed',  # Изменение материала
                 # События файлов
                 'file.created': 'file_created',
                 'file.deleted': 'file_deleted',

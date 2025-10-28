@@ -231,6 +231,7 @@ SimplePrint отправляет следующий формат:
 | `test` | `test` | Тестовое событие SimplePrint ✅ |
 | `job.started` | `job_started` | Печать началась |
 | `job.finished` | `job_completed` | Печать завершена |
+| `job.done` | `job_completed` | Печать завершена (альт. название) |
 | `job.failed` | `job_failed` | Печать провалена |
 | `job.paused` | `job_paused` | Печать на паузе |
 | `job.resumed` | `job_resumed` | Печать возобновлена |
@@ -238,7 +239,12 @@ SimplePrint отправляет следующий формат:
 | `printer.online` | `printer_online` | Принтер онлайн |
 | `printer.offline` | `printer_offline` | Принтер оффлайн |
 | `printer.state_changed` | `printer_state_changed` | Изменение состояния принтера |
-| `queue.*` | `queue_changed` | Изменения в очереди |
+| `printer.material_changed` | `printer_state_changed` | Изменение материала принтера |
+| `queue.changed` | `queue_changed` | Изменения в очереди |
+| `queue.add_item` | `queue_changed` | Добавление в очередь (альт. название) |
+| `queue.item_added` | `queue_changed` | Добавление в очередь |
+| `queue.item_deleted` | `queue_changed` | Удаление из очереди |
+| `queue.item_moved` | `queue_changed` | Перемещение в очереди |
 | `file.created` | `file_created` | Файл создан |
 | `file.deleted` | `file_deleted` | Файл удален |
 
