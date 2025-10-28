@@ -67,7 +67,7 @@ export const fetchWebhookEvents = createAsyncThunk(
     }
 
     const response = await axios.get(
-      `${API_BASE_URL}/api/v1/simpleprint/webhook/events/?${queryParams}`,
+      `${API_BASE_URL}/simpleprint/webhook/events/?${queryParams}`,
       {
         headers: {
           Authorization: `Token ${token}`,
@@ -85,7 +85,7 @@ export const fetchWebhookStats = createAsyncThunk(
   'webhook/fetchStats',
   async () => {
     const response = await axios.get(
-      `${API_BASE_URL}/api/v1/simpleprint/webhook/stats/`,
+      `${API_BASE_URL}/simpleprint/webhook/stats/`,
       {
         headers: {
           Authorization: `Token ${token}`,
@@ -103,7 +103,7 @@ export const triggerTestWebhook = createAsyncThunk(
   'webhook/triggerTest',
   async (eventType: string = 'job.started') => {
     const response = await axios.post(
-      `${API_BASE_URL}/api/v1/simpleprint/webhook/test-trigger/`,
+      `${API_BASE_URL}/simpleprint/webhook/test-trigger/`,
       { event_type: eventType },
       {
         headers: {
@@ -122,7 +122,7 @@ export const clearOldWebhookEvents = createAsyncThunk(
   'webhook/clearOld',
   async (days: number = 7) => {
     const response = await axios.delete(
-      `${API_BASE_URL}/api/v1/simpleprint/webhook/events/clear/?days=${days}`,
+      `${API_BASE_URL}/simpleprint/webhook/events/clear/?days=${days}`,
       {
         headers: {
           Authorization: `Token ${token}`,
