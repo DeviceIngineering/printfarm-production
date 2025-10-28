@@ -14,6 +14,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.4.0",
+    date: "2025-10-28",
+    title: "Webhook Testing & Real-time Printer Monitoring",
+    features: [
+      "🔗 Webhook Testing Functionality - полноценная система мониторинга webhook событий от SimplePrint",
+      "Real-time отслеживание событий принтеров: online/offline, job_started/completed/cancelled/failed, job_progress, queue_changed",
+      "Dashboard с подробной статистикой событий по типам",
+      "Интерфейс для ручного тестирования webhooks (кнопка Test Webhook)",
+      "Логирование всех входящих webhook событий с полным payload",
+      "Очистка старых событий (> 30 дней) одним кликом",
+      "Backend: Новые модели PrinterSnapshot, PrintJob, PrintQueue, PrinterWebhookEvent",
+      "Backend: 4 новых API endpoints для webhook management",
+      "Backend: Admin интерфейсы с цветовыми badges для всех webhook моделей",
+      "Frontend: Redux webhookSlice с 4 async thunks (events, stats, test, clear)",
+      "Frontend: WebhookTestingTab компонент с таблицей событий, статистикой и фильтрами",
+      "Frontend: Auto-refresh каждые 10 секунд при наличии активных событий",
+      "Интеграция в модальное окно принтеров (вкладка 🔗 Webhook Testing)",
+      "webhook_manager.py - менеджер для регистрации/удаления webhooks в SimplePrint",
+      "Management команда register_webhooks.py для настройки webhooks",
+      "TypeScript типизация для всех webhook моделей",
+      "Color-coded badges для визуального состояния событий",
+      "Responsive UI дизайн с PrintFarm стилями",
+      "Полная документация: WEBHOOK_IMPLEMENTATION_COMPLETE.md, WEBHOOK_SETUP_GUIDE.md"
+    ],
+    fixes: [],
+    commits: [
+      "f2cbc8c - Feature: Add Webhook Testing functionality - v4.4.0"
+    ]
+  },
+  {
     version: "4.3.0",
     date: "2025-10-28",
     title: "SimplePrint Sync Cooldown Critical Fix",

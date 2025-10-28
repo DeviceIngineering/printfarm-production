@@ -4,6 +4,139 @@
 
 ---
 
+## 🎯 v4.4.0 (2025-10-28) - Webhook Testing & Real-time Printer Monitoring
+
+**✨ Основные возможности:**
+- 🔗 **Webhook Testing Functionality** - полноценная система мониторинга webhook событий от SimplePrint
+  - Real-time отслеживание событий принтеров (online/offline, job_started/completed/cancelled/failed)
+  - Dashboard с подробной статистикой событий
+  - Интерфейс для ручного тестирования webhooks
+  - Логирование всех входящих webhook событий с payload
+  - Очистка старых событий (> 30 дней)
+
+**🏗️ Backend изменения:**
+
+**Новые модели** (`backend/apps/simpleprint/models.py`):
+- `PrinterSnapshot` - снимки состояния принтеров с job информацией
+- `PrintJob` - история заданий печати (статус, прогресс, время)
+- `PrintQueue` - очередь заданий принтеров
+- `PrinterWebhookEvent` - лог webhook событий с типизацией
+
+**Новые API endpoints** (`backend/apps/simpleprint/urls.py`):
+- `GET /api/v1/simpleprint/webhook/events/` - список webhook событий
+- `GET /api/v1/simpleprint/webhook/stats/` - статистика по типам событий
+- `POST /api/v1/simpleprint/webhook/test-trigger/` - триггер тестового webhook
+- `POST /api/v1/simpleprint/webhook/events/clear/` - очистка старых событий
+
+**Admin интерфейсы** (`backend/apps/simpleprint/admin.py`):
+- `PrinterSnapshotAdmin` - просмотр снимков с цветовыми badges
+- `PrintJobAdmin` - управление историей заданий с duration расчётами
+- `PrintQueueAdmin` - мониторинг очереди печати
+- `PrinterWebhookEventAdmin` - анализ webhook событий с фильтрами
+
+**Serializers** (`backend/apps/simpleprint/serializers.py`):
+- `PrinterSnapshotSerializer` - с вычисляемыми полями (state_display, online_display)
+- `PrintJobSerializer` - с duration расчётом
+- `PrintQueueSerializer` - с estimated_time форматированием
+- `PrinterWebhookEventSerializer` - с типизацией событий
+
+**Новый функционал** (`backend/apps/simpleprint/`):
+- `webhook_manager.py` - менеджер для регистрации/удаления webhooks в SimplePrint
+- `management/commands/register_webhooks.py` - команда для настройки webhooks
+
+**🎨 Frontend изменения:**
+
+**Redux state management** (`frontend/src/store/`):
+- `webhookSlice.ts` - новый slice для webhook state
+  - `fetchWebhookEvents` thunk - загрузка событий с пагинацией
+  - `fetchWebhookStats` thunk - получение статистики
+  - `testWebhook` thunk - триггер тестового события
+  - `clearOldEvents` thunk - очистка старых логов
+- Интеграция в `store/index.ts` с основным Redux store
+
+**Новый UI компонент** (`frontend/src/pages/PlanningV2Page/components/`):
+- `WebhookTestingTab/WebhookTestingTab.tsx` - полноценная панель управления:
+  - 📊 Статистика событий с цветовыми индикаторами
+  - 📋 Таблица событий с фильтрацией по типу и дате
+  - 🧪 Кнопка тестирования webhook
+  - 🗑️ Очистка старых событий
+  - 🔄 Auto-refresh каждые 10 секунд при наличии активных событий
+- `WebhookTestingTab/WebhookTestingTab.css` - стили в PrintFarm стиле
+
+**Интеграция в UI** (`frontend/src/pages/PlanningV2Page/components/Header/Header.tsx`):
+- Добавлена вкладка "🔗 Webhook Testing" в модальное окно принтеров
+- Интеграция с существующим UI без breaking changes
+
+**📚 Документация:**
+- `WEBHOOK_IMPLEMENTATION_COMPLETE.md` - полная техническая документация
+- `WEBHOOK_SETUP_GUIDE.md` - руководство по настройке webhooks
+
+**🎯 API Endpoints (новые):**
+```
+GET    /api/v1/simpleprint/webhook/events/          # Webhook события (пагинация)
+GET    /api/v1/simpleprint/webhook/stats/           # Статистика по типам
+POST   /api/v1/simpleprint/webhook/test-trigger/    # Тестовый webhook
+POST   /api/v1/simpleprint/webhook/events/clear/    # Очистка (30+ дней)
+```
+
+**🧪 Типы webhook событий:**
+- `printer_online` / `printer_offline` - статус подключения
+- `job_started` / `job_completed` / `job_cancelled` / `job_failed` - жизненный цикл задания
+- `job_progress` - обновление прогресса печати
+- `queue_changed` - изменение очереди печати
+
+**📊 Статистика мониторинга:**
+- Общее количество событий
+- Распределение по типам событий
+- Необработанные события
+- События с ошибками обработки
+- Временные диапазоны
+
+**🔧 Изменённые файлы:**
+
+Backend:
+- `backend/apps/simpleprint/admin.py` (+226 строк)
+- `backend/apps/simpleprint/serializers.py` (+105 строк)
+- `backend/apps/simpleprint/urls.py` (+13 строк)
+- `backend/apps/simpleprint/webhook_manager.py` (new file)
+- `backend/apps/simpleprint/management/commands/register_webhooks.py` (new file)
+- `backend/config/settings/base.py` - версия 4.4.0
+
+Frontend:
+- `frontend/src/store/webhookSlice.ts` (new file)
+- `frontend/src/store/index.ts` (+2 строки - webhook integration)
+- `frontend/src/pages/PlanningV2Page/components/WebhookTestingTab/` (new component)
+- `frontend/src/pages/PlanningV2Page/components/Header/Header.tsx` (+10 строк)
+- `frontend/src/utils/constants.ts` - версия 4.4.0
+
+**🌟 Особенности реализации:**
+- ✅ TypeScript типизация для всех webhook моделей
+- ✅ Ant Design компоненты с PrintFarm цветовой схемой
+- ✅ Real-time обновления (polling каждые 10 сек)
+- ✅ Graceful error handling с уведомлениями
+- ✅ Пагинация для больших объёмов событий
+- ✅ Color-coded badges для визуального состояния
+- ✅ Responsive UI дизайн
+- ✅ Автоматическая очистка старых логов
+
+**💾 Коммиты:**
+- `f2cbc8c` - ✨ Feature: Add Webhook Testing functionality - v4.4.0
+
+**⚠️ Breaking Changes:** Нет
+
+**🎉 Impact:**
+- Полный мониторинг событий 3D принтеров в real-time
+- Отладочный инструмент для диагностики SimplePrint интеграции
+- Визуальный dashboard для анализа webhook активности
+- Упрощённая диагностика проблем с принтерами
+
+**📈 Следующие шаги:**
+- Добавить уведомления при критических событиях (job_failed, printer_offline)
+- Интегрировать webhook события с основным production flow
+- Добавить исторические графики событий
+
+---
+
 ## 🚀 v4.3.0 (2025-10-28) - Critical Fix: SimplePrint Sync Cooldown Mechanism
 
 **🐛 Критическое исправление:**
