@@ -4,7 +4,7 @@
 
 ---
 
-## 🔧 v4.2.11 (2025-10-28) - Critical Frontend Recovery
+## 🔧 v4.4.1 (2025-10-28) - Critical Frontend Recovery
 
 **🚨 Критическое исправление:**
 - 🐛 **Frontend Crash Recovery** - полное восстановление работоспособности интерфейса
@@ -29,7 +29,7 @@
 - `frontend/src/store/webhookSlice.ts` - исправлен API_BASE_URL fallback
 - `frontend/src/utils/analytics.ts` - исправлен apiUrl fallback
 - `RECOVERY_PLAN.md` - добавлена документация восстановления
-- `VERSION` - обновлена до 4.2.11
+- `VERSION` - обновлена до 4.4.1
 - `backend/config/settings/base.py` - обновлена APP_VERSION
 
 **📦 Bundle информация:**
@@ -39,7 +39,7 @@
 
 **🧪 Проверка после восстановления:**
 - ✅ `/api/v1/products/stats/` - 692 товара
-- ✅ `/api/v1/settings/system-info/` - версия v4.2.11
+- ✅ `/api/v1/settings/system-info/` - версия v4.4.1
 - ✅ `/api/v1/sync/status/` - работает нормально
 - ✅ Все страницы отображают данные корректно
 
@@ -54,7 +54,7 @@
 **Commits:**
 - 🔧 Fix: Frontend API URL - remove localhost fallbacks
 - 📝 Docs: Update RECOVERY_PLAN.md with solution details
-- 🔖 Version: Update to v4.2.11
+- 🔖 Version: Update to v4.4.1
 
 ---
 
