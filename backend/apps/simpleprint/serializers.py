@@ -5,7 +5,10 @@ DRF serializers для SimplePrint моделей.
 """
 
 from rest_framework import serializers
-from .models import SimplePrintFolder, SimplePrintFile, SimplePrintSync, SimplePrintWebhookEvent, PrinterSnapshot
+from .models import (
+    SimplePrintFolder, SimplePrintFile, SimplePrintSync, SimplePrintWebhookEvent,
+    PrinterSnapshot, PrintJob, PrintQueue, PrinterWebhookEvent
+)
 
 
 class SimplePrintFolderSerializer(serializers.ModelSerializer):
@@ -394,3 +397,103 @@ class PrinterStatsSerializer(serializers.Serializer):
     offline = serializers.IntegerField()
     error = serializers.IntegerField()
     online = serializers.IntegerField()
+
+
+# ==================== Новые serializers для Webhook Testing ====================
+
+
+class PrintJobSerializer(serializers.ModelSerializer):
+    """Serializer для PrintJob"""
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    duration = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PrintJob
+        fields = [
+            'id', 'job_id', 'printer_id', 'printer_name',
+            'file_id', 'file_name', 'article',
+            'status', 'status_display', 'percentage',
+            'current_layer', 'max_layer',
+            'queued_at', 'started_at', 'completed_at',
+            'estimated_time', 'elapsed_time', 'duration',
+            'success', 'error_message',
+            'created_at', 'updated_at'
+        ]
+
+    def get_duration(self, obj):
+        """Получить длительность в секундах"""
+        return obj.get_duration_seconds()
+
+
+class PrintQueueSerializer(serializers.ModelSerializer):
+    """Serializer для PrintQueue"""
+    estimated_time_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PrintQueue
+        fields = [
+            'id', 'queue_id', 'printer_id', 'printer_name',
+            'file_id', 'file_name', 'article',
+            'position', 'estimated_time', 'estimated_time_display',
+            'estimated_start', 'added_at', 'updated_at'
+        ]
+
+    def get_estimated_time_display(self, obj):
+        """Форматированное время"""
+        time = obj.estimated_time
+        if time:
+            hours = time // 3600
+            minutes = (time % 3600) // 60
+            if hours > 0:
+                return f"{hours}ч {minutes}м"
+            return f"{minutes}м"
+        return None
+
+
+class PrinterWebhookEventSerializer(serializers.ModelSerializer):
+    """Serializer для PrinterWebhookEvent"""
+    event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
+
+    class Meta:
+        model = PrinterWebhookEvent
+        fields = [
+            'id', 'event_type', 'event_type_display',
+            'printer_id', 'job_id', 'payload',
+            'processed', 'processed_at', 'processing_error',
+            'received_at'
+        ]
+        read_only_fields = ['received_at', 'processed_at']
+
+
+class WebhookTestRequestSerializer(serializers.Serializer):
+    """Serializer для тестового webhook запроса"""
+    event_type = serializers.ChoiceField(choices=[
+        ('printer_online', 'Принтер онлайн'),
+        ('printer_offline', 'Принтер оффлайн'),
+        ('job_started', 'Задание начато'),
+        ('job_completed', 'Задание завершено'),
+        ('job_cancelled', 'Задание отменено'),
+        ('job_failed', 'Задание провалено'),
+        ('job_progress', 'Прогресс задания'),
+        ('queue_changed', 'Очередь изменена'),
+    ])
+    printer_id = serializers.CharField(required=False, allow_blank=True)
+    job_id = serializers.CharField(required=False, allow_blank=True)
+    test_data = serializers.JSONField(required=False)
+
+
+class WebhookInfoSerializer(serializers.Serializer):
+    """Serializer для информации о webhook"""
+    id = serializers.CharField()
+    url = serializers.CharField()
+    enabled = serializers.BooleanField()
+    events = serializers.ListField(child=serializers.CharField())
+    description = serializers.CharField(required=False, allow_blank=True)
+
+
+class WebhookTestingDataSerializer(serializers.Serializer):
+    """Serializer для данных webhook testing"""
+    webhooks = WebhookInfoSerializer(many=True)
+    recent_events = PrinterWebhookEventSerializer(many=True)
+    event_stats = serializers.DictField()
+    websocket_available = serializers.BooleanField()

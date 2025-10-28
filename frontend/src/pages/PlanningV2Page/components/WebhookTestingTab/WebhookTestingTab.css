@@ -1,0 +1,21 @@
+.webhook-testing-tab {
+  padding: 0;
+}
+
+.webhook-testing-tab .ant-statistic-title {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.webhook-testing-tab .ant-statistic-content {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.webhook-testing-tab .ant-card {
+  border-radius: 8px;
+}
+
+.webhook-testing-tab .ant-table {
+  font-size: 13px;
+}

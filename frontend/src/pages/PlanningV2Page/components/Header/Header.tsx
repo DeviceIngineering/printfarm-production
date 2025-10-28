@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatTimeForTimeline, formatDateHeader, getCurrentTimeGMT3 } from '../../utils/timeUtils';
 import { Printer } from '../../types/printer.types';
 import { PrinterSnapshot } from '../../../../types/simpleprint.types';
+import { WebhookTestingTab } from '../WebhookTestingTab/WebhookTestingTab';
 import './Header.css';
 
 const { TabPane } = Tabs;
@@ -586,6 +587,12 @@ export const Header: React.FC<HeaderProps> = ({ currentTime, printers }) => {
                 )}
               </div>
             </TabPane>
+
+            {/* Вкладка 4: Webhook Testing */}
+            <TabPane tab="🔗 Webhook Testing" key="4">
+              <WebhookTestingTab />
+            </TabPane>
+
           </Tabs>
         )}
       </Modal>

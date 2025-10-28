@@ -4,6 +4,7 @@ import { syncReducer } from './sync';
 import { tochkaReducer } from './tochka';
 import simpleprintReducer from './simpleprintSlice';
 import simpleprintPrintersReducer from './simpleprintPrintersSlice';
+import webhookReducer from './webhookSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     tochka: tochkaReducer,
     simpleprint: simpleprintReducer,
     simpleprintPrinters: simpleprintPrintersReducer,
+    webhook: webhookReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
