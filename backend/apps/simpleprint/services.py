@@ -311,14 +311,19 @@ class SimplePrintSyncService:
         Returns:
             Словарь со статистикой
         """
-        last_sync = SimplePrintSync.objects.filter(status='success').first()
+        # ИСПРАВЛЕНИЕ: Берём ПОСЛЕДНЮЮ синхронизацию независимо от статуса
+        # для корректной работы cooldown (включая pending синхронизации)
+        last_sync = SimplePrintSync.objects.order_by('-started_at').first()
+
+        # Для отображения длительности используем последнюю успешную
+        last_success_sync = SimplePrintSync.objects.filter(status='success').first()
 
         return {
             'total_folders': SimplePrintFolder.objects.count(),
             'total_files': SimplePrintFile.objects.count(),
             'last_sync': last_sync.started_at if last_sync else None,
             'last_sync_status': last_sync.status if last_sync else None,
-            'last_sync_duration': last_sync.get_duration() if last_sync else None,
+            'last_sync_duration': last_success_sync.get_duration() if last_success_sync else None,
         }
 
 

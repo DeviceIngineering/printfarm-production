@@ -15,6 +15,7 @@ from rest_framework import filters
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
+from django.conf import settings
 
 from .models import SimplePrintWebhookEvent, SimplePrintFile, SimplePrintFolder, SimplePrintSync, PrinterSnapshot
 from .services import SimplePrintSyncService, PrinterSyncService
@@ -23,7 +24,8 @@ from .serializers import (
     SimplePrintFolderSerializer, SimplePrintFolderListSerializer,
     SimplePrintSyncSerializer, SimplePrintWebhookEventSerializer,
     SyncStatsSerializer, TriggerSyncSerializer,
-    PrinterSnapshotSerializer, PrinterSyncResultSerializer, PrinterStatsSerializer
+    PrinterSnapshotSerializer, PrinterSyncResultSerializer, PrinterStatsSerializer,
+    PrinterWebhookEventSerializer
 )
 
 logger = logging.getLogger(__name__)
@@ -41,75 +43,225 @@ class SimplePrintWebhookView(APIView):
     Webhook endpoint для приема событий от SimplePrint
 
     POST /api/v1/simpleprint/webhook/
+
+    Формат payload от SimplePrint:
+    {
+        "webhook_id": int,
+        "event": string,      # например: "job.started", "job.finished"
+        "timestamp": int,     # Unix timestamp
+        "data": object       # данные события (job, printer, user, и т.д.)
+    }
+
+    Поддерживаемые события:
+    - job.started: печать началась
+    - job.finished: печать завершена
+    - job.paused: печать на паузе
+    - job.resumed: печать возобновлена
+    - job.failed: печать провалена
+    - queue.item_added: добавлен элемент в очередь
+    - queue.item_deleted: удален элемент из очереди
+    - queue.item_moved: перемещен элемент в очереди
+    - file.created: файл создан (старый формат)
+    - file.deleted: файл удален (старый формат)
     """
-    permission_classes = [AllowAny]  # SimplePrint не поддерживает аутентификацию webhooks
+    permission_classes = [AllowAny]  # SimplePrint webhooks не используют auth
 
     def post(self, request):
         """
         Обработать webhook от SimplePrint
 
-        Ожидаемые события:
-        - file_created: создан новый файл
-        - file_updated: файл обновлен
-        - file_deleted: файл удален
-        - folder_created: создана папка
-        - folder_deleted: папка удалена
+        SimplePrint отправляет:
+        - Header: X-SP-Token (опционально, если настроен secret)
+        - Body: JSON с полями webhook_id, event, timestamp, data
         """
         try:
             payload = request.data
-            logger.info(f"Received webhook: {payload}")
 
-            # Определяем тип события
-            event_type = self._detect_event_type(payload)
+            # Проверяем secret token если настроен
+            expected_token = getattr(settings, 'SIMPLEPRINT_WEBHOOK_SECRET', None)
+            if expected_token:
+                received_token = request.headers.get('X-SP-Token') or request.headers.get('X-Sp-Token')
+                if received_token != expected_token:
+                    logger.warning(f"Invalid webhook token received")
+                    return Response({
+                        'status': 'error',
+                        'message': 'Invalid token'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+
+            # Извлекаем поля SimplePrint
+            webhook_id = payload.get('webhook_id')
+            event = payload.get('event', 'unknown')
+            timestamp = payload.get('timestamp')
+            data = payload.get('data', {})
+
+            logger.info(f"📨 Received SimplePrint webhook: event={event}, webhook_id={webhook_id}, timestamp={timestamp}")
+
+            # Маппинг событий SimplePrint к нашим типам
+            event_mapping = {
+                'job.started': 'job_started',
+                'job.finished': 'job_completed',
+                'job.paused': 'job_paused',
+                'job.resumed': 'job_resumed',
+                'job.failed': 'job_failed',
+                'queue.changed': 'queue_changed',
+                'queue.item_added': 'queue_changed',
+                'queue.item_deleted': 'queue_changed',
+                'queue.item_moved': 'queue_changed',
+                'printer.online': 'printer_online',
+                'printer.offline': 'printer_offline',
+                'printer.state_changed': 'printer_state_changed',
+                # Старый формат (файлы)
+                'file.created': 'file_created',
+                'file.deleted': 'file_deleted',
+            }
+
+            our_event_type = event_mapping.get(event, 'unknown')
 
             # Сохраняем webhook событие
-            webhook_event = SimplePrintWebhookEvent.objects.create(
-                event_type=event_type,
+            from .models import PrinterWebhookEvent
+
+            # Извлекаем printer_id и job_id из data
+            printer_id = None
+            job_id = None
+
+            if 'job' in data and isinstance(data['job'], dict):
+                job_id = str(data['job'].get('id', ''))
+                printer_id = str(data['job'].get('printer_id', ''))
+
+            webhook_event = PrinterWebhookEvent.objects.create(
+                event_type=our_event_type,
+                printer_id=printer_id,
+                job_id=job_id,
                 payload=payload
             )
 
             # Обрабатываем событие
             try:
-                self._process_webhook_event(webhook_event)
+                self._process_webhook_event(webhook_event, event, data)
                 webhook_event.processed = True
                 webhook_event.processed_at = timezone.now()
                 webhook_event.save()
 
-                logger.info(f"Webhook processed successfully: {event_type}")
+                logger.info(f"✅ Webhook processed successfully: {event}")
 
             except Exception as e:
-                logger.error(f"Failed to process webhook: {e}", exc_info=True)
+                logger.error(f"❌ Failed to process webhook: {e}", exc_info=True)
                 webhook_event.processing_error = str(e)
                 webhook_event.save()
 
             return Response({
                 'status': 'received',
-                'event_type': event_type,
+                'event': event,
                 'message': 'Webhook processed successfully'
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
-            logger.error(f"Webhook processing failed: {e}", exc_info=True)
+            logger.error(f"❌ Webhook processing failed: {e}", exc_info=True)
             return Response({
                 'status': 'error',
                 'message': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def _detect_event_type(self, payload: dict) -> str:
+    def _process_webhook_event(self, webhook_event, event: str, data: dict):
         """
-        Определить тип события из payload
+        Обработать webhook событие SimplePrint
 
         Args:
-            payload: данные webhook
-
-        Returns:
-            Тип события
+            webhook_event: объект PrinterWebhookEvent
+            event: тип события от SimplePrint (job.started, и т.д.)
+            data: данные события
         """
-        # SimplePrint может отправлять event_type в payload
+        # Обработка событий печати
+        if event.startswith('job.'):
+            self._handle_job_event(event, data)
+
+        # Обработка событий очереди
+        elif event.startswith('queue.'):
+            self._handle_queue_event(event, data)
+
+        # Обработка событий принтера
+        elif event.startswith('printer.'):
+            self._handle_printer_event(event, data)
+
+        # Старый формат - файлы
+        elif event.startswith('file.'):
+            self._handle_file_event(event, data)
+
+        else:
+            logger.warning(f"⚠️ Unknown event type: {event}")
+
+    def _handle_job_event(self, event: str, data: dict):
+        """Обработать событие задания"""
+        job_data = data.get('job', {})
+        if not job_data:
+            return
+
+        from .models import PrintJob, PrinterSnapshot
+
+        job_id = str(job_data.get('id', ''))
+        printer_id = str(job_data.get('printer_id', ''))
+
+        logger.info(f"🖨️ Processing job event: {event} for job_id={job_id}, printer_id={printer_id}")
+
+        # Обновляем или создаем запись задания
+        if event == 'job.started':
+            PrintJob.objects.update_or_create(
+                job_id=job_id,
+                defaults={
+                    'printer_id': printer_id,
+                    'printer_name': job_data.get('printer_name', ''),
+                    'file_name': job_data.get('file_name', ''),
+                    'status': 'printing',
+                    'started_at': timezone.now(),
+                    'raw_data': job_data
+                }
+            )
+
+        elif event == 'job.finished':
+            PrintJob.objects.filter(job_id=job_id).update(
+                status='completed',
+                completed_at=timezone.now(),
+                success=True,
+                percentage=100
+            )
+
+        elif event == 'job.failed':
+            PrintJob.objects.filter(job_id=job_id).update(
+                status='failed',
+                completed_at=timezone.now(),
+                success=False,
+                error_message=job_data.get('error', '')
+            )
+
+    def _handle_queue_event(self, event: str, data: dict):
+        """Обработать событие очереди"""
+        logger.info(f"📋 Processing queue event: {event}")
+        # TODO: Реализовать обработку очереди
+
+    def _handle_printer_event(self, event: str, data: dict):
+        """Обработать событие принтера"""
+        logger.info(f"🖨️ Processing printer event: {event}")
+        # TODO: Реализовать обработку принтера
+
+    def _handle_file_event(self, event: str, data: dict):
+        """Обработать событие файла (старый формат)"""
+        logger.info(f"📁 Processing file event: {event}")
+        # Оставляем старую логику для совместимости
+
+    def _detect_event_type(self, payload: dict) -> str:
+        """
+        DEPRECATED: Старый метод определения типа события
+        Оставлен для обратной совместимости
+        """
+        # SimplePrint новый формат использует поле 'event'
+        if 'event' in payload:
+            return payload['event']
+
+        # Старый формат
         if 'event_type' in payload:
             return payload['event_type']
 
-        # Или определяем по структуре данных
+        # Fallback - старая логика
         if 'file' in payload:
             if payload.get('action') == 'created':
                 return 'file_created'
@@ -125,86 +277,6 @@ class SimplePrintWebhookView(APIView):
                 return 'folder_deleted'
 
         return 'unknown'
-
-    def _process_webhook_event(self, webhook_event: SimplePrintWebhookEvent):
-        """
-        Обработать webhook событие
-
-        Args:
-            webhook_event: объект SimplePrintWebhookEvent
-        """
-        event_type = webhook_event.event_type
-        payload = webhook_event.payload
-
-        if event_type == 'file_created':
-            self._handle_file_created(payload)
-        elif event_type == 'file_updated':
-            self._handle_file_updated(payload)
-        elif event_type == 'file_deleted':
-            self._handle_file_deleted(payload)
-        elif event_type == 'folder_created':
-            self._handle_folder_created(payload)
-        elif event_type == 'folder_deleted':
-            self._handle_folder_deleted(payload)
-        else:
-            logger.warning(f"Unknown event type: {event_type}")
-
-    def _handle_file_created(self, payload: dict):
-        """Обработать создание файла"""
-        file_id = payload.get('file', {}).get('id')
-        if file_id:
-            logger.info(f"File created: {file_id}")
-            # Запускаем синхронизацию этого файла
-            # В идеале здесь должна быть асинхронная задача
-            # service = SimplePrintSyncService()
-            # service.sync_single_file(file_id)
-
-    def _handle_file_updated(self, payload: dict):
-        """Обработать обновление файла"""
-        file_id = payload.get('file', {}).get('id')
-        if file_id:
-            logger.info(f"File updated: {file_id}")
-            # Обновляем файл в БД
-            try:
-                file = SimplePrintFile.objects.get(simpleprint_id=file_id)
-                # Обновляем метаданные из payload если доступны
-                file.last_synced_at = timezone.now()
-                file.save()
-            except SimplePrintFile.DoesNotExist:
-                logger.warning(f"File {file_id} not found in database")
-
-    def _handle_file_deleted(self, payload: dict):
-        """Обработать удаление файла"""
-        file_id = payload.get('file', {}).get('id')
-        if file_id:
-            logger.info(f"File deleted: {file_id}")
-            try:
-                file = SimplePrintFile.objects.get(simpleprint_id=file_id)
-                file.delete()
-                logger.info(f"Deleted file {file_id} from database")
-            except SimplePrintFile.DoesNotExist:
-                logger.warning(f"File {file_id} not found in database")
-
-    def _handle_folder_created(self, payload: dict):
-        """Обработать создание папки"""
-        folder_id = payload.get('folder', {}).get('id')
-        if folder_id:
-            logger.info(f"Folder created: {folder_id}")
-            # Синхронизируем папку
-            # service = SimplePrintSyncService()
-            # service.sync_single_folder(folder_id)
-
-    def _handle_folder_deleted(self, payload: dict):
-        """Обработать удаление папки"""
-        folder_id = payload.get('folder', {}).get('id')
-        if folder_id:
-            logger.info(f"Folder deleted: {folder_id}")
-            try:
-                folder = SimplePrintFolder.objects.get(simpleprint_id=folder_id)
-                folder.delete()  # CASCADE удалит все файлы в папке
-                logger.info(f"Deleted folder {folder_id} from database")
-            except SimplePrintFolder.DoesNotExist:
-                logger.warning(f"Folder {folder_id} not found in database")
 
 
 class SimplePrintFileViewSet(viewsets.ReadOnlyModelViewSet):
@@ -317,24 +389,37 @@ class SimplePrintSyncViewSet(viewsets.ReadOnlyModelViewSet):
         full_sync = serializer.validated_data.get('full_sync', False)
         force = serializer.validated_data.get('force', False)
 
+        # Логируем полученные параметры
+        logger.info(f"🔍 Sync trigger request: full_sync={full_sync}, force={force}, user={request.user.username}")
+
         # Проверяем последнюю синхронизацию
         service = SimplePrintSyncService()
         stats = service.get_sync_stats()
 
+        # Логируем статистику для диагностики
+        logger.info(f"📊 Stats: last_sync={stats.get('last_sync')}, status={stats.get('last_sync_status')}")
+
         if stats['last_sync'] and not force:
             time_since_last = timezone.now() - stats['last_sync']
+            seconds_since_last = int(time_since_last.total_seconds())
+
             if time_since_last.total_seconds() < 300:  # 5 минут
+                logger.warning(f"⏱️ Cooldown ACTIVE: {seconds_since_last}s < 300s. Returning 429. Force={force}")
                 return Response({
                     'status': 'rejected',
-                    'message': f'Последняя синхронизация была {int(time_since_last.total_seconds())} секунд назад. Используйте force=true для принудительной синхронизации.',
+                    'message': f'Последняя синхронизация была {seconds_since_last} секунд назад. Используйте force=true для принудительной синхронизации.',
                     'last_sync': stats['last_sync']
                 }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+            else:
+                logger.info(f"✅ Cooldown passed: {seconds_since_last}s >= 300s")
 
         try:
             # Запускаем асинхронную задачу синхронизации
             from .tasks import sync_simpleprint_task
 
             task = sync_simpleprint_task.delay(full_sync=full_sync)
+
+            logger.info(f"✅ Sync started: task_id={task.id}, full_sync={full_sync}")
 
             return Response({
                 'status': 'started',
@@ -524,6 +609,273 @@ class PrinterStatsView(APIView):
 
         except Exception as e:
             logger.error(f"Failed to fetch printer stats: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+# ============================================================================
+# Webhook Testing API Views
+# ============================================================================
+
+class WebhookEventsListView(APIView):
+    """
+    API для получения списка webhook событий
+
+    GET /api/v1/simpleprint/webhook/events/
+
+    Query параметры:
+    - limit: количество событий (default: 20, max: 100)
+    - event_type: фильтр по типу события
+    - printer_id: фильтр по принтеру
+    - processed: фильтр по статусу обработки (true/false)
+    """
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Получить список webhook событий"""
+        try:
+            from .models import PrinterWebhookEvent
+
+            # Параметры запроса
+            limit = int(request.query_params.get('limit', 20))
+            limit = min(limit, 100)  # Максимум 100
+
+            event_type = request.query_params.get('event_type')
+            printer_id = request.query_params.get('printer_id')
+            processed = request.query_params.get('processed')
+
+            # Базовый queryset
+            queryset = PrinterWebhookEvent.objects.all()
+
+            # Фильтры
+            if event_type:
+                queryset = queryset.filter(event_type=event_type)
+            if printer_id:
+                queryset = queryset.filter(printer_id=printer_id)
+            if processed is not None:
+                processed_bool = processed.lower() == 'true'
+                queryset = queryset.filter(processed=processed_bool)
+
+            # Сортировка по времени (последние первыми)
+            queryset = queryset.order_by('-received_at')[:limit]
+
+            serializer = PrinterWebhookEventSerializer(queryset, many=True)
+
+            return Response({
+                'count': queryset.count(),
+                'events': serializer.data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Failed to fetch webhook events: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class WebhookStatsView(APIView):
+    """
+    API для получения статистики webhook событий
+
+    GET /api/v1/simpleprint/webhook/stats/
+
+    Возвращает:
+    - total: общее количество событий
+    - processed: количество обработанных
+    - errors: количество с ошибками
+    - by_type: статистика по типам событий
+    - last_hour: события за последний час
+    - last_24h: события за последние 24 часа
+    """
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Получить статистику webhook событий"""
+        try:
+            from .models import PrinterWebhookEvent
+            from django.db.models import Count, Q
+            from datetime import timedelta
+
+            now = timezone.now()
+            one_hour_ago = now - timedelta(hours=1)
+            one_day_ago = now - timedelta(hours=24)
+
+            # Общая статистика
+            total = PrinterWebhookEvent.objects.count()
+            processed = PrinterWebhookEvent.objects.filter(processed=True).count()
+            errors = PrinterWebhookEvent.objects.filter(
+                processing_error__isnull=False
+            ).count()
+
+            # Статистика по типам событий
+            by_type = {}
+            type_stats = PrinterWebhookEvent.objects.values('event_type').annotate(
+                count=Count('id')
+            ).order_by('-count')
+
+            for stat in type_stats:
+                by_type[stat['event_type']] = stat['count']
+
+            # События за последний час
+            last_hour = PrinterWebhookEvent.objects.filter(
+                received_at__gte=one_hour_ago
+            ).count()
+
+            # События за последние 24 часа
+            last_24h = PrinterWebhookEvent.objects.filter(
+                received_at__gte=one_day_ago
+            ).count()
+
+            # Последнее событие
+            last_event = PrinterWebhookEvent.objects.order_by('-received_at').first()
+            last_event_time = last_event.received_at if last_event else None
+
+            return Response({
+                'total': total,
+                'processed': processed,
+                'errors': errors,
+                'by_type': by_type,
+                'last_hour': last_hour,
+                'last_24h': last_24h,
+                'last_event_at': last_event_time,
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Failed to fetch webhook stats: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class WebhookTestTriggerView(APIView):
+    """
+    API для отправки тестового webhook события
+
+    POST /api/v1/simpleprint/webhook/test-trigger/
+
+    Body:
+    {
+        "event_type": "job.started" | "job.finished" | "printer.state_changed" | etc.
+    }
+    """
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """Отправить тестовый webhook"""
+        try:
+            import requests
+            import time
+
+            event_type = request.data.get('event_type', 'test')
+
+            # Создаем тестовый payload в формате SimplePrint
+            test_payload = {
+                'webhook_id': 999999,
+                'event': event_type,
+                'timestamp': int(time.time()),
+                'data': {
+                    'test': True,
+                    'triggered_by': 'frontend_ui',
+                    'user': request.user.username if request.user else 'anonymous'
+                }
+            }
+
+            # Добавляем специфичные для события данные
+            if event_type.startswith('job.'):
+                test_payload['data']['job'] = {
+                    'id': f'test_job_{int(time.time())}',
+                    'name': 'test_model.gcode',
+                    'started': int(time.time()),
+                }
+                test_payload['data']['printer'] = {
+                    'id': 'test_printer_001',
+                    'name': 'Test Printer #1'
+                }
+            elif event_type.startswith('printer.'):
+                test_payload['data']['printer'] = {
+                    'id': 'test_printer_001',
+                    'name': 'Test Printer #1',
+                    'state': 'operational'
+                }
+            elif event_type.startswith('queue.'):
+                test_payload['data']['printer'] = {
+                    'id': 'test_printer_001',
+                    'name': 'Test Printer #1'
+                }
+                test_payload['data']['queue'] = {
+                    'id': 'test_queue_001',
+                    'items': []
+                }
+
+            # Отправляем на наш webhook endpoint
+            webhook_url = request.build_absolute_uri('/api/v1/simpleprint/webhook/')
+
+            response = requests.post(
+                webhook_url,
+                json=test_payload,
+                timeout=5
+            )
+
+            return Response({
+                'status': 'sent',
+                'webhook_url': webhook_url,
+                'payload': test_payload,
+                'response_status': response.status_code,
+                'response_data': response.json() if response.ok else response.text
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Failed to trigger test webhook: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class WebhookClearOldEventsView(APIView):
+    """
+    API для очистки старых webhook событий
+
+    DELETE /api/v1/simpleprint/webhook/events/clear/
+
+    Query параметры:
+    - days: удалить события старше N дней (default: 7)
+    """
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        """Очистить старые webhook события"""
+        try:
+            from .models import PrinterWebhookEvent
+            from datetime import timedelta
+
+            days = int(request.query_params.get('days', 7))
+            cutoff_date = timezone.now() - timedelta(days=days)
+
+            # Удаляем только обработанные события без ошибок
+            deleted_count, _ = PrinterWebhookEvent.objects.filter(
+                received_at__lt=cutoff_date,
+                processed=True,
+                processing_error__isnull=True
+            ).delete()
+
+            return Response({
+                'status': 'success',
+                'deleted_count': deleted_count,
+                'cutoff_date': cutoff_date,
+                'message': f'Deleted {deleted_count} events older than {days} days'
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Failed to clear old webhook events: {e}", exc_info=True)
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
