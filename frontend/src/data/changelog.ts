@@ -14,6 +14,32 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "4.4.1",
+    date: "2025-10-28",
+    title: "Critical Frontend Recovery",
+    features: [],
+    fixes: [
+      "🐛 Frontend Crash Recovery - полное восстановление работоспособности интерфейса",
+      "Исправлена проблема с localhost URL в production bundle",
+      "Frontend делал запросы к http://localhost:8000/api/v1/ вместо /api/v1/",
+      "Все страницы показывали 'Нет данных' из-за failed API requests",
+      "Webpack не подставлял REACT_APP_API_URL из .env.production",
+      "frontend/src/store/webhookSlice.ts - исправлен API_BASE_URL fallback",
+      "frontend/src/utils/analytics.ts - исправлен apiUrl fallback",
+      "Полная очистка webpack cache: node_modules/.cache, build/, .eslintcache",
+      "Пересборка с явным REACT_APP_API_URL=/api/v1 npm run build",
+      "Верификация bundle: main.e174116f.js - 0 localhost refs (было 4 в main.b5ea7d21.js)",
+      "RECOVERY_PLAN.md - добавлена полная документация восстановления",
+      "✅ /api/v1/products/stats/ - 692 товара",
+      "✅ /api/v1/settings/system-info/ - версия v4.4.1",
+      "✅ Все страницы отображают данные корректно"
+    ],
+    commits: [
+      "c35ad39 - Fix: Critical frontend recovery - v4.4.1",
+      "740abe9 - Version: Fix version number from v4.2.11 to v4.4.1"
+    ]
+  },
+  {
     version: "4.4.0",
     date: "2025-10-28",
     title: "Webhook Testing & Real-time Printer Monitoring",
