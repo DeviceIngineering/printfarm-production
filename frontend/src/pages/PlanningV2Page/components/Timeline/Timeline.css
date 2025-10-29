@@ -4,30 +4,11 @@
 .planning-v2-timeline {
   flex: 1;
   background: #141414;
-  overflow-x: auto; /* Горизонтальная прокрутка для широкого timeline */
-  overflow-y: hidden;
+  overflow: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
   height: calc(100vh - 120px); /* Полная высота минус header */
-}
-
-/* Кастомный горизонтальный scrollbar */
-.planning-v2-timeline::-webkit-scrollbar {
-  height: 12px;
-}
-
-.planning-v2-timeline::-webkit-scrollbar-track {
-  background: #1a1a1a;
-}
-
-.planning-v2-timeline::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 6px;
-}
-
-.planning-v2-timeline::-webkit-scrollbar-thumb:hover {
-  background: #444;
 }
 
 /* ===========================
@@ -35,17 +16,36 @@
    =========================== */
 .timeline-shift-header {
   display: flex;
-  position: sticky;
-  top: 0;
+  position: relative;
   background: #1a1a1a;
   border-bottom: 2px solid #333;
   z-index: 10;
   min-height: 80px;
-  flex-direction: column;
+  overflow-x: auto; /* Горизонтальная прокрутка */
+  overflow-y: hidden;
+}
+
+/* Кастомный scrollbar для header */
+.timeline-shift-header::-webkit-scrollbar {
+  height: 12px;
+}
+
+.timeline-shift-header::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.timeline-shift-header::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 6px;
+}
+
+.timeline-shift-header::-webkit-scrollbar-thumb:hover {
+  background: #444;
 }
 
 .timeline-printer-label {
   width: 240px;
+  min-width: 240px;
   padding: 12px 16px;
   font-size: 12px;
   font-weight: 600;
@@ -55,16 +55,11 @@
   display: flex;
   align-items: center;
   position: sticky;
-  top: 0;
   left: 0;
-  height: 100%;
   z-index: 15; /* Поверх всего при скролле */
 }
 
 .timeline-shifts-container {
-  flex: 1;
-  margin-left: 240px;
-  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 300%; /* Делаем контейнер в 3 раза шире для масштабирования */
@@ -208,14 +203,15 @@
    =========================== */
 .timeline-body {
   flex: 1;
-  overflow-y: auto;
+  overflow-x: auto; /* Горизонтальная прокрутка */
+  overflow-y: auto; /* Вертикальная прокрутка */
   position: relative;
-  min-width: fit-content; /* Расширяется под содержимое */
 }
 
-/* Кастомный scrollbar */
+/* Кастомный вертикальный scrollbar */
 .timeline-body::-webkit-scrollbar {
   width: 8px;
+  height: 12px;
 }
 
 .timeline-body::-webkit-scrollbar-track {
@@ -242,6 +238,7 @@
 
 .timeline-printer-info {
   width: 240px;
+  min-width: 240px;
   padding: 12px 16px;
   border-right: 1px solid #333;
   background: #1a1a1a;

@@ -82,6 +82,31 @@ export const Timeline: React.FC<TimelineProps> = () => {
     return () => clearInterval(dataInterval);
   }, []);
 
+  // Синхронизация горизонтального скролла между header и body
+  useEffect(() => {
+    const header = document.querySelector('.timeline-shift-header');
+    const body = document.querySelector('.timeline-body');
+
+    if (!header || !body) return;
+
+    const syncScroll = (source: Element, target: Element) => {
+      return () => {
+        target.scrollLeft = source.scrollLeft;
+      };
+    };
+
+    const headerScrollHandler = syncScroll(header, body);
+    const bodyScrollHandler = syncScroll(body, header);
+
+    header.addEventListener('scroll', headerScrollHandler);
+    body.addEventListener('scroll', bodyScrollHandler);
+
+    return () => {
+      header.removeEventListener('scroll', headerScrollHandler);
+      body.removeEventListener('scroll', bodyScrollHandler);
+    };
+  }, [printers.length]); // Re-sync when printers change
+
   // TODO: Подписка на webhook события для real-time обновлений
   // useEffect(() => {
   //   const handleWebhookUpdate = (event: any) => {
