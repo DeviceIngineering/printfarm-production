@@ -899,3 +899,117 @@ class WebhookClearOldEventsView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class TimelineJobsView(APIView):
+    """
+    API для получения заданий печати для отображения на timeline.
+
+    GET /api/v1/simpleprint/timeline-jobs/
+
+    Возвращает список принтеров с их заданиями за последние 60 часов (5 смен по 12ч).
+    Данные оптимизированы для timeline: завершенные и активные задания.
+
+    Ответ:
+    {
+        "printers": [
+            {
+                "id": "printer_sp_id",
+                "name": "Принтер 1",
+                "jobs": [
+                    {
+                        "job_id": "job123",
+                        "article": "375-42108",
+                        "file_name": "file.gcode",
+                        "status": "completed",
+                        "percentage": 100,
+                        "started_at": "2025-10-28T10:30:00Z",
+                        "completed_at": "2025-10-28T16:45:00Z",
+                        "duration_seconds": 22500,
+                        "material_color": "black"
+                    }
+                ]
+            }
+        ]
+    }
+    """
+    authentication_classes = [TokenAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Получить задания для timeline"""
+        try:
+            from .models import PrintJob, PrinterSnapshot
+            from .serializers import TimelinePrinterSerializer, TimelineJobSerializer
+            from datetime import timedelta
+            from collections import defaultdict
+
+            # Временной диапазон: последние 60 часов (5 смен × 12 часов)
+            time_range_hours = 60
+            cutoff_time = timezone.now() - timedelta(hours=time_range_hours)
+
+            # Получаем все задания за период
+            # Статусы: printing (активные), completed, failed, cancelled
+            jobs = PrintJob.objects.filter(
+                started_at__gte=cutoff_time,
+                status__in=['printing', 'completed', 'failed', 'cancelled']
+            ).select_related().order_by('printer_id', 'started_at')
+
+            # Группируем задания по принтерам
+            printers_jobs = defaultdict(list)
+            for job in jobs:
+                printers_jobs[job.printer_id].append(job)
+
+            # Получаем информацию о принтерах из последних snapshots
+            printer_snapshots = {}
+            for printer_id in printers_jobs.keys():
+                snapshot = PrinterSnapshot.objects.filter(
+                    printer_id=printer_id
+                ).order_by('-created_at').first()
+
+                if snapshot:
+                    printer_snapshots[printer_id] = {
+                        'id': snapshot.printer_id,
+                        'name': snapshot.printer_name or f"Принтер {printer_id}"
+                    }
+                else:
+                    # Если нет snapshot, берем имя из первого job
+                    first_job = printers_jobs[printer_id][0]
+                    printer_snapshots[printer_id] = {
+                        'id': printer_id,
+                        'name': first_job.printer_name or f"Принтер {printer_id}"
+                    }
+
+            # Формируем финальный список принтеров с заданиями
+            printers_data = []
+            for printer_id, jobs_list in printers_jobs.items():
+                printer_info = printer_snapshots.get(printer_id, {
+                    'id': printer_id,
+                    'name': f"Принтер {printer_id}"
+                })
+
+                printers_data.append({
+                    'id': printer_info['id'],
+                    'name': printer_info['name'],
+                    'jobs': TimelineJobSerializer(jobs_list, many=True).data
+                })
+
+            # Сортируем принтеры по имени (1-27)
+            def extract_number(printer_name):
+                """Извлечь номер из имени принтера"""
+                import re
+                match = re.search(r'\d+', printer_name)
+                return int(match.group()) if match else 999
+
+            printers_data.sort(key=lambda p: extract_number(p['name']))
+
+            return Response({
+                'printers': printers_data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Failed to get timeline jobs: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

@@ -4,6 +4,7 @@
 
 export type PrinterStatus = 'printing' | 'idle' | 'error';
 export type MaterialColor = 'black' | 'white' | 'other';
+export type JobStatus = 'queued' | 'printing' | 'completed' | 'cancelled' | 'failed';
 
 export interface PrintTask {
   article: string;
@@ -25,4 +26,37 @@ export interface Printer {
     hotend: number;
     bed: number;
   };
+}
+
+// === Timeline Types ===
+
+/**
+ * Задание для timeline (из API /api/v1/simpleprint/timeline-jobs/)
+ */
+export interface TimelineJob {
+  job_id: string;
+  article: string | null;
+  file_name: string;
+  status: JobStatus;
+  percentage: number;
+  started_at: string; // ISO datetime string
+  completed_at: string | null;
+  duration_seconds: number;
+  material_color: MaterialColor;
+}
+
+/**
+ * Принтер с заданиями для timeline
+ */
+export interface TimelinePrinter {
+  id: string;
+  name: string;
+  jobs: TimelineJob[];
+}
+
+/**
+ * Ответ API для timeline-jobs
+ */
+export interface TimelineJobsResponse {
+  printers: TimelinePrinter[];
 }

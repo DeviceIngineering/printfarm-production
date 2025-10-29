@@ -1,18 +1,27 @@
+/* ===========================
+   Timeline Container
+   =========================== */
 .planning-v2-timeline {
   flex: 1;
   background: #141414;
-  overflow-x: auto;
-  overflow-y: auto;
+  overflow: hidden; /* Скрываем скролл - timeline fixed */
   position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 120px); /* Полная высота минус header */
 }
 
-.timeline-header {
+/* ===========================
+   Shift Header
+   =========================== */
+.timeline-shift-header {
   display: flex;
   position: sticky;
   top: 0;
   background: #1a1a1a;
   border-bottom: 2px solid #333;
   z-index: 10;
+  height: 60px;
 }
 
 .timeline-printer-label {
@@ -23,28 +32,65 @@
   color: #fff;
   border-right: 1px solid #333;
   background: #1a1a1a;
-}
-
-.timeline-hours {
   display: flex;
+  align-items: center;
+}
+
+.timeline-shifts {
   flex: 1;
+  position: relative;
+  display: flex;
 }
 
-.timeline-hour {
-  min-width: 100px;
-  padding: 12px 8px;
-  font-size: 11px;
-  color: #888;
-  text-align: center;
-  border-right: 1px solid #2a2a2a;
+.timeline-shift {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-right: 1px solid #333;
+  transition: background 0.3s;
 }
 
-.timeline-hour.current-hour {
-  background: rgba(6, 234, 252, 0.1);
-  color: #06EAFC;
+.timeline-shift.day {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.timeline-shift.night {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.timeline-shift.current {
+  background: rgba(6, 234, 252, 0.08);
+  border-right: 2px solid #06EAFC;
+  border-left: 2px solid #06EAFC;
+}
+
+.shift-label {
+  font-size: 12px;
   font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 4px;
 }
 
+.timeline-shift.current .shift-label {
+  color: #06EAFC;
+}
+
+.shift-time {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.timeline-shift.current .shift-time {
+  color: rgba(6, 234, 252, 0.8);
+}
+
+/* ===========================
+   Current Time Line
+   =========================== */
 .timeline-current-line {
   position: absolute;
   top: 0;
@@ -56,10 +102,50 @@
   pointer-events: none;
 }
 
+/* Красная надпись "текущее время" над линией */
+.timeline-current-line::before {
+  content: 'Текущее время';
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  color: #ff4d4f;
+  white-space: nowrap;
+  font-weight: 600;
+  text-shadow: 0 0 4px rgba(255, 77, 79, 0.5);
+}
+
+/* ===========================
+   Timeline Body
+   =========================== */
 .timeline-body {
+  flex: 1;
+  overflow-y: auto;
   position: relative;
 }
 
+/* Кастомный scrollbar */
+.timeline-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.timeline-body::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.timeline-body::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+.timeline-body::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+/* ===========================
+   Printer Row
+   =========================== */
 .timeline-row {
   display: flex;
   border-bottom: 1px solid #2a2a2a;
@@ -88,31 +174,36 @@
   color: #fff;
 }
 
-.printer-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.printer-temp {
-  font-size: 10px;
-  color: #52c41a;
-}
-
+/* ===========================
+   Timeline Track
+   =========================== */
 .timeline-track {
   flex: 1;
   position: relative;
-  background: repeating-linear-gradient(
-    90deg,
-    #1a1a1a,
-    #1a1a1a 100px,
-    #141414 100px,
-    #141414 200px
-  );
   min-height: 80px;
 }
 
-.timeline-task {
+/* Shift Backgrounds on Track */
+.shift-background {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  pointer-events: none;
+  transition: left 1s linear; /* Плавное движение смен */
+}
+
+.shift-background.day {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.shift-background.night {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* ===========================
+   Job Blocks
+   =========================== */
+.timeline-job-block {
   position: absolute;
   top: 16px;
   height: 48px;
@@ -120,35 +211,56 @@
   border: 1px solid #3a3a3a;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: left 1s linear, border-color 0.2s, box-shadow 0.2s; /* Плавное движение */
+  display: flex;
+  flex-direction: column;
 }
 
-.timeline-task:hover {
+.timeline-job-block:hover {
   border-color: #06EAFC;
   box-shadow: 0 0 12px rgba(6, 234, 252, 0.4);
   z-index: 2;
 }
 
-.timeline-task.current-task {
+/* Job Status Colors */
+.timeline-job-block.job-completed {
+  background: #2c5f7c; /* Темный синий - завершено */
+  opacity: 0.85;
+}
+
+.timeline-job-block.job-printing {
+  background: #3d7a3d; /* Темный зеленый - активное */
   border-color: #52c41a;
   box-shadow: 0 0 8px rgba(82, 196, 26, 0.3);
 }
 
-.timeline-task.queued-task {
-  opacity: 0.8;
-  border-style: dashed;
+.timeline-job-block.job-failed {
+  background: #8c4545; /* Темный красный - ошибка */
+  opacity: 0.85;
 }
 
-.task-content {
+.timeline-job-block.job-cancelled {
+  background: #8c7845; /* Темный желтый - отменено */
+  opacity: 0.75;
+}
+
+.timeline-job-block.job-other {
+  background: #4a4a4a; /* Серый - другое */
+  opacity: 0.7;
+}
+
+/* Job Content */
+.job-content {
   padding: 8px 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   position: relative;
   z-index: 1;
+  flex: 1;
 }
 
-.task-article {
+.job-article {
   font-size: 12px;
   font-weight: 600;
   color: #fff;
@@ -157,18 +269,118 @@
   text-overflow: ellipsis;
 }
 
-.task-progress,
-.task-quantity {
+.job-filename {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.job-progress {
   font-size: 10px;
   color: rgba(255, 255, 255, 0.7);
 }
 
-.task-progress-bar {
+/* Progress Bar for Active Jobs */
+.job-progress-bar {
   position: absolute;
   bottom: 0;
   left: 0;
   height: 3px;
   background: #52c41a;
   box-shadow: 0 0 6px rgba(82, 196, 26, 0.5);
-  transition: width 0.3s;
+  transition: width 1s ease-out;
+  z-index: 0;
+}
+
+/* ===========================
+   Job Tooltip
+   =========================== */
+.job-tooltip {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.job-tooltip div {
+  margin-bottom: 4px;
+}
+
+.job-tooltip div:last-child {
+  margin-bottom: 0;
+}
+
+.job-tooltip strong {
+  color: #06EAFC;
+  margin-right: 4px;
+}
+
+/* ===========================
+   Timeline Footer
+   =========================== */
+.timeline-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: #1a1a1a;
+  border-top: 1px solid #333;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.timeline-update-info {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.timeline-printers-count {
+  color: rgba(6, 234, 252, 0.7);
+  font-weight: 500;
+}
+
+/* ===========================
+   Loading & Error States
+   =========================== */
+.timeline-loading,
+.timeline-error,
+.timeline-empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+  padding: 40px;
+}
+
+.timeline-loading .ant-spin {
+  color: #06EAFC;
+}
+
+/* ===========================
+   Responsive
+   =========================== */
+@media (max-width: 1200px) {
+  .timeline-printer-label,
+  .timeline-printer-info {
+    width: 180px;
+  }
+
+  .printer-name {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .timeline-printer-label,
+  .timeline-printer-info {
+    width: 140px;
+  }
+
+  .shift-label {
+    font-size: 10px;
+  }
+
+  .shift-time {
+    font-size: 9px;
+  }
 }

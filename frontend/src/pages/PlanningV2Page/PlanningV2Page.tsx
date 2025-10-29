@@ -99,11 +99,8 @@ export const PlanningV2Page: React.FC = () => {
           {/* Левая панель с артикулами */}
           <LeftPanel articles={articles} />
 
-          {/* Центральная часть с таймлайном принтеров */}
-          <Timeline
-            printers={printers}
-            currentTime={currentTime}
-          />
+          {/* Центральная часть с таймлайном принтеров - Timeline теперь сам загружает данные */}
+          <Timeline />
         </div>
 
         {/* Нижняя панель с очередями - ОТКЛЮЧЕНО, будет реализовано позже */}

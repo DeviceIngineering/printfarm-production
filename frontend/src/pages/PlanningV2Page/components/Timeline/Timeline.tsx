@@ -1,231 +1,169 @@
-import React, { useRef, useEffect } from 'react';
-import { Badge, Tag, Tooltip } from 'antd';
-import { Printer } from '../../types/printer.types';
-import {
-  getTimelineHours,
-  formatTimeForTimeline,
-  calculateTimelinePosition,
-  calculateTimelineWidth,
-  getCurrentTimeGMT3,
-} from '../../utils/timeUtils';
+import React, { useEffect, useState } from 'react';
+import { Spin, Alert } from 'antd';
+import { TimelinePrinter } from '../../types/printer.types';
+import { getTimelineShifts, CURRENT_TIME_POSITION_PERCENT } from '../../utils/shiftUtils';
+import { getCurrentTimeGMT3 } from '../../utils/timeUtils';
+import { ShiftHeader } from './ShiftHeader';
+import { PrinterRow } from './PrinterRow';
+import { API_BASE_URL } from '../../../../utils/constants';
 import './Timeline.css';
 
 interface TimelineProps {
-  printers: Printer[];
-  currentTime: Date;
+  // Пропсы не нужны - загружаем данные внутри компонента
 }
 
-export const Timeline: React.FC<TimelineProps> = ({ printers, currentTime }) => {
-  const timelineRef = useRef<HTMLDivElement>(null);
-  const [currentTimePosition, setCurrentTimePosition] = React.useState(0);
-  const hours = getTimelineHours();
+/**
+ * Главный компонент Timeline со сменами
+ *
+ * Особенности:
+ * - Показывает 5 смен (2 прошлые, текущая, 2 будущие)
+ * - Красная линия текущего времени фиксирована по центру (50%)
+ * - Смены и задания плавно двигаются влево с течением времени
+ * - Обновление данных каждую минуту
+ * - Автоматическое обновление по webhook событиям (TODO)
+ */
+export const Timeline: React.FC<TimelineProps> = () => {
+  const [currentTime, setCurrentTime] = useState(getCurrentTimeGMT3());
+  const [printers, setPrinters] = useState<TimelinePrinter[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Обновление позиции линии времени каждую секунду
+  const shifts = getTimelineShifts(currentTime);
+
+  // Загрузка данных из API
+  const fetchTimelineData = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No auth token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/simpleprint/timeline-jobs/`, {
+        headers: {
+          Authorization: `Token ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+
+      const data = await response.json();
+      setPrinters(data.printers || []);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch timeline data:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Обновление текущего времени каждую секунду
   useEffect(() => {
-    const updateTimelinePosition = () => {
-      const position = calculateTimelinePosition(getCurrentTimeGMT3());
-      setCurrentTimePosition(position);
-    };
+    const timeInterval = setInterval(() => {
+      setCurrentTime(getCurrentTimeGMT3());
+    }, 1000);
 
-    // Начальная установка
-    updateTimelinePosition();
-
-    // Обновление каждую секунду
-    const interval = setInterval(updateTimelinePosition, 1000);
-
-    return () => clearInterval(interval);
+    return () => clearInterval(timeInterval);
   }, []);
 
-  // Автоскролл к текущему времени при монтировании
+  // Загрузка данных при монтировании
   useEffect(() => {
-    if (timelineRef.current) {
-      const currentPosition = calculateTimelinePosition(getCurrentTimeGMT3());
-      const scrollPosition = (currentPosition / 100) * timelineRef.current.scrollWidth - 400;
-      timelineRef.current.scrollLeft = Math.max(0, scrollPosition);
-    }
+    fetchTimelineData();
   }, []);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'printing': return '#52c41a';
-      case 'idle': return '#999';
-      case 'error': return '#ff4d4f';
-      default: return '#999';
-    }
-  };
+  // Обновление данных каждую минуту
+  useEffect(() => {
+    const dataInterval = setInterval(() => {
+      fetchTimelineData();
+    }, 60000); // 60 секунд
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'printing': return 'Печать';
-      case 'idle': return 'Простой';
-      case 'error': return 'Ошибка';
-      default: return status;
-    }
-  };
+    return () => clearInterval(dataInterval);
+  }, []);
 
-  const getMaterialColorBg = (color: string) => {
-    switch (color) {
-      case 'black': return '#4a4a4a'; // Более светлый черный для лучшей видимости
-      case 'white': return '#8a8a8a'; // Темно-серый вместо светлого
-      case 'other': return '#5b4aae'; // Более темный фиолетовый
-      default: return '#5a5a5a'; // Более светлый серый
-    }
-  };
+  // TODO: Подписка на webhook события для real-time обновлений
+  // useEffect(() => {
+  //   const handleWebhookUpdate = (event: any) => {
+  //     if (event.type === 'job_started' || event.type === 'job_completed') {
+  //       fetchTimelineData();
+  //     }
+  //   };
+  //
+  //   // Подписка на WebSocket или EventSource
+  //   return () => {
+  //     // Отписка
+  //   };
+  // }, []);
+
+  if (loading) {
+    return (
+      <div className="timeline-loading">
+        <Spin size="large" tip="Загрузка timeline..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="timeline-error">
+        <Alert
+          message="Ошибка загрузки данных"
+          description={error}
+          type="error"
+          showIcon
+        />
+      </div>
+    );
+  }
+
+  if (printers.length === 0) {
+    return (
+      <div className="timeline-empty">
+        <Alert
+          message="Нет данных"
+          description="Нет заданий для отображения за последние 60 часов"
+          type="info"
+          showIcon
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="planning-v2-timeline" ref={timelineRef}>
-      {/* Временная шкала */}
-      <div className="timeline-header">
-        <div className="timeline-printer-label">Принтер</div>
-        <div className="timeline-hours">
-          {hours.map((hour, index) => {
-            const now = getCurrentTimeGMT3();
-            const isCurrentHour = hour.getHours() === now.getHours() &&
-                                 hour.getDate() === now.getDate();
-
-            return (
-              <div
-                key={index}
-                className={`timeline-hour ${isCurrentHour ? 'current-hour' : ''}`}
-              >
-                {formatTimeForTimeline(hour)}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+    <div className="planning-v2-timeline">
+      {/* Шапка со сменами */}
+      <ShiftHeader shifts={shifts} currentTime={currentTime} />
 
       {/* Строки принтеров */}
       <div className="timeline-body">
-        {/* Линия текущего времени - обновляется каждую секунду */}
+        {/* Красная линия текущего времени - фиксирована по центру */}
         <div
           className="timeline-current-line"
           style={{
-            left: `${240 + currentTimePosition * 10}px`,
+            left: `calc(240px + ${CURRENT_TIME_POSITION_PERCENT}%)`,
           }}
         />
+
         {printers.map((printer, index) => (
-          <div key={printer.id} className="timeline-row">
-            {/* Информация о принтере */}
-            <div className="timeline-printer-info">
-              <div className="printer-name-row">
-                <span className="printer-name">
-                  <span style={{ color: '#888', marginRight: '8px' }}>#{index + 1}</span>
-                  {printer.name}
-                </span>
-                <Badge
-                  status={printer.status === 'printing' ? 'processing' : printer.status === 'error' ? 'error' : 'default'}
-                  text={<span style={{ color: getStatusColor(printer.status), fontSize: '11px' }}>
-                    {getStatusText(printer.status)}
-                  </span>}
-                />
-              </div>
-              <div className="printer-meta">
-                <Tag
-                  color={printer.materialColor === 'black' ? 'default' : printer.materialColor === 'white' ? 'blue' : 'purple'}
-                  style={{ fontSize: '10px', padding: '0 6px' }}
-                >
-                  {printer.materialColor === 'black' ? 'Черный' : printer.materialColor === 'white' ? 'Белый' : 'Другой'}
-                </Tag>
-                {printer.temperature && printer.status === 'printing' && (
-                  <span className="printer-temp">{printer.temperature.hotend}°C</span>
-                )}
-              </div>
-            </div>
-
-            {/* Таймлайн принтера */}
-            <div
-              className="timeline-track"
-              onDrop={(e) => {
-                e.preventDefault();
-                const articleData = e.dataTransfer.getData('article');
-                console.log('Dropped on printer:', printer.id, articleData);
-                // TODO: Добавить задачу в очередь принтера
-              }}
-              onDragOver={(e) => e.preventDefault()}
-            >
-              {/* Текущая задача */}
-              {printer.currentTask && (() => {
-                const startPos = Math.max(0, calculateTimelinePosition(printer.currentTask.startTime));
-                const endPos = Math.min(100, calculateTimelinePosition(printer.currentTask.endTime));
-                const leftPx = startPos * 52;
-                const widthPx = (endPos - startPos) * 52;
-
-                // Показываем только если задача видна на таймлайне
-                if (endPos <= 0 || startPos >= 100) return null;
-
-                return (
-                  <Tooltip
-                    title={
-                      <div>
-                        <div><strong>{printer.currentTask.article}</strong></div>
-                        <div>Количество: {printer.currentTask.quantity} шт</div>
-                        <div>Прогресс: {printer.currentTask.progress}%</div>
-                        <div>Осталось: {printer.currentTask.timeRemaining}</div>
-                      </div>
-                    }
-                  >
-                    <div
-                      className="timeline-task current-task"
-                      style={{
-                        left: `${leftPx}px`,
-                        width: `${widthPx}px`,
-                        backgroundColor: getMaterialColorBg(printer.materialColor),
-                      }}
-                  >
-                    <div className="task-content">
-                      <span className="task-article">{printer.currentTask.article}</span>
-                      <span className="task-progress">{printer.currentTask.progress}%</span>
-                    </div>
-                      <div
-                        className="task-progress-bar"
-                        style={{ width: `${printer.currentTask.progress}%` }}
-                      />
-                    </div>
-                  </Tooltip>
-                );
-              })()}
-
-              {/* Задачи в очереди */}
-              {printer.queuedTasks.map((task, index) => {
-                const startPos = Math.max(0, calculateTimelinePosition(task.startTime));
-                const endPos = Math.min(100, calculateTimelinePosition(task.endTime));
-                const leftPx = startPos * 52;
-                const widthPx = (endPos - startPos) * 52;
-
-                // Показываем только если задача видна на таймлайне
-                if (endPos <= 0 || startPos >= 100) return null;
-
-                return (
-                  <Tooltip
-                    key={index}
-                    title={
-                      <div>
-                        <div><strong>{task.article}</strong></div>
-                        <div>Количество: {task.quantity} шт</div>
-                        <div>Время: {task.timeRemaining}</div>
-                      </div>
-                    }
-                  >
-                    <div
-                      className="timeline-task queued-task"
-                      style={{
-                        left: `${leftPx}px`,
-                        width: `${widthPx}px`,
-                        backgroundColor: getMaterialColorBg(printer.materialColor),
-                      }}
-                    >
-                      <div className="task-content">
-                        <span className="task-article">{task.article}</span>
-                        <span className="task-quantity">{task.quantity} шт</span>
-                      </div>
-                    </div>
-                  </Tooltip>
-                );
-              })}
-            </div>
-          </div>
+          <PrinterRow
+            key={printer.id}
+            printer={printer}
+            shifts={shifts}
+            currentTime={currentTime}
+            index={index}
+          />
         ))}
+      </div>
+
+      {/* Информация о последнем обновлении */}
+      <div className="timeline-footer">
+        <span className="timeline-update-info">
+          Последнее обновление: {currentTime.toLocaleTimeString('ru-RU')}
+        </span>
+        <span className="timeline-printers-count">
+          Принтеров: {printers.length} | Заданий: {printers.reduce((sum, p) => sum + p.jobs.length, 0)}
+        </span>
       </div>
     </div>
   );

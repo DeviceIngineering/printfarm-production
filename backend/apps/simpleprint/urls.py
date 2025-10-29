@@ -16,7 +16,9 @@ from .views import (
     WebhookEventsListView,
     WebhookStatsView,
     WebhookTestTriggerView,
-    WebhookClearOldEventsView
+    WebhookClearOldEventsView,
+    # Timeline Views
+    TimelineJobsView
 )
 
 app_name = 'simpleprint'
@@ -41,6 +43,9 @@ urlpatterns = [
     path('printers/sync/', PrinterSyncView.as_view(), name='printer-sync'),
     path('printers/', PrinterSnapshotsView.as_view(), name='printer-snapshots'),
     path('printers/stats/', PrinterStatsView.as_view(), name='printer-stats'),
+
+    # Timeline endpoints
+    path('timeline-jobs/', TimelineJobsView.as_view(), name='timeline-jobs'),
 
     # REST API endpoints (с аутентификацией)
     path('', include(router.urls)),

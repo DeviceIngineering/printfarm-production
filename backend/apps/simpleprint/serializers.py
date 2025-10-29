@@ -497,3 +497,54 @@ class WebhookTestingDataSerializer(serializers.Serializer):
     recent_events = PrinterWebhookEventSerializer(many=True)
     event_stats = serializers.DictField()
     websocket_available = serializers.BooleanField()
+
+
+class TimelineJobSerializer(serializers.ModelSerializer):
+    """
+    Упрощенный serializer для заданий в timeline.
+    Содержит только необходимую информацию для отображения на временной шкале.
+    """
+    duration_seconds = serializers.SerializerMethodField()
+    material_color = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PrintJob
+        fields = [
+            'job_id', 'article', 'file_name',
+            'status', 'percentage',
+            'started_at', 'completed_at',
+            'duration_seconds', 'material_color'
+        ]
+
+    def get_duration_seconds(self, obj):
+        """Получить длительность задания в секундах"""
+        return obj.get_duration_seconds()
+
+    def get_material_color(self, obj):
+        """
+        Получить цвет материала из raw_data задания.
+        Возвращает: 'black', 'white', 'other'
+        """
+        # Пытаемся получить цвет из raw_data
+        if obj.raw_data and isinstance(obj.raw_data, dict):
+            # SimplePrint может отправлять цвет материала в разных местах
+            material_data = obj.raw_data.get('material', {})
+            if isinstance(material_data, dict):
+                color = material_data.get('color', '').lower()
+                if 'black' in color or 'черн' in color:
+                    return 'black'
+                elif 'white' in color or 'бел' in color:
+                    return 'white'
+                elif color:
+                    return 'other'
+
+        return 'other'
+
+
+class TimelinePrinterSerializer(serializers.Serializer):
+    """
+    Serializer для принтера с заданиями в timeline.
+    """
+    id = serializers.CharField()
+    name = serializers.CharField()
+    jobs = TimelineJobSerializer(many=True)
