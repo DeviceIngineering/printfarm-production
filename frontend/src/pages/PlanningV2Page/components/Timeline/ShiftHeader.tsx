@@ -25,57 +25,60 @@ export const ShiftHeader: React.FC<ShiftHeaderProps> = ({ shifts, currentTime })
 
   return (
     <div className="timeline-shift-header">
-      {/* Лейбл принтера (слева) */}
+      {/* Лейбл принтера (слева, фиксированный) */}
       <div className="timeline-printer-label">Принтер</div>
 
-      {/* Контейнер со сменами и часами */}
-      <div className="timeline-shifts-container">
-        {/* Слой смен */}
-        <div className="timeline-shifts">
-          {shifts.map((shift, index) => {
-            const { left, width } = calculateShiftPosition(shift, currentTime);
-
-            return (
-              <div
-                key={index}
-                className={`timeline-shift ${shift.type} ${shift.isCurrentShift ? 'current' : ''}`}
-                style={{
-                  left: `${left}%`,
-                  width: `${width}%`,
-                }}
-              >
-                <div className="shift-label">{shift.label}</div>
-                <div className="shift-time">{formatShiftTime(shift)}</div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Слой часовой сетки */}
-        <div className="timeline-hours">
-          {shifts.map((shift, shiftIndex) => {
-            const shiftHours = getShiftHours(shift);
-
-            return shiftHours.map((hourTime, hourIndex) => {
-              // Рассчитываем позицию часа
-              const offset_ms = hourTime.getTime() - timelineStart.getTime();
-              const positionPercent = (offset_ms / totalDuration_ms) * 100;
-              const hour = hourTime.getHours();
-              const label = `${hour.toString().padStart(2, '0')}:00`;
+      {/* Обертка для скроллируемого контента */}
+      <div className="timeline-shifts-wrapper">
+        {/* Контейнер со сменами и часами */}
+        <div className="timeline-shifts-container">
+          {/* Слой смен */}
+          <div className="timeline-shifts">
+            {shifts.map((shift, index) => {
+              const { left, width } = calculateShiftPosition(shift, currentTime);
 
               return (
                 <div
-                  key={`${shiftIndex}-${hourIndex}`}
-                  className="timeline-hour-mark"
+                  key={index}
+                  className={`timeline-shift ${shift.type} ${shift.isCurrentShift ? 'current' : ''}`}
                   style={{
-                    left: `${positionPercent}%`,
+                    left: `${left}%`,
+                    width: `${width}%`,
                   }}
                 >
-                  <span className="hour-label">{label}</span>
+                  <div className="shift-label">{shift.label}</div>
+                  <div className="shift-time">{formatShiftTime(shift)}</div>
                 </div>
               );
-            });
-          })}
+            })}
+          </div>
+
+          {/* Слой часовой сетки */}
+          <div className="timeline-hours">
+            {shifts.map((shift, shiftIndex) => {
+              const shiftHours = getShiftHours(shift);
+
+              return shiftHours.map((hourTime, hourIndex) => {
+                // Рассчитываем позицию часа
+                const offset_ms = hourTime.getTime() - timelineStart.getTime();
+                const positionPercent = (offset_ms / totalDuration_ms) * 100;
+                const hour = hourTime.getHours();
+                const label = `${hour.toString().padStart(2, '0')}:00`;
+
+                return (
+                  <div
+                    key={`${shiftIndex}-${hourIndex}`}
+                    className="timeline-hour-mark"
+                    style={{
+                      left: `${positionPercent}%`,
+                    }}
+                  >
+                    <span className="hour-label">{label}</span>
+                  </div>
+                );
+              });
+            })}
+          </div>
         </div>
       </div>
     </div>

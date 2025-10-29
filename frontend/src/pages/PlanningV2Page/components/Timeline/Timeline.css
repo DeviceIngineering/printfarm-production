@@ -21,26 +21,6 @@
   border-bottom: 2px solid #333;
   z-index: 10;
   min-height: 80px;
-  overflow-x: auto; /* Горизонтальная прокрутка */
-  overflow-y: hidden;
-}
-
-/* Кастомный scrollbar для header */
-.timeline-shift-header::-webkit-scrollbar {
-  height: 12px;
-}
-
-.timeline-shift-header::-webkit-scrollbar-track {
-  background: #1a1a1a;
-}
-
-.timeline-shift-header::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 6px;
-}
-
-.timeline-shift-header::-webkit-scrollbar-thumb:hover {
-  background: #444;
 }
 
 .timeline-printer-label {
@@ -54,9 +34,36 @@
   background: #1a1a1a;
   display: flex;
   align-items: center;
-  position: sticky;
+  position: absolute;
   left: 0;
-  z-index: 20; /* Максимальный z-index для фиксации поверх всего */
+  top: 0;
+  bottom: 0;
+  z-index: 25; /* Поверх всего */
+}
+
+.timeline-shifts-wrapper {
+  margin-left: 240px; /* Отступ для фиксированной колонки */
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+}
+
+/* Кастомный scrollbar для wrapper */
+.timeline-shifts-wrapper::-webkit-scrollbar {
+  height: 12px;
+}
+
+.timeline-shifts-wrapper::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.timeline-shifts-wrapper::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 6px;
+}
+
+.timeline-shifts-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #444;
 }
 
 .timeline-shifts-container {
@@ -203,15 +210,13 @@
    =========================== */
 .timeline-body {
   flex: 1;
-  overflow-x: auto; /* Горизонтальная прокрутка */
-  overflow-y: auto; /* Вертикальная прокрутка */
   position: relative;
+  overflow-y: auto; /* Только вертикальная прокрутка */
 }
 
 /* Кастомный вертикальный scrollbar */
 .timeline-body::-webkit-scrollbar {
   width: 8px;
-  height: 12px;
 }
 
 .timeline-body::-webkit-scrollbar-track {
@@ -227,6 +232,11 @@
   background: #444;
 }
 
+.timeline-body-content {
+  display: flex;
+  position: relative;
+}
+
 /* ===========================
    Printer Row
    =========================== */
@@ -234,20 +244,53 @@
   display: flex;
   border-bottom: 1px solid #2a2a2a;
   min-height: 80px;
+  position: relative;
+}
+
+.timeline-printer-column {
+  width: 240px;
+  min-width: 240px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 25; /* Поверх всего */
 }
 
 .timeline-printer-info {
-  width: 240px;
-  min-width: 240px;
+  width: 100%;
+  height: 100%;
   padding: 12px 16px;
   border-right: 1px solid #333;
   background: #1a1a1a;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  position: sticky;
-  left: 0;
-  z-index: 20; /* Максимальный z-index - должен быть поверх заданий */
+}
+
+.timeline-track-wrapper {
+  margin-left: 240px; /* Отступ для фиксированной колонки */
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+}
+
+/* Кастомный scrollbar для track wrapper */
+.timeline-track-wrapper::-webkit-scrollbar {
+  height: 12px;
+}
+
+.timeline-track-wrapper::-webkit-scrollbar-track {
+  background: #141414;
+}
+
+.timeline-track-wrapper::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 6px;
+}
+
+.timeline-track-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #444;
 }
 
 .printer-name-row {

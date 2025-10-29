@@ -1,7 +1,7 @@
 import React from 'react';
 import { Badge } from 'antd';
 import { TimelinePrinter } from '../../types/printer.types';
-import { Shift, calculateShiftPosition, isJobVisible, getShiftHours, getCurrentShiftInfo, getShiftStart, TIMELINE_TOTAL_HOURS } from '../../utils/shiftUtils';
+import { Shift, calculateShiftPosition, isJobVisible, getShiftHours, getCurrentShiftInfo, getShiftStart, TIMELINE_TOTAL_HOURS, CURRENT_TIME_POSITION_PERCENT } from '../../utils/shiftUtils';
 import { JobBlock } from './JobBlock';
 import './Timeline.css';
 
@@ -55,26 +55,38 @@ export const PrinterRow: React.FC<PrinterRowProps> = ({ printer, shifts, current
 
   return (
     <div className="timeline-row">
-      {/* Информация о принтере (слева) */}
-      <div className="timeline-printer-info">
-        <div className="printer-name-row">
-          <span className="printer-name">
-            <span style={{ color: '#888', marginRight: '8px' }}>#{index + 1}</span>
-            {printer.name}
-          </span>
-          <Badge
-            status={status === 'printing' ? 'processing' : 'default'}
-            text={
-              <span style={{ color: getStatusColor(status), fontSize: '11px' }}>
-                {getStatusText(status)}
-              </span>
-            }
-          />
+      {/* Фиксированная колонка принтера (слева) */}
+      <div className="timeline-printer-column">
+        <div className="timeline-printer-info">
+          <div className="printer-name-row">
+            <span className="printer-name">
+              <span style={{ color: '#888', marginRight: '8px' }}>#{index + 1}</span>
+              {printer.name}
+            </span>
+            <Badge
+              status={status === 'printing' ? 'processing' : 'default'}
+              text={
+                <span style={{ color: getStatusColor(status), fontSize: '11px' }}>
+                  {getStatusText(status)}
+                </span>
+              }
+            />
+          </div>
         </div>
       </div>
 
-      {/* Трек с заданиями */}
-      <div className="timeline-track">
+      {/* Обертка для скроллируемого трека */}
+      <div className="timeline-track-wrapper">
+        {/* Трек с заданиями */}
+        <div className="timeline-track">
+        {/* Красная линия текущего времени - фиксирована по центру */}
+        <div
+          className="timeline-current-line"
+          style={{
+            left: `${CURRENT_TIME_POSITION_PERCENT}%`,
+          }}
+        />
+
         {/* Фоновые смены */}
         {shifts.map((shift, shiftIndex) => {
           const { left, width } = calculateShiftPosition(shift, currentTime);
@@ -153,6 +165,7 @@ export const PrinterRow: React.FC<PrinterRowProps> = ({ printer, shifts, current
             />
           );
         })}
+        </div>
       </div>
     </div>
   );

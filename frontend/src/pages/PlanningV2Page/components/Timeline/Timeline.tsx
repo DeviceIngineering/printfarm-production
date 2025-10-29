@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Spin, Alert } from 'antd';
 import { TimelinePrinter } from '../../types/printer.types';
-import { getTimelineShifts, CURRENT_TIME_POSITION_PERCENT } from '../../utils/shiftUtils';
+import { getTimelineShifts } from '../../utils/shiftUtils';
 import { getCurrentTimeGMT3 } from '../../utils/timeUtils';
 import { ShiftHeader } from './ShiftHeader';
 import { PrinterRow } from './PrinterRow';
@@ -82,28 +82,41 @@ export const Timeline: React.FC<TimelineProps> = () => {
     return () => clearInterval(dataInterval);
   }, []);
 
-  // Синхронизация горизонтального скролла между header и body
+  // Синхронизация горизонтального скролла между header wrapper и track wrappers
   useEffect(() => {
-    const header = document.querySelector('.timeline-shift-header');
-    const body = document.querySelector('.timeline-body');
+    const headerWrapper = document.querySelector('.timeline-shifts-wrapper');
+    const trackWrappers = document.querySelectorAll('.timeline-track-wrapper');
 
-    if (!header || !body) return;
+    if (!headerWrapper || trackWrappers.length === 0) return;
 
-    const syncScroll = (source: Element, target: Element) => {
-      return () => {
-        target.scrollLeft = source.scrollLeft;
-      };
+    // Синхронизация: header -> все треки
+    const headerScrollHandler = () => {
+      trackWrappers.forEach(wrapper => {
+        wrapper.scrollLeft = headerWrapper.scrollLeft;
+      });
     };
 
-    const headerScrollHandler = syncScroll(header, body);
-    const bodyScrollHandler = syncScroll(body, header);
+    // Синхронизация: первый трек -> header и остальные треки
+    const trackScrollHandler = (event: Event) => {
+      const scrollLeft = (event.target as Element).scrollLeft;
+      headerWrapper.scrollLeft = scrollLeft;
+      trackWrappers.forEach(wrapper => {
+        if (wrapper !== event.target) {
+          wrapper.scrollLeft = scrollLeft;
+        }
+      });
+    };
 
-    header.addEventListener('scroll', headerScrollHandler);
-    body.addEventListener('scroll', bodyScrollHandler);
+    headerWrapper.addEventListener('scroll', headerScrollHandler);
+    trackWrappers.forEach(wrapper => {
+      wrapper.addEventListener('scroll', trackScrollHandler);
+    });
 
     return () => {
-      header.removeEventListener('scroll', headerScrollHandler);
-      body.removeEventListener('scroll', bodyScrollHandler);
+      headerWrapper.removeEventListener('scroll', headerScrollHandler);
+      trackWrappers.forEach(wrapper => {
+        wrapper.removeEventListener('scroll', trackScrollHandler);
+      });
     };
   }, [printers.length]); // Re-sync when printers change
 
@@ -162,14 +175,6 @@ export const Timeline: React.FC<TimelineProps> = () => {
 
       {/* Строки принтеров */}
       <div className="timeline-body">
-        {/* Красная линия текущего времени - фиксирована по центру */}
-        <div
-          className="timeline-current-line"
-          style={{
-            left: `calc(240px + ${CURRENT_TIME_POSITION_PERCENT}%)`,
-          }}
-        />
-
         {printers.map((printer, index) => (
           <PrinterRow
             key={printer.id}
