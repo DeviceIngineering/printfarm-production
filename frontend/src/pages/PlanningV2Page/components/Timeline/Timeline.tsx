@@ -82,41 +82,39 @@ export const Timeline: React.FC<TimelineProps> = () => {
     return () => clearInterval(dataInterval);
   }, []);
 
-  // Синхронизация горизонтального скролла между header wrapper и track wrappers
+  // Синхронизация горизонтального скролла между header и body
   useEffect(() => {
     const headerWrapper = document.querySelector('.timeline-shifts-wrapper');
+    const bodyScrollWrapper = document.querySelector('.timeline-body-scroll-wrapper');
     const trackWrappers = document.querySelectorAll('.timeline-track-wrapper');
 
-    if (!headerWrapper || trackWrappers.length === 0) return;
+    if (!headerWrapper || !bodyScrollWrapper) return;
 
-    // Синхронизация: header -> все треки
+    // Синхронизация: header -> body scroll и треки (через margin compensation)
     const headerScrollHandler = () => {
+      const scrollLeft = (headerWrapper as Element).scrollLeft;
+      (bodyScrollWrapper as Element).scrollLeft = scrollLeft;
       trackWrappers.forEach(wrapper => {
-        wrapper.scrollLeft = headerWrapper.scrollLeft;
+        // Компенсируем padding-left при скролле
+        (wrapper as HTMLElement).style.transform = `translateX(-${scrollLeft}px)`;
       });
     };
 
-    // Синхронизация: первый трек -> header и остальные треки
-    const trackScrollHandler = (event: Event) => {
-      const scrollLeft = (event.target as Element).scrollLeft;
-      headerWrapper.scrollLeft = scrollLeft;
+    // Синхронизация: body scroll -> header и треки
+    const bodyScrollHandler = () => {
+      const scrollLeft = (bodyScrollWrapper as Element).scrollLeft;
+      (headerWrapper as Element).scrollLeft = scrollLeft;
       trackWrappers.forEach(wrapper => {
-        if (wrapper !== event.target) {
-          wrapper.scrollLeft = scrollLeft;
-        }
+        (wrapper as HTMLElement).style.transform = `translateX(-${scrollLeft}px)`;
       });
     };
 
     headerWrapper.addEventListener('scroll', headerScrollHandler);
-    trackWrappers.forEach(wrapper => {
-      wrapper.addEventListener('scroll', trackScrollHandler);
-    });
+    bodyScrollWrapper.addEventListener('scroll', bodyScrollHandler);
 
     return () => {
       headerWrapper.removeEventListener('scroll', headerScrollHandler);
-      trackWrappers.forEach(wrapper => {
-        wrapper.removeEventListener('scroll', trackScrollHandler);
-      });
+      bodyScrollWrapper.removeEventListener('scroll', bodyScrollHandler);
     };
   }, [printers.length]); // Re-sync when printers change
 
@@ -175,15 +173,23 @@ export const Timeline: React.FC<TimelineProps> = () => {
 
       {/* Строки принтеров */}
       <div className="timeline-body">
-        {printers.map((printer, index) => (
-          <PrinterRow
-            key={printer.id}
-            printer={printer}
-            shifts={shifts}
-            currentTime={currentTime}
-            index={index}
-          />
-        ))}
+        {/* Контейнер со строками (вертикальный скролл) */}
+        <div className="timeline-body-rows">
+          {printers.map((printer, index) => (
+            <PrinterRow
+              key={printer.id}
+              printer={printer}
+              shifts={shifts}
+              currentTime={currentTime}
+              index={index}
+            />
+          ))}
+        </div>
+
+        {/* Общий горизонтальный скролл внизу */}
+        <div className="timeline-body-scroll-wrapper">
+          <div className="timeline-scroll-content" style={{ width: '300%', height: '1px' }} />
+        </div>
       </div>
 
       {/* Информация о последнем обновлении */}

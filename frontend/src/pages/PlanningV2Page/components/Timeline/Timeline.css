@@ -211,30 +211,58 @@
 .timeline-body {
   flex: 1;
   position: relative;
-  overflow-y: auto; /* Только вертикальная прокрутка */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.timeline-body-rows {
+  flex: 1;
+  overflow-y: auto; /* Вертикальная прокрутка */
+  overflow-x: hidden;
 }
 
 /* Кастомный вертикальный scrollbar */
-.timeline-body::-webkit-scrollbar {
+.timeline-body-rows::-webkit-scrollbar {
   width: 8px;
 }
 
-.timeline-body::-webkit-scrollbar-track {
+.timeline-body-rows::-webkit-scrollbar-track {
   background: #1a1a1a;
 }
 
-.timeline-body::-webkit-scrollbar-thumb {
+.timeline-body-rows::-webkit-scrollbar-thumb {
   background: #333;
   border-radius: 4px;
 }
 
-.timeline-body::-webkit-scrollbar-thumb:hover {
+.timeline-body-rows::-webkit-scrollbar-thumb:hover {
   background: #444;
 }
 
-.timeline-body-content {
-  display: flex;
+.timeline-body-scroll-wrapper {
   position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-left: 240px; /* Отступ для фиксированной колонки */
+}
+
+/* Кастомный горизонтальный scrollbar */
+.timeline-body-scroll-wrapper::-webkit-scrollbar {
+  height: 12px;
+}
+
+.timeline-body-scroll-wrapper::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.timeline-body-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 6px;
+}
+
+.timeline-body-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #444;
 }
 
 /* ===========================
@@ -269,28 +297,9 @@
 }
 
 .timeline-track-wrapper {
-  margin-left: 240px; /* Отступ для фиксированной колонки */
-  overflow-x: auto;
-  overflow-y: hidden;
   flex: 1;
-}
-
-/* Кастомный scrollbar для track wrapper */
-.timeline-track-wrapper::-webkit-scrollbar {
-  height: 12px;
-}
-
-.timeline-track-wrapper::-webkit-scrollbar-track {
-  background: #141414;
-}
-
-.timeline-track-wrapper::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 6px;
-}
-
-.timeline-track-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #444;
+  position: relative;
+  padding-left: 240px; /* Отступ для фиксированной колонки */
 }
 
 .printer-name-row {
