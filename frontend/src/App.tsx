@@ -29,6 +29,7 @@ function App() {
     <ErrorBoundary>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/planningv2" element={<PlanningV2Page />} />
         <Route path="/planning-v2" element={<PlanningV2Page />} />
         <Route path="/*" element={
           <Layout>
