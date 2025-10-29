@@ -21,7 +21,8 @@
   background: #1a1a1a;
   border-bottom: 2px solid #333;
   z-index: 10;
-  height: 60px;
+  min-height: 80px;
+  flex-direction: column;
 }
 
 .timeline-printer-label {
@@ -34,10 +35,22 @@
   background: #1a1a1a;
   display: flex;
   align-items: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+}
+
+.timeline-shifts-container {
+  flex: 1;
+  margin-left: 240px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .timeline-shifts {
-  flex: 1;
+  height: 40px;
   position: relative;
   display: flex;
 }
@@ -86,6 +99,59 @@
 
 .timeline-shift.current .shift-time {
   color: rgba(6, 234, 252, 0.8);
+}
+
+/* ===========================
+   Hour Grid
+   =========================== */
+.timeline-hours {
+  height: 40px;
+  position: relative;
+  border-top: 1px solid #333;
+}
+
+.timeline-hour-mark {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding-left: 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hour-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+}
+
+/* Вертикальные колонки часов в теле timeline */
+.timeline-hour-column {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Чередующиеся полутоновые фоны для часов */
+.timeline-hour-background {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.timeline-hour-background.even {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.timeline-hour-background.odd {
+  background: rgba(0, 0, 0, 0.08);
 }
 
 /* ===========================
@@ -214,6 +280,7 @@
   transition: left 1s linear, border-color 0.2s, box-shadow 0.2s; /* Плавное движение */
   display: flex;
   flex-direction: column;
+  z-index: 10; /* Поверх фоновых слоев */
 }
 
 .timeline-job-block:hover {

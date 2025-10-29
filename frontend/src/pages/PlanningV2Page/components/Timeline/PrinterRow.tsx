@@ -1,7 +1,7 @@
 import React from 'react';
 import { Badge } from 'antd';
 import { TimelinePrinter } from '../../types/printer.types';
-import { Shift, calculateShiftPosition, isJobVisible } from '../../utils/shiftUtils';
+import { Shift, calculateShiftPosition, isJobVisible, getShiftHours, getCurrentShiftInfo, getShiftStart, TIMELINE_TOTAL_HOURS } from '../../utils/shiftUtils';
 import { JobBlock } from './JobBlock';
 import './Timeline.css';
 
@@ -90,6 +90,49 @@ export const PrinterRow: React.FC<PrinterRowProps> = ({ printer, shifts, current
             />
           );
         })}
+
+        {/* Часовые колонки с чередующимся фоном */}
+        {(() => {
+          const { startTime: currentShiftStart } = getCurrentShiftInfo(currentTime);
+          const timelineStart = getShiftStart(currentShiftStart, 'day', -2);
+          const totalDuration_ms = TIMELINE_TOTAL_HOURS * 60 * 60 * 1000;
+
+          // Ширина одного часа в процентах
+          const hourWidth = (1 / TIMELINE_TOTAL_HOURS) * 100;
+
+          return shifts.flatMap((shift, shiftIndex) => {
+            const shiftHours = getShiftHours(shift);
+
+            return shiftHours.map((hourTime, hourIndex) => {
+              // Рассчитываем позицию часа
+              const offset_ms = hourTime.getTime() - timelineStart.getTime();
+              const positionPercent = (offset_ms / totalDuration_ms) * 100;
+
+              // Чередуем фон для визуального разделения
+              const isEven = (shiftIndex * 12 + hourIndex) % 2 === 0;
+
+              return (
+                <React.Fragment key={`hour-${shiftIndex}-${hourIndex}`}>
+                  {/* Полутоновый фон часа */}
+                  <div
+                    className={`timeline-hour-background ${isEven ? 'even' : 'odd'}`}
+                    style={{
+                      left: `${positionPercent}%`,
+                      width: `${hourWidth}%`,
+                    }}
+                  />
+                  {/* Вертикальная линия часа */}
+                  <div
+                    className="timeline-hour-column"
+                    style={{
+                      left: `${positionPercent}%`,
+                    }}
+                  />
+                </React.Fragment>
+              );
+            });
+          });
+        })()}
 
         {/* Задания */}
         {printer.jobs.map((job) => {

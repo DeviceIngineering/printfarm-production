@@ -23,6 +23,13 @@ export interface Shift {
   isCurrentShift: boolean;
 }
 
+export interface HourMark {
+  time: Date;
+  hour: number;
+  label: string;
+  positionPercent: number;
+}
+
 // Константы смен
 export const DAY_SHIFT_START_HOUR = 8;      // Дневная смена начинается в 8:00
 export const NIGHT_SHIFT_START_HOUR = 20;   // Ночная смена начинается в 20:00
@@ -61,7 +68,7 @@ export const getCurrentShiftInfo = (now: Date): { type: ShiftType; startTime: Da
  * Получить начало определенной смены относительно текущей
  * @param offset - смещение от текущей смены (-2 = две смены назад, 0 = текущая, 1 = следующая)
  */
-const getShiftStart = (currentShiftStart: Date, currentShiftType: ShiftType, offset: number): Date => {
+export const getShiftStart = (currentShiftStart: Date, currentShiftType: ShiftType, offset: number): Date => {
   const shiftStart = new Date(currentShiftStart);
   const hoursOffset = offset * SHIFT_DURATION_HOURS;
   shiftStart.setHours(shiftStart.getHours() + hoursOffset);
@@ -189,4 +196,52 @@ export const calculateShiftPosition = (shift: Shift, currentTime: Date): { left:
 export const formatShiftTime = (shift: Shift): string => {
   const hours = shift.startTime.getHours();
   return `${hours.toString().padStart(2, '0')}:00`;
+};
+
+/**
+ * Получить массив часовых меток для одной смены
+ * Возвращает 12 меток (начало каждого часа в смене)
+ */
+export const getShiftHours = (shift: Shift): Date[] => {
+  const hours: Date[] = [];
+
+  for (let i = 0; i < SHIFT_DURATION_HOURS; i++) {
+    const hourTime = new Date(shift.startTime);
+    hourTime.setHours(hourTime.getHours() + i);
+    hours.push(hourTime);
+  }
+
+  return hours;
+};
+
+/**
+ * Получить все часовые метки для всех 5 смен timeline
+ * Возвращает массив из 60 часовых меток (5 смен × 12 часов)
+ */
+export const getTimelineHourMarks = (currentTime?: Date): HourMark[] => {
+  const shifts = getTimelineShifts(currentTime);
+  const now = currentTime || getCurrentTimeGMT3();
+  const { startTime: currentShiftStart } = getCurrentShiftInfo(now);
+  const timelineStart = getShiftStart(currentShiftStart, 'day', -2);
+  const totalDuration_ms = TIMELINE_TOTAL_HOURS * 60 * 60 * 1000;
+
+  const hourMarks: HourMark[] = [];
+
+  shifts.forEach(shift => {
+    const shiftHours = getShiftHours(shift);
+
+    shiftHours.forEach(hourTime => {
+      const offset_ms = hourTime.getTime() - timelineStart.getTime();
+      const positionPercent = (offset_ms / totalDuration_ms) * 100;
+
+      hourMarks.push({
+        time: hourTime,
+        hour: hourTime.getHours(),
+        label: `${hourTime.getHours().toString().padStart(2, '0')}:00`,
+        positionPercent
+      });
+    });
+  });
+
+  return hourMarks;
 };
