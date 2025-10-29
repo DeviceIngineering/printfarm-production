@@ -4,11 +4,30 @@
 .planning-v2-timeline {
   flex: 1;
   background: #141414;
-  overflow: hidden; /* Скрываем скролл - timeline fixed */
+  overflow-x: auto; /* Горизонтальная прокрутка для широкого timeline */
+  overflow-y: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
   height: calc(100vh - 120px); /* Полная высота минус header */
+}
+
+/* Кастомный горизонтальный scrollbar */
+.planning-v2-timeline::-webkit-scrollbar {
+  height: 12px;
+}
+
+.planning-v2-timeline::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.planning-v2-timeline::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 6px;
+}
+
+.planning-v2-timeline::-webkit-scrollbar-thumb:hover {
+  background: #444;
 }
 
 /* ===========================
@@ -35,10 +54,11 @@
   background: #1a1a1a;
   display: flex;
   align-items: center;
-  position: absolute;
+  position: sticky;
   top: 0;
   left: 0;
   height: 100%;
+  z-index: 15; /* Поверх всего при скролле */
 }
 
 .timeline-shifts-container {
@@ -47,6 +67,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  min-width: 300%; /* Делаем контейнер в 3 раза шире для масштабирования */
 }
 
 .timeline-shifts {
@@ -189,6 +210,7 @@
   flex: 1;
   overflow-y: auto;
   position: relative;
+  min-width: fit-content; /* Расширяется под содержимое */
 }
 
 /* Кастомный scrollbar */
@@ -226,6 +248,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: sticky;
+  left: 0;
+  z-index: 5; /* Поверх содержимого при скролле */
 }
 
 .printer-name-row {
@@ -247,6 +272,7 @@
   flex: 1;
   position: relative;
   min-height: 80px;
+  min-width: 300%; /* Делаем трек в 3 раза шире для масштабирования */
 }
 
 /* Shift Backgrounds on Track */
