@@ -424,3 +424,52 @@ class SimplePrintPrintersClient:
         except Exception as e:
             logger.error(f"Failed to fetch printers: {e}")
             raise SimplePrintAPIError(f"Failed to fetch printers: {e}")
+
+    def get_jobs_history(self, limit: int = 200) -> List[Dict]:
+        """
+        Получить историю печатных заданий
+
+        Args:
+            limit: Максимальное количество заданий для получения (по умолчанию 200)
+
+        Returns:
+            Список заданий с подробной информацией
+        """
+        logger.info(f"Fetching jobs history from SimplePrint API (limit={limit})")
+
+        try:
+            # SimplePrint API endpoint для получения истории заданий
+            response = self._make_request('POST', 'jobs/GetHistory', data={'limit': limit})
+            jobs_data = response.get('data', [])
+
+            logger.info(f"Successfully fetched {len(jobs_data)} jobs")
+            return jobs_data
+
+        except Exception as e:
+            logger.error(f"Failed to fetch jobs history: {e}")
+            raise SimplePrintAPIError(f"Failed to fetch jobs history: {e}")
+
+    def get_printer_jobs(self, printer_id: str) -> Dict:
+        """
+        Получить текущее задание и очередь для конкретного принтера
+
+        Args:
+            printer_id: ID принтера в SimplePrint
+
+        Returns:
+            Словарь с current_job и queue
+        """
+        logger.info(f"Fetching jobs for printer {printer_id}")
+
+        try:
+            response = self._make_request('POST', 'printers/Get', data={'id': printer_id})
+            printer_data = response.get('data', {})
+
+            return {
+                'current_job': printer_data.get('current_job'),
+                'queue': printer_data.get('queue', [])
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to fetch jobs for printer {printer_id}: {e}")
+            raise SimplePrintAPIError(f"Failed to fetch jobs for printer {printer_id}: {e}")

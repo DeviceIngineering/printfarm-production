@@ -38,7 +38,7 @@ export const Timeline: React.FC<TimelineProps> = () => {
         throw new Error('No auth token found');
       }
 
-      const response = await fetch(`${API_BASE_URL}/simpleprint/timeline-jobs/`, {
+      const response = await fetch(`${API_BASE_URL}/simpleprint/timeline-live-jobs/`, {
         headers: {
           Authorization: `Token ${token}`,
         },

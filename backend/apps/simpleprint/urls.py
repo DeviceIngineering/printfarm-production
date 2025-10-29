@@ -18,7 +18,8 @@ from .views import (
     WebhookTestTriggerView,
     WebhookClearOldEventsView,
     # Timeline Views
-    TimelineJobsView
+    TimelineJobsView,
+    TimelineLiveJobsView
 )
 
 app_name = 'simpleprint'
@@ -46,6 +47,7 @@ urlpatterns = [
 
     # Timeline endpoints
     path('timeline-jobs/', TimelineJobsView.as_view(), name='timeline-jobs'),
+    path('timeline-live-jobs/', TimelineLiveJobsView.as_view(), name='timeline-live-jobs'),
 
     # REST API endpoints (с аутентификацией)
     path('', include(router.urls)),
