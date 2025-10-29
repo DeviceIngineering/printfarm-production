@@ -1,7 +1,7 @@
 import React from 'react';
 import { Badge } from 'antd';
 import { TimelinePrinter } from '../../types/printer.types';
-import { Shift, calculateShiftPosition, isJobVisible, getShiftHours, getCurrentShiftInfo, getShiftStart, TIMELINE_TOTAL_HOURS, CURRENT_TIME_POSITION_PERCENT } from '../../utils/shiftUtils';
+import { Shift, calculateShiftPosition, isJobVisible, getShiftHours, getCurrentShiftInfo, getShiftStart, TIMELINE_TOTAL_HOURS } from '../../utils/shiftUtils';
 import { JobBlock } from './JobBlock';
 import './Timeline.css';
 
@@ -79,14 +79,6 @@ export const PrinterRow: React.FC<PrinterRowProps> = ({ printer, shifts, current
       <div className="timeline-track-wrapper">
         {/* Трек с заданиями */}
         <div className="timeline-track">
-        {/* Красная линия текущего времени - фиксирована по центру */}
-        <div
-          className="timeline-current-line"
-          style={{
-            left: `${CURRENT_TIME_POSITION_PERCENT}%`,
-          }}
-        />
-
         {/* Фоновые смены */}
         {shifts.map((shift, shiftIndex) => {
           const { left, width } = calculateShiftPosition(shift, currentTime);
