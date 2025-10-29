@@ -1044,72 +1044,109 @@ class TimelineLiveJobsView(APIView):
             # Получаем принтеры
             printers = client.get_printers()
 
-            # Получаем историю заданий (последние 200)
-            jobs_history = client.get_jobs_history(limit=200)
+            # Получаем историю заданий (последние 100, максимум для SimplePrint API)
+            jobs_response = client.get_jobs_history(limit=100, page=1)
+            jobs_history = jobs_response.get('jobs', [])
 
             # Временной диапазон: последние 60 часов
             cutoff_time = timezone.now() - timedelta(hours=60)
+
+            logger.info(f"Processing {len(jobs_history)} jobs, cutoff_time: {cutoff_time}")
+
+            # Логируем структуру первого задания для отладки
+            if jobs_history:
+                logger.info(f"Sample job structure: {list(jobs_history[0].keys())}")
+                logger.info(f"Sample job data: {jobs_history[0]}")
 
             # Группируем задания по принтерам
             printers_data = []
 
             for printer in printers:
                 printer_id = str(printer.get('id', ''))
-                printer_name = printer.get('name', 'Unknown')
+                # SimplePrint: имя находится в printer.name
+                printer_obj = printer.get('printer', {})
+                printer_name = printer_obj.get('name', 'Unknown') if isinstance(printer_obj, dict) else 'Unknown'
 
                 # Фильтруем задания этого принтера за последние 60 часов
                 printer_jobs = []
 
                 for job in jobs_history:
-                    if str(job.get('printer_id', '')) != printer_id:
+                    job_id = job.get('id', 'unknown')
+                    job_printer_id = str(job.get('printer', ''))  # SimplePrint использует 'printer', не 'printer_id'
+
+                    if job_printer_id != printer_id:
                         continue
 
-                    # Парсим время начала
-                    started_at = job.get('started')
-                    if not started_at:
+                    # Парсим время начала (SimplePrint возвращает ISO string)
+                    start_date_str = job.get('startDate')
+                    if not start_date_str:
                         continue
 
-                    # Конвертируем Unix timestamp в datetime
-                    started_datetime = datetime.fromtimestamp(started_at, tz=timezone.utc)
+                    # Конвертируем ISO datetime string в datetime
+                    from dateutil import parser
+                    try:
+                        started_datetime = parser.isoparse(start_date_str)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse startDate for job {job_id}: {e}")
+                        continue
 
                     # Пропускаем если задание старше 60 часов
                     if started_datetime < cutoff_time:
+                        logger.debug(f"Job {job_id}: Too old ({started_datetime} < {cutoff_time}), skipping")
                         continue
 
                     # Извлекаем артикул из имени файла (формат: "артикул_...")
-                    file_name = job.get('file_name', '')
+                    file_name = job.get('filename', '')  # SimplePrint использует 'filename'
                     article = None
                     if file_name:
                         match = re.match(r'^([^_]+)', file_name)
                         if match:
                             article = match.group(1)
 
-                    # Определяем статус
-                    job_status = 'completed'  # по умолчанию
-                    if job.get('cancelled'):
-                        job_status = 'cancelled'
-                    elif job.get('failed'):
+                    # Определяем статус (SimplePrint: ongoing, done, failed, cancelled)
+                    sp_status = job.get('status', '')
+                    if sp_status == 'ongoing':
+                        job_status = 'printing'
+                    elif sp_status == 'done':
+                        job_status = 'completed'
+                    elif sp_status == 'failed':
                         job_status = 'failed'
+                    elif sp_status == 'cancelled':
+                        job_status = 'cancelled'
+                    else:
+                        job_status = 'completed'
 
                     # Время окончания
-                    completed_at = job.get('ended')
-                    completed_datetime = datetime.fromtimestamp(completed_at, tz=timezone.utc) if completed_at else None
+                    end_date_str = job.get('endDate')
+                    completed_datetime = None
+                    if end_date_str:
+                        try:
+                            completed_datetime = parser.isoparse(end_date_str)
+                        except:
+                            pass
 
-                    # Длительность
+                    # Длительность в секундах
                     duration_seconds = 0
-                    if completed_at and started_at:
-                        duration_seconds = completed_at - started_at
+                    if completed_datetime:
+                        duration_seconds = int((completed_datetime - started_datetime).total_seconds())
 
                     # Процент выполнения
-                    percentage = 100 if job_status == 'completed' else 0
+                    percentage = job.get('currentPercentage', 0)
+                    if job_status == 'completed':
+                        percentage = 100
 
-                    # Материал и цвет (если доступно)
+                    # Материал и цвет (SimplePrint структура более сложная)
                     material_color = None
                     filament = job.get('filament', {})
                     if isinstance(filament, dict):
-                        color_name = filament.get('color_name', '').lower()
-                        if color_name:
-                            material_color = color_name
+                        # SimplePrint: filament.e0.fil[0].color (hex)
+                        e0 = filament.get('e0', {})
+                        if isinstance(e0, dict):
+                            fil_list = e0.get('fil', [])
+                            if fil_list and len(fil_list) > 0:
+                                color_hex = fil_list[0].get('color', '')
+                                if color_hex:
+                                    material_color = color_hex
 
                     printer_jobs.append({
                         'job_id': str(job.get('id', '')),
@@ -1125,41 +1162,50 @@ class TimelineLiveJobsView(APIView):
 
                 # Добавляем текущее активное задание если есть
                 current_job = printer.get('current_job')
-                if current_job:
-                    started_at = current_job.get('started')
-                    if started_at:
-                        started_datetime = datetime.fromtimestamp(started_at, tz=timezone.utc)
+                if current_job and isinstance(current_job, dict):
+                    start_date_str = current_job.get('startDate')
+                    if start_date_str:
+                        try:
+                            started_datetime = parser.isoparse(start_date_str)
 
-                        # Извлекаем артикул
-                        file_name = current_job.get('file_name', '')
-                        article = None
-                        if file_name:
-                            match = re.match(r'^([^_]+)', file_name)
-                            if match:
-                                article = match.group(1)
+                            # Пропускаем если задание старше 60 часов
+                            if started_datetime >= cutoff_time:
+                                # Извлекаем артикул
+                                file_name = current_job.get('filename', '')
+                                article = None
+                                if file_name:
+                                    match = re.match(r'^([^_]+)', file_name)
+                                    if match:
+                                        article = match.group(1)
 
-                        # Материал и цвет
-                        material_color = None
-                        filament = current_job.get('filament', {})
-                        if isinstance(filament, dict):
-                            color_name = filament.get('color_name', '').lower()
-                            if color_name:
-                                material_color = color_name
+                                # Материал и цвет
+                                material_color = None
+                                filament = current_job.get('filament', {})
+                                if isinstance(filament, dict):
+                                    e0 = filament.get('e0', {})
+                                    if isinstance(e0, dict):
+                                        fil_list = e0.get('fil', [])
+                                        if fil_list and len(fil_list) > 0:
+                                            color_hex = fil_list[0].get('color', '')
+                                            if color_hex:
+                                                material_color = color_hex
 
-                        # Процент выполнения
-                        percentage = current_job.get('progress', 0)
+                                # Процент выполнения
+                                percentage = current_job.get('currentPercentage', 0)
 
-                        printer_jobs.append({
-                            'job_id': str(current_job.get('id', '')),
-                            'article': article,
-                            'file_name': file_name,
-                            'status': 'printing',
-                            'percentage': percentage,
-                            'started_at': started_datetime.isoformat(),
-                            'completed_at': None,
-                            'duration_seconds': 0,
-                            'material_color': material_color
-                        })
+                                printer_jobs.append({
+                                    'job_id': str(current_job.get('id', '')),
+                                    'article': article,
+                                    'file_name': file_name,
+                                    'status': 'printing',
+                                    'percentage': percentage,
+                                    'started_at': started_datetime.isoformat(),
+                                    'completed_at': None,
+                                    'duration_seconds': 0,
+                                    'material_color': material_color
+                                })
+                        except Exception as e:
+                            logger.warning(f"Failed to parse current_job for printer {printer_id}: {e}")
 
                 # Сортируем задания по времени начала
                 printer_jobs.sort(key=lambda x: x['started_at'])

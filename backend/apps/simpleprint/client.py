@@ -425,24 +425,41 @@ class SimplePrintPrintersClient:
             logger.error(f"Failed to fetch printers: {e}")
             raise SimplePrintAPIError(f"Failed to fetch printers: {e}")
 
-    def get_jobs_history(self, limit: int = 200) -> List[Dict]:
+    def get_jobs_history(self, limit: int = 100, page: int = 1) -> Dict:
         """
         Получить историю печатных заданий
 
         Args:
-            limit: Максимальное количество заданий для получения (по умолчанию 200)
+            limit: Количество заданий на странице (1-100, по умолчанию 100)
+            page: Номер страницы (по умолчанию 1)
 
         Returns:
-            Список заданий с подробной информацией
+            Словарь с ключами 'jobs', 'total', 'page', 'limit'
         """
-        logger.info(f"Fetching jobs history from SimplePrint API (limit={limit})")
+        logger.info(f"Fetching jobs history from SimplePrint API (limit={limit}, page={page})")
 
         try:
-            # SimplePrint API endpoint для получения истории заданий
-            response = self._make_request('POST', 'jobs/GetHistory', data={'limit': limit})
-            jobs_data = response.get('data', [])
+            # SimplePrint API endpoint для получения истории заданий с пагинацией
+            response = self._make_request('POST', 'jobs/GetPaginatedPrintJobs', data={
+                'page_size': min(limit, 100),  # Максимум 100 per page
+                'page': page
+            })
 
-            logger.info(f"Successfully fetched {len(jobs_data)} jobs")
+            data = response.get('data', {})
+
+            # SimplePrint API может возвращать либо список заданий напрямую, либо объект с jobs
+            if isinstance(data, list):
+                jobs_list = data
+                jobs_data = {'jobs': jobs_list, 'total': len(jobs_list), 'page': page}
+            elif isinstance(data, dict):
+                jobs_list = data.get('jobs', [])
+                jobs_data = data
+            else:
+                logger.warning(f"Unexpected data type from API: {type(data)}")
+                jobs_list = []
+                jobs_data = {'jobs': [], 'total': 0, 'page': page}
+
+            logger.info(f"Successfully fetched {len(jobs_list)} jobs (page {page})")
             return jobs_data
 
         except Exception as e:
