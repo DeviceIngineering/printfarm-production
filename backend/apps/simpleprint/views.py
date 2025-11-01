@@ -216,6 +216,7 @@ class SimplePrintWebhookView(APIView):
             return
 
         from .models import PrintJob, PrinterSnapshot
+        from django.core.cache import cache
 
         job_id = str(job_data.get('id', ''))
         printer_id = str(job_data.get('printer_id', ''))
@@ -235,14 +236,20 @@ class SimplePrintWebhookView(APIView):
                     'raw_data': job_data
                 }
             )
+            # Устанавливаем флаг обновления timeline
+            cache.set('timeline_jobs_updated', True, 300)  # 5 минут
+            logger.info(f"📢 Timeline update flag set for job.started")
 
-        elif event == 'job.finished':
+        elif event == 'job.finished' or event == 'job.done':
             PrintJob.objects.filter(job_id=job_id).update(
                 status='completed',
                 completed_at=timezone.now(),
                 success=True,
                 percentage=100
             )
+            # Устанавливаем флаг обновления timeline
+            cache.set('timeline_jobs_updated', True, 300)
+            logger.info(f"📢 Timeline update flag set for job.finished/done")
 
         elif event == 'job.failed':
             PrintJob.objects.filter(job_id=job_id).update(
@@ -251,6 +258,14 @@ class SimplePrintWebhookView(APIView):
                 success=False,
                 error_message=job_data.get('error', '')
             )
+            # Устанавливаем флаг обновления timeline
+            cache.set('timeline_jobs_updated', True, 300)
+            logger.info(f"📢 Timeline update flag set for job.failed")
+
+        elif event == 'job.cancelled':
+            # Обработка отмены задания
+            cache.set('timeline_jobs_updated', True, 300)
+            logger.info(f"📢 Timeline update flag set for job.cancelled")
 
     def _handle_queue_event(self, event: str, data: dict):
         """Обработать событие очереди"""
@@ -1037,7 +1052,15 @@ class TimelineLiveJobsView(APIView):
         try:
             from .client import SimplePrintPrintersClient
             from datetime import datetime, timedelta
+            from django.core.cache import cache
             import re
+
+            # Проверяем флаг обновления
+            has_updates = cache.get('timeline_jobs_updated', False)
+            if has_updates:
+                # Сбрасываем флаг
+                cache.delete('timeline_jobs_updated')
+                logger.info("📢 Timeline update flag detected and cleared")
 
             client = SimplePrintPrintersClient()
 
@@ -1221,7 +1244,8 @@ class TimelineLiveJobsView(APIView):
 
             return Response({
                 'printers': printers_data,
-                'timestamp': timezone.now().isoformat()
+                'timestamp': timezone.now().isoformat(),
+                'has_updates': has_updates  # Флаг для frontend о webhook обновлениях
             }, status=status.HTTP_200_OK)
 
         except Exception as e:

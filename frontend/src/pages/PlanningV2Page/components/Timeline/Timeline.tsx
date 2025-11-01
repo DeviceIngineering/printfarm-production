@@ -27,6 +27,8 @@ export const Timeline: React.FC<TimelineProps> = () => {
   const [printers, setPrinters] = useState<TimelinePrinter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<string>('');
+  const [hasRecentUpdates, setHasRecentUpdates] = useState(false);
 
   const shifts = getTimelineShifts(currentTime);
 
@@ -51,6 +53,18 @@ export const Timeline: React.FC<TimelineProps> = () => {
       const data = await response.json();
       setPrinters(data.printers || []);
       setError(null);
+
+      // Обработка webhook обновлений
+      if (data.has_updates) {
+        console.log('📢 Webhook updates detected - data refreshed');
+        setHasRecentUpdates(true);
+        // Сбросить флаг через 2 минуты
+        setTimeout(() => setHasRecentUpdates(false), 120000);
+      }
+
+      if (data.timestamp) {
+        setLastUpdate(data.timestamp);
+      }
     } catch (err) {
       console.error('Failed to fetch timeline data:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -73,14 +87,16 @@ export const Timeline: React.FC<TimelineProps> = () => {
     fetchTimelineData();
   }, []);
 
-  // Обновление данных каждую минуту
+  // Обновление данных: каждую минуту обычно, каждые 10 секунд при недавних обновлениях
   useEffect(() => {
+    const interval = hasRecentUpdates ? 10000 : 60000; // 10 сек или 60 сек
+
     const dataInterval = setInterval(() => {
       fetchTimelineData();
-    }, 60000); // 60 секунд
+    }, interval);
 
     return () => clearInterval(dataInterval);
-  }, []);
+  }, [hasRecentUpdates]); // Пересоздаем интервал при изменении флага
 
   // Синхронизация горизонтального скролла между header и body
   useEffect(() => {
@@ -196,6 +212,11 @@ export const Timeline: React.FC<TimelineProps> = () => {
       <div className="timeline-footer">
         <span className="timeline-update-info">
           Последнее обновление: {currentTime.toLocaleTimeString('ru-RU')}
+          {hasRecentUpdates && (
+            <span style={{ marginLeft: '12px', color: '#52c41a', fontWeight: 'bold' }}>
+              🔄 Real-time обновления активны
+            </span>
+          )}
         </span>
         <span className="timeline-printers-count">
           Принтеров: {printers.length} | Заданий: {printers.reduce((sum, p) => sum + p.jobs.length, 0)}
